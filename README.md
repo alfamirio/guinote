@@ -19,20 +19,7 @@ Solo se usan las cartas 1–7 y 10–12 de cada palo (baraja de 40). Las imágen
 
 ## Puesta en marcha
 
-### 1. Crear el proyecto en Firebase
-
-1. Entra en la [consola de Firebase](https://console.firebase.google.com) y crea un proyecto.
-2. Añade una **app web** y copia su configuración.
-3. En **Build → Realtime Database**, crea una base de datos.
-4. En la pestaña **Reglas**, permite escritura.
-
-
-### 2. Configurar las credenciales
-
-Copia `firebase-config.example.json` como `firebase-config.json` y rellénalo:
-
-
-### 3. Servir la carpeta
+### 1. Servir la carpeta
 
 El `fetch` de la configuración no funciona con `file://`, así que usa un servidor web:
 
@@ -43,7 +30,7 @@ python3 -m http.server 8000
 
 Abre `http://localhost:8000`. Para jugar con otra persona, publica la carpeta en cualquier hosting estático (Firebase Hosting, GitHub Pages, Netlify…) o usa un túnel.
 
-### 4. Jugar
+### 2. Jugar
 
 1. Un jugador pulsa **Crear sala** y comparte el código de 4 letras.
 2. El otro lo escribe y pulsa **Unirse a la sala**.
@@ -74,11 +61,4 @@ Si recargas la página, vuelves automáticamente a tu sala.
 - **Cambiar el 7:** quien tiene una baza ganada y sale puede cambiar el 7 de triunfo por la carta vista, mientras queden al menos 2 cartas en el mazo.
 - **Diez de últimas:** quien gane la última baza suma 10 puntos.
 - Solo ves tus propios puntos durante la partida. Al terminar se muestran los dos y gana quien tenga más.
-
-## Limitaciones conocidas
-
-- **Sin seguridad frente a trampas.** Las manos se guardan en la base de datos y las reglas están abiertas, así que un jugador con conocimientos técnicos podría ver las cartas del rival. Para una versión a prueba de trampas haría falta mover el reparto y la validación a Cloud Functions y restringir la lectura con reglas.
-- **El anfitrión resuelve las bazas.** Si el jugador que creó la sala cierra la pestaña, la partida queda parada hasta que vuelva.
-- **Una sola mano por partida**, sin marcador a 101 puntos ni vueltas.
-- **Sala para dos.** No hay espectadores ni limpieza automática de salas antiguas; puedes borrar el nodo `rooms` desde la consola cuando quieras.
 
