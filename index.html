@@ -478,27 +478,36 @@ const SUITS = ['oros','copas','espadas','bastos'];
 const RANKS = [1,2,3,4,5,6,7,10,11,12];
 const ORD = [2,4,5,6,7,10,11,12,3,1];           // de menor a mayor fuerza
 const PT = {1:11,3:10,12:4,11:3,10:2};
-const NOMBRE = {oros:'oros',copas:'copas',espadas:'espadas',bastos:'bastos'};
-const ALL = SUITS.flatMap(s => RANKS.map(r => s + '_' + String(r).padStart(2,'0')));   // las 40 cartas
+const cid = (s,r) => s + '_' + String(r).padStart(2,'0');
+const ALL = SUITS.flatMap(s => RANKS.map(r => cid(s,r)));   // las 40 cartas
 const suit = c => c.split('_')[0], rk = c => +c.split('_')[1];
 const str = c => ORD.indexOf(rk(c)), val = c => PT[rk(c)] || 0;
-const cid = (s,r) => s + '_' + String(r).padStart(2,'0');
 const hand = (s,g=G) => g['h'+s] || [];
-const colorOf = (t, c0 = (R && R.c0) || 'azul') => t === 0 ? c0 : (c0 === 'azul' ? 'rojo' : 'azul');   // color del equipo t
+const colorOf = (t, c0 = R.c0) => t === 0 ? c0 : (c0 === 'azul' ? 'rojo' : 'azul');   // color del equipo t
 const cap = c => c[0].toUpperCase() + c.slice(1);
 const tm = s => s % 2;                                   // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
 const range = n => [...Array(n).keys()];
-const nameOf = s => (R && R.names && R.names[s]) || (((R && R.np) || 2) === 4 ? `Jugador ${s + 1}` : 'Rival');
-const seats = r => range(r.np || 2).filter(i => r.p && r.p[i]).length;
+const nameOf = s => R.names[s] || (R.np === 4 ? `Jugador ${s + 1}` : 'Rival');
+const seats = r => range(r.np).filter(i => r.p[i]).length;
+const seatMask = p => range(4).map(i => p[i] ? '1' : '0').join('');   // asientos ocupados de una sala de 4
+const checked = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value;
+const FB_ERR = 'No se pudo conectar con Firebase. Revisa la configuración.';
+/* Valores por defecto: se aplican una sola vez, al leer de Firebase (que descarta arrays vacíos) */
+const normRoom = r => ({np:2, mode:'normal', c0:'azul', p:{}, names:{}, ...r});
+const normGame = g => g && ({table:[], deck:[], sung:'', tot:[0,0], played:[], tk:[0,0], n:1, np:2, ...g});
 
 function newGame(mano, mode='normal', tot=[0,0], n=1, np=2){
-  const deck = SUITS.flatMap(s => RANKS.map(r => cid(s,r)));
+  const deck = [...ALL];
   for(let i = deck.length-1; i > 0; i--){ const j = Math.random()*(i+1)|0; [deck[i],deck[j]] = [deck[j],deck[i]]; }
   const hs = {}; for(let i = 0; i < np; i++) hs['h'+i] = deck.splice(0,6);
   const trumpCard = deck[deck.length-1];
   return {deck, ...hs, np, trumpCard, trump:suit(trumpCard), table:[], turn:mano, mano,
           pts:[0,0], won:[false,false], tk:[0,0], played:[], sung:'', forced:null, ev:null, done:false, fin:false, mode, tot:[...tot], n};
 }
+const nextGame = g => {                                  // g ya normalizado
+  const nm = (g.mano + 1) % g.np;
+  return g.fin ? newGame(nm, g.mode, [0,0], 1, g.np) : newGame(nm, g.mode, g.tot, g.n + 1, g.np);
+};
 
 /* ============ ESTADO ============ */
 let tmr, unsub, code, me, R, G = null, local = false, botBusy = false, resolving = false, seen = new Set(), prevTable = '';
@@ -555,12 +564,12 @@ function watchLobby(){
     const all = snap.val() || {}, now = Date.now();
     Object.entries(all).filter(([,r]) => now - r.t >= HORA).forEach(([c]) => purge(c));
     const list = Object.entries(all).filter(([,r]) => now - r.t < HORA).sort((a,b) => b[1].t - a[1].t);
-    hayLock = list.some(([,r]) => r.lock); if(typeof updPass === 'function' && $('seatsBox').children.length) updPass();
+    hayLock = list.some(([,r]) => r.lock); if($('seatsBox').children.length) updPass();
     $('rooms').innerHTML = list.length ? list.map(([c,r]) => {
-      const np = r.np || 2, full = (r.n || 1) >= np, min = Math.max(1, Math.round((now - r.t)/60000));
-      const info = `<span><b>${esc(r.name || 'Sala')}</b><i>(${esc(c)})</i><small>${np === 4 ? '4 jugadores' : '2 jugadores'} (${r.n || 1}/${np}) · ${r.mode === 'rapida' ? 'Rápida' : 'Normal · 101'} · ${r.lock ? '🔒 con contraseña' : 'abierta'} · hace ${min} min</small></span>`;
+      const {np = 2, n = 1, name = 'Sala', s: occ = '1000', c0 = 'azul'} = r, full = n >= np, min = Math.max(1, Math.round((now - r.t)/60000));
+      const info = `<span><b>${esc(name)}</b><i>(${esc(c)})</i><small>${np === 4 ? '4 jugadores' : '2 jugadores'} (${n}/${np}) · ${r.mode === 'rapida' ? 'Rápida' : 'Normal · 101'} · ${r.lock ? '🔒 con contraseña' : 'abierta'} · hace ${min} min</small></span>`;
       if(np === 4){
-        const occ = r.s || '1000', c0 = r.c0 || 'azul', free = t => [t, t + 2].filter(i => occ[i] !== '1').length;
+        const free = t => [t, t + 2].filter(i => occ[i] !== '1').length;
         const tb = t => { const col = colorOf(t, c0), f = free(t);
           return `<button type="button" class="tb tc-${col}" data-team="${col}" ${f ? '' : 'disabled'}>${cap(col)} · ${f ? f + (f > 1 ? ' libres' : ' libre') : 'completo'}</button>`; };
         return `<div class="room room4" data-c="${esc(c)}">${info}<span class="tbs">${tb(0)}${tb(1)}</span></div>`;
@@ -571,8 +580,8 @@ function watchLobby(){
 }
 function unwatchLobby(){ if(unLobby) unLobby(); unLobby = null; }
 
-const npSel = () => +document.querySelector('input[name=np]:checked').value;
-const seatBots = np => range(np - 1).map(i => (document.querySelector(`input[name=seat${i+1}]:checked`) || {}).value !== 'humano');   // asientos 1..np-1: true = bot
+const npSel = () => +checked('np');
+const seatBots = np => range(np - 1).map(i => checked(`seat${i+1}`) !== 'humano');   // asientos 1..np-1: true = bot
 function buildSeats(){
   const np = npSel();
   const lab = i => np === 4 ? (i === 2 ? 'tu pareja' : 'rival') : 'rival';
@@ -596,6 +605,11 @@ function updCrear(){
 }
 document.querySelectorAll('input[name=np]').forEach(i => i.onchange = buildSeats);
 buildSeats();
+function assignBots(seatList, used){                       // nombre automático y marca de bot para cada asiento
+  const names = {}, bots = {};
+  seatList.forEach(i => { const n = nombreAuto(used); used.push(n); names[i] = '🤖 ' + n; bots[i] = true; });
+  return {names, bots};
+}
 $('bCrear').onclick = async () => {
   const np = npSel(), bots = seatBots(np), botSeats = range(np - 1).filter(i => bots[i]).map(i => i + 1);
   if(botSeats.length === np - 1) return jugarBot(np, botSeats);          // todos bots: partida local, sin base de datos
@@ -603,17 +617,17 @@ $('bCrear').onclick = async () => {
     lobbyErr('');
     do{ code = rnd(); } while((await get(ref(db,`rooms/${code}`))).exists());
     me = 0;
-    const mode = document.querySelector('input[name=mode]:checked').value, tc = np === 4 ? document.querySelector('input[name=tc]:checked').value : 'azul';
-    const pw = await hash($('inPass').value, code), name = nombreSala(), yo = miNombre([]), used = [yo];
-    const p = {0:Date.now()}, names = {0:yo}, bm = {};
-    botSeats.forEach(i => { const n = nombreAuto(used); used.push(n); names[i] = '🤖 ' + n; p[i] = Date.now(); bm[i] = true; });
+    const mode = checked('mode'), tc = np === 4 ? checked('tc') : 'azul';
+    const pw = await hash($('inPass').value, code), name = nombreSala(), yo = miNombre([]);
+    const {names: bn, bots: bm} = assignBots(botSeats, [yo]), p = {}, names = {0:yo, ...bn};
+    [0, ...botSeats].forEach(i => p[i] = Date.now());
     const room = {p, mode, name, np, c0:tc, names};
     if(botSeats.length) room.bots = bm;
     if(pw) room.pw = pw;
     await set(ref(db,`rooms/${code}`), room);
-    await set(ref(db,`lobby/${code}`), {t:Date.now(), lock:!!pw, n:seats(room), mode, name, np, c0:tc, s:np === 4 ? range(4).map(i => p[i] ? '1' : '0').join('') : null});
+    await set(ref(db,`lobby/${code}`), {t:Date.now(), lock:!!pw, n:seats(room), mode, name, np, c0:tc, s:np === 4 ? seatMask(p) : null});
     enter();
-  }catch(e){ console.error(e); lobbyErr('No se pudo conectar con Firebase. Revisa la configuración.'); }
+  }catch(e){ console.error(e); lobbyErr(FB_ERR); }
 };
 
 async function unirse(c, color = 'any'){
@@ -622,8 +636,7 @@ async function unirse(c, color = 'any'){
     if(code.length !== 4) return lobbyErr('Escribe el código de 4 letras.');
     const s = await get(ref(db,`rooms/${code}`));
     if(!s.exists()) return lobbyErr('Esa sala no existe.');
-    const r = s.val();
-    const np = r.np || 2;
+    const r = normRoom(s.val()), np = r.np;
     if(seats(r) >= np) return lobbyErr('La sala ya está completa.');
     if(r.pw){
       const pass = $('inPass').value;
@@ -631,23 +644,22 @@ async function unirse(c, color = 'any'){
       if(await hash(pass, code) !== r.pw){ $('inPass').focus(); return lobbyErr('Contraseña incorrecta.'); }
     }
     let seat = -1, cand = range(np);
-    if(np === 4 && color !== 'any'){ const t = color === (r.c0 || 'azul') ? 0 : 1; cand = [t, t + 2]; }   // asientos de ese equipo
+    if(np === 4 && color !== 'any'){ const t = color === r.c0 ? 0 : 1; cand = [t, t + 2]; }   // asientos de ese equipo
     const tr = await runTransaction(ref(db,`rooms/${code}/p`), cur => {     // primer asiento libre
       seat = -1; const p = {...(cur || {})};
       for(const i of cand) if(!p[i]){ seat = i; p[i] = Date.now(); return p; }
     });
     if(!tr.committed || seat < 0) return lobbyErr(np === 4 && color !== 'any' ? `El equipo ${color} ya está completo.` : 'La sala ya está completa.');
     me = seat;
-    await set(ref(db,`rooms/${code}/names/${seat}`), miNombre(Object.values(r.names || {}).filter(Boolean)));
+    await set(ref(db,`rooms/${code}/names/${seat}`), miNombre(Object.values(r.names).filter(Boolean)));
     const pv = tr.snapshot.val();
     await set(ref(db,`lobby/${code}/n`), seats({p: pv, np}));
-    if(np === 4) await set(ref(db,`lobby/${code}/s`), range(4).map(i => pv[i] ? '1' : '0').join(''));
+    if(np === 4) await set(ref(db,`lobby/${code}/s`), seatMask(pv));
     enter();
-  }catch(e){ console.error(e); lobbyErr('No se pudo conectar con Firebase. Revisa la configuración.'); }
+  }catch(e){ console.error(e); lobbyErr(FB_ERR); }
 }
-$('bAyuda').onclick = () => $('ayuda').showModal();
+$('bAyuda').onclick = $('bAyuda2').onclick = () => $('ayuda').showModal();
 $('bAyudaX').onclick = () => $('ayuda').close();
-$('bAyuda2').onclick = () => $('ayuda').showModal();
 // Móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa
 const mq = matchMedia('(max-width:640px)');
 function placeHud(){
@@ -667,7 +679,7 @@ $('menuB').onclick = e => { e.stopPropagation(); $('menu').classList.toggle('ope
 $('menu').addEventListener('click', e => { if(e.target.closest('button')) $('menu').classList.remove('open'); });
 document.addEventListener('click', e => { if(!$('menu').contains(e.target)) $('menu').classList.remove('open'); });
 $('ayuda').addEventListener('click', e => { if(e.target === e.currentTarget) e.currentTarget.close(); });
-$('bUnir').onclick = () => unirse($('inCode').value, document.querySelector('input[name=tp]:checked').value);
+$('bUnir').onclick = () => unirse($('inCode').value, checked('tp'));
 $('rooms').onclick = e => {
   const t = e.target.closest('[data-team]');
   if(t){ const row = t.closest('.room'); $('inCode').value = row.dataset.c; return unirse(row.dataset.c, t.dataset.team); }
@@ -675,17 +687,13 @@ $('rooms').onclick = e => {
 };
 
 $('bRe').onclick = () => {
-  const n = G.n || 1; seen = new Set(); prevTable = '';
-  if(local){
-    if(!G.done) return;
-    const cur = G, np = cur.np || 2, nm = (cur.mano + 1) % np;
-    return localSave(cur.fin ? newGame(nm, cur.mode, [0,0], 1, np) : newGame(nm, cur.mode, cur.tot || [0,0], n + 1, np));
-  }
+  const n = G.n; seen = new Set(); prevTable = '';
+  if(local) return G.done ? localSave(nextGame(G)) : undefined;
   runTransaction(gref(), cur => {
     if(cur === null) return cur;
-    if(!cur.done || (cur.n || 1) !== n) return;           // ya lo ha pulsado el otro jugador
-    const np = cur.np || 2, nm = (cur.mano + 1) % np;
-    return cur.fin ? newGame(nm, cur.mode, [0,0], 1, np) : newGame(nm, cur.mode, cur.tot || [0,0], n + 1, np);
+    cur = normGame(cur);
+    if(!cur.done || cur.n !== n) return;                  // ya lo ha pulsado el otro jugador
+    return nextGame(cur);
   }).catch(console.error);
 };
 $('bNueva').onclick = () => {
@@ -696,7 +704,7 @@ function salir(){
   if(unsub) unsub();
   clearInterval(tmr);
   if(code && !G){                                          // la partida no ha empezado
-    if(me === 0){ remove(ref(db,`rooms/${code}`)).catch(()=>{}); remove(ref(db,`lobby/${code}`)).catch(()=>{}); }   // anfitrión: cerrar la sala
+    if(me === 0) purge(code);                               // anfitrión: cerrar la sala
     else if(me > 0){                                        // invitado: liberar su asiento
       remove(ref(db,`rooms/${code}/p/${me}`)).catch(()=>{});
       runTransaction(ref(db,`lobby/${code}/n`), n => n === null ? n : Math.max(1, n - 1)).catch(()=>{});
@@ -715,17 +723,16 @@ function salir(){
 function enter(){
   unwatchLobby();
   clearInterval(tmr);
-  tmr = setInterval(() => { if(R && R.p && R.p[0] && Date.now() - R.p[0] >= HORA) purge(code); }, 15000);
+  tmr = setInterval(() => { if(R && R.p[0] && Date.now() - R.p[0] >= HORA) purge(code); }, 15000);
   sessionStorage.setItem('guinote', JSON.stringify({code, me}));
   $('lobby').hidden = true; $('game').hidden = false; $('bNueva').hidden = false;
   $('room').textContent = 'Sala ' + code;
   unsub = onValue(ref(db,`rooms/${code}`), snap => {
     if(snap.val() === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
-    R = snap.val(); G = R.g || null;
+    R = normRoom(snap.val()); G = normGame(R.g || null);
     $('room').textContent = R.name ? `${R.name} (${code})` : 'Sala ' + code;
-    if(R.p && R.p[0] && Date.now() - R.p[0] >= HORA) purge(code);
-    if(G){ G.table = G.table || []; G.deck = G.deck || []; G.sung = G.sung || ''; G.tot = G.tot || [0,0]; G.played = G.played || []; G.n = G.n || 1; G.np = G.np || 2; }
-    if(!G && me === 0 && seats(R) >= (R.np || 2)) return save(newGame(1, R.mode || 'normal', [0,0], 1, R.np || 2));   // el que no reparte empieza (mano = jugador 1)
+    if(R.p[0] && Date.now() - R.p[0] >= HORA) purge(code);
+    if(!G && me === 0 && seats(R) >= R.np) return save(newGame(1, R.mode, [0,0], 1, R.np));   // el que no reparte empieza (mano = jugador 1)
     afterState();
   });
 }
@@ -736,35 +743,32 @@ else watchLobby();
 /* ---- Lógica de turnos ---- */
 const myTurn = () => G && !G.done && G.turn === me && G.table.length < G.np;
 
-function winnerOf(t){                                   // carta que va ganando la baza
+function winnerOf(t, trump = G.trump){                  // carta que va ganando la baza
   let b = t[0];
   for(const x of t.slice(1)){
     if(suit(x.c) === suit(b.c)){ if(str(x.c) > str(b.c)) b = x; }
-    else if(suit(x.c) === G.trump) b = x;
+    else if(suit(x.c) === trump) b = x;
   }
   return b;
 }
 
-function legal(c){
-  const h = hand(me);
-  if(G.table.length === 0){
-    if(G.forced) return suit(c) === G.forced && rk(c) >= 11;
-    return true;
-  }
-  if(G.deck.length > 0) return true;                     // sin arrastre: libre
-  const ls = suit(G.table[0].c), best = winnerOf(G.table).c;   // arrastre: asistir, superar, fallar con triunfo
-  const same = h.filter(x => suit(x) === ls);
-  if(same.length){
-    if(suit(best) !== ls) return same.includes(c);
-    const hi = same.filter(x => str(x) > str(best)); return (hi.length ? hi : same).includes(c);
-  }
-  const tr = h.filter(x => suit(x) === G.trump);
-  if(tr.length){
-    if(suit(best) !== G.trump) return tr.includes(c);
-    const hi = tr.filter(x => str(x) > str(best)); return (hi.length ? hi : tr).includes(c);
-  }
-  return true;
+const mustBeat = (cards, best) => {                    // las que superan a best, o todas si ninguna supera
+  const hi = cards.filter(x => str(x) > str(best));
+  return hi.length ? hi : cards;
+};
+/* Cartas jugables de la mano h. Función pura: la usan la interfaz y el bot (incluido su búsqueda de final). */
+function legalCards(h, table, deckLeft, trump, forced){
+  if(!table.length) return forced ? h.filter(c => suit(c) === forced && rk(c) >= 11) : h;
+  if(deckLeft) return h;                                  // sin arrastre: libre
+  const ls = suit(table[0].c), best = winnerOf(table, trump).c;   // arrastre: asistir, superar, fallar con triunfo
+  const follow = s => {
+    const cs = h.filter(x => suit(x) === s);
+    return !cs.length ? null : suit(best) === s ? mustBeat(cs, best) : cs;
+  };
+  return follow(ls) || follow(trump) || h;
 }
+const legalNow = () => legalCards(hand(me), G.table, G.deck.length, G.trump, G.forced);
+const legal = c => legalNow().includes(c);
 
 function play(c){
   if(!myTurn() || !legal(c)) return;
@@ -799,14 +803,14 @@ function resolve(){
   if(!G || G.table.length !== G.np) return;
   const np = G.np, w = winnerOf(G.table).p, T = tm(w);
   const deck = [...G.deck], n = G.table.reduce((a,t) => a + val(t.c), 0);
-  const g = {...G, table:[], deck, turn:w, pts:[...G.pts], won:[...G.won], tk:[...(G.tk||[0,0])], forced:null, played:[...(G.played||[]), ...G.table.map(t => t.c)], ev:{t:'baza', p:w, n}};
+  const g = {...G, table:[], deck, turn:w, pts:[...G.pts], won:[...G.won], tk:[...G.tk], forced:null, played:[...G.played, ...G.table.map(t => t.c)], ev:{t:'baza', p:w, n}};
   g.pts[T] += n; g.won[T] = true; g.tk[T]++;
   if(deck.length) for(let i = 0; i < np; i++){ const x = (w + i) % np; g['h'+x] = [...hand(x), deck.shift()]; }   // roba primero el ganador
   g.deck = deck;
   if(range(np).every(x => !hand(x,g).length)){
     g.pts[T] += 10; g.done = true; g.ev.u = true;
     if(G.mode === 'normal'){
-      const t = [...(G.tot || [0,0])]; t[0] += g.pts[0]; t[1] += g.pts[1]; g.tot = t;
+      const t = [...G.tot]; t[0] += g.pts[0]; t[1] += g.pts[1]; g.tot = t;
       g.fin = Math.max(t[0], t[1]) >= 101 && t[0] !== t[1];       // si empatan a 101 o más, otra mano
     }else g.fin = true;
   }
@@ -820,16 +824,11 @@ const isBot = s => !!(R && R.bots && R.bots[s]);
 function botEndgame(){
   if(G.np !== 2 || G.deck.length) return null;
   const mine = hand(me), t0 = G.table[0] || null, tr = G.trump;
-  const known = new Set([...mine, ...(G.played || []), ...G.table.map(t => t.c)]);
+  const known = new Set([...mine, ...G.played, ...G.table.map(t => t.c)]);
   const opp = ALL.filter(c => !known.has(c));
   if(opp.length !== mine.length - G.table.length) return null;          // memoria incompleta: usar la heurística
   const oppFull = t0 ? [...opp, t0.c] : opp, memo = new Map();
   const beats = (a,b) => suit(b) === suit(a) ? str(b) > str(a) : suit(b) === tr;      // ¿la respuesta b gana a la salida a?
-  const legalIn = (h,a) => {                                              // reglas del arrastre para responder a la carta a
-    const same = h.filter(x => suit(x) === suit(a));
-    if(same.length){ const hi = same.filter(x => str(x) > str(a)); return hi.length ? hi : same; }
-    const t = h.filter(x => suit(x) === tr); return t.length ? t : h;
-  };
   const play2 = (hb,ho,lead,a,b) => {                                     // valor (bot − rival) tras jugar la baza a,b
     const lh = lead === 0 ? hb : ho, oh = lead === 0 ? ho : hb;
     const w = beats(a,b) ? 1 - lead : lead, p = val(a) + val(b) + (lh.length === 1 ? 10 : 0);
@@ -844,37 +843,36 @@ function botEndgame(){
     let best = lead === 0 ? -1e9 : 1e9;
     for(const a of lh){
       let inner = lead === 0 ? 1e9 : -1e9;
-      for(const b of legalIn(oh,a)){ const v = play2(hb,ho,lead,a,b); inner = lead === 0 ? Math.min(inner,v) : Math.max(inner,v); }
+      for(const b of legalCards(oh, [{c:a}], 0, tr, null)){ const v = play2(hb,ho,lead,a,b); inner = lead === 0 ? Math.min(inner,v) : Math.max(inner,v); }
       best = lead === 0 ? Math.max(best,inner) : Math.min(best,inner);
     }
     memo.set(key,best); return best;
   }
   const cheap = c => val(c)*2 + (suit(c) === tr ? 14 : 0) + str(c)/5;     // desempate: gastar lo menos valioso
   let bestC = null, bestV = -1e9;
-  for(const c of mine.filter(legal).sort((x,y) => cheap(x) - cheap(y))){
+  for(const c of [...legalNow()].sort((x,y) => cheap(x) - cheap(y))){
     const v = t0 ? play2(mine, oppFull, 1, t0.c, c)
-                 : Math.min(...legalIn(opp,c).map(b => play2(mine, opp, 0, c, b)));
+                 : Math.min(...legalCards(opp, [{c}], 0, tr, null).map(b => play2(mine, opp, 0, c, b)));
     if(v > bestV){ bestV = v; bestC = c; }
   }
   return bestC;
 }
 function botChoose(){                                   // se ejecuta con me = asiento del bot
   if(G.np === 2 && !G.deck.length){ try{ const c = botEndgame(); if(c) return c; }catch(e){ console.error(e); } }
-  const h = hand(me), ok = h.filter(legal), tr = G.trump, sung = G.sung.split(',');
+  const h = hand(me), ok = legalNow(), tr = G.trump, sung = G.sung.split(',');
+  const noTrump = a => { const nt = a.filter(c => suit(c) !== tr); return nt.length ? nt : a; };
   // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+caballo cantable
   const cost = c => val(c)*2 + (suit(c) === tr ? 14 : 0) + str(c)/5 +
     (rk(c) >= 11 && h.includes(cid(suit(c), rk(c) === 11 ? 12 : 11)) && !sung.includes(suit(c)) ? 6 : 0);
   const cheapest = a => a.reduce((m,c) => cost(c) < cost(m) ? c : m);
   if(G.table.length === 0){
     if(G.forced || G.deck.length) return cheapest(ok);                // salir con lo más barato
-    const nt = ok.filter(c => suit(c) !== tr), pool = nt.length ? nt : ok;   // arrastre: la carta más fuerte
-    return pool.reduce((m,c) => str(c) > str(m) ? c : m);
+    return noTrump(ok).reduce((m,c) => str(c) > str(m) ? c : m);      // arrastre: la carta más fuerte
   }
   const cur = winnerOf(G.table), bc = cur.c, pts = G.table.reduce((a,t) => a + val(t.c), 0);
   if(G.np === 4 && tm(cur.p) === tm(me)){                            // la pareja va ganando la baza
     if(G.table.length < 3 || G.deck.length === 0) return cheapest(ok);
-    const nt = ok.filter(c => suit(c) !== tr), pool = nt.length ? nt : ok;   // última en jugar: regalar puntos
-    return pool.reduce((m,c) => val(c) > val(m) || (val(c) === val(m) && cost(c) < cost(m)) ? c : m);
+    return noTrump(ok).reduce((m,c) => val(c) > val(m) || (val(c) === val(m) && cost(c) < cost(m)) ? c : m);
   }
   const beats = c => suit(c) === suit(bc) ? str(c) > str(bc) : suit(c) === tr && suit(bc) !== tr;
   const win = ok.filter(beats);
@@ -910,14 +908,12 @@ function afterState(){
 }
 function jugarBot(np = 2, botSeats = [1]){
   lobbyErr('');
-  const mode = document.querySelector('input[name=mode]:checked').value, yo = miNombre([]);
-  const c0 = np === 4 ? document.querySelector('input[name=tc]:checked').value : 'azul';
+  const mode = checked('mode'), yo = miNombre([]), c0 = np === 4 ? checked('tc') : 'azul';
   unwatchLobby(); clearInterval(tmr);
   local = true; botBusy = false; resolving = false; code = undefined; me = 0; seen = new Set(); prevTable = '';
-  const p = {}, names = {0:yo}, bots = {}, used = [yo];
+  const p = {}, {names: bn, bots} = assignBots(botSeats, [yo]);
   range(np).forEach(i => p[i] = Date.now());
-  botSeats.forEach(i => { const n = nombreAuto(used); used.push(n); names[i] = '🤖 ' + n; bots[i] = true; });
-  R = {np, mode, name: np === 2 ? 'Contra el bot' : 'Con bots', c0, p, names, bots};
+  R = {np, mode, name: np === 2 ? 'Contra el bot' : 'Con bots', c0, p, names: {0:yo, ...bn}, bots};
   G = newGame(1, mode, [0,0], 1, np);
   $('lobby').hidden = true; $('game').hidden = false; $('bNueva').hidden = false;
   $('room').textContent = R.name;
@@ -925,13 +921,13 @@ function jugarBot(np = 2, botSeats = [1]){
 }
 
 /* ============ RENDER ============ */
-const isTf = c => typeof G !== 'undefined' && G && suit(c) === G.trump;
+const isTf = c => G && suit(c) === G.trump;
 // Carta boca arriba; las de triunfo van en un <div> para poder llevar marco y estrella
 const face = (c, cl, attrs='') => isTf(c)
   ? `<div class="card ${cl} tf" ${attrs}><img src="cartas/${c}.webp" draggable="false" alt="${c}"></div>`
   : `<img class="card ${cl}" ${attrs} src="cartas/${c}.webp" draggable="false" alt="${c}">`;
 const im = (c, cl='') => face(c, cl, `data-c="${c}"`);
-const back = (cl='') => `<img class="card ${cl}" src="cartas/reverso.webp" draggable="false" alt="">`;
+const back = (cl='', attrs='') => `<img class="card ${cl}" ${attrs} src="cartas/reverso.webp" draggable="false" alt="">`;
 
 function setMsg(st, cls = '', ev = '', evCls = '', hint = ''){
   $('st').textContent = st; $('st').className = 'st ' + cls;
@@ -943,7 +939,7 @@ function evText(e){
   if(!e) return '';
   const y = e.p === me, nm = nameOf(e.p) + (G.np === 4 && !y && tm(e.p) === tm(me) ? ' (tu pareja)' : '');
   if(e.t === 'baza') return `${y ? 'Te llevas' : nm + ' se lleva'} la baza (${e.n} puntos)` + (e.u ? ' y las diez de últimas' : '');
-  if(e.t === 'cante') return `${y ? 'Cantas' : nm + ' canta'} las ${e.n} en ${NOMBRE[e.s]}`;
+  if(e.t === 'cante') return `${y ? 'Cantas' : nm + ' canta'} las ${e.n} en ${e.s}`;
   if(e.t === 'cambio') return `${y ? 'Cambias' : nm + ' cambia'} el siete de triunfo`;
   return '';
 }
@@ -952,10 +948,11 @@ const backs = h => h.map(() => back()).join('');
 
 function render(){
   if(!G){
-    const np = (R && R.np) || 2, n = R ? seats(R) : 1, cnt = t => [t, t + 2].filter(i => R && R.p && R.p[i]).length;
+    if(!R) return;
+    const np = R.np, n = seats(R), cnt = t => [t, t + 2].filter(i => R.p[i]).length;
     setMsg(np === 4 ? `Esperando jugadores (${n}/4)…` : 'Esperando rival…', 'wait', '', '',
       np === 4 ? `Tu equipo: ${colorOf(tm(me))} · ${colorOf(0)} ${cnt(0)}/2 · ${colorOf(1)} ${cnt(1)}/2 · Código ${code}` : `Comparte el código ${code}`);
-    $('names').innerHTML = range(np).filter(i => R && R.p && R.p[i]).map(i =>
+    $('names').innerHTML = range(np).filter(i => R.p[i]).map(i =>
       `<span class="pn${i === me ? ' on' : ''}" data-tc="${colorOf(tm(i))}"><i class="dot"></i>${esc(nameOf(i))}${i === me ? ' (tú)' : ''}</span>`).join('');
     $('score').textContent = ''; $('deckInfo').textContent = ''; return;
   }
@@ -980,19 +977,19 @@ function render(){
   // Mano propia, ordenada por palo y fuerza
   const so = c => suit(c) === G.trump ? -1 : SUITS.indexOf(suit(c));   // el palo de triunfo va siempre el primero (a la izquierda)
   const mine = [...hand(me)].sort((a,b) => so(a) - so(b) || str(b) - str(a));
+  const playable = mt ? legalNow() : [];
   let k = 0;
   $('me').className = 'hand' + (mt ? ' turno' : '');
   $('me').innerHTML = mine.map(c => {
-    const nuevo = !seen.has(c), ok = mt && legal(c);
+    const nuevo = !seen.has(c), ok = playable.includes(c);
     return face(c, `${ok ? 'ok' : ''} ${mt && !ok ? 'dim' : ''} ${nuevo ? 'deal' : ''}`, `style="${nuevo ? `animation-delay:${k++*70}ms` : ''}" data-c="${c}"`);
   }).join('');
   seen = new Set(mine);
 
   // Mazo con el triunfo girado debajo
   const d = G.deck.length;
-  $('deck').innerHTML = (d ? im(G.trumpCard,'tr') : '') + (d > 1 ? back('bk') + (d > 2 ? back('bk') : '') : '') +
-    '';
-  $('deckInfo').innerHTML = `<span class="tfs">★</span> Triunfo: ${NOMBRE[G.trump]} · ${d}<span class="mz"> en el mazo</span>`;
+  $('deck').innerHTML = (d ? im(G.trumpCard,'tr') : '') + (d > 1 ? back('bk') + (d > 2 ? back('bk') : '') : '');
+  $('deckInfo').innerHTML = `<span class="tfs">★</span> Triunfo: ${G.trump} · ${d}<span class="mz"> en el mazo</span>`;
 
   // Cartas en la mesa (en 4: cada una en su lado, según el asiento relativo)
   const key = G.table.map(t => t.c).join();
@@ -1004,26 +1001,25 @@ function render(){
   prevTable = key;
 
   // Montones de bazas (por equipo)
-  const pile = n => n ? Array.from({length:Math.min(n,5)}, (_,i) => back('').replace('class="card "', `class="card" style="top:${i*-2}px"`)).join('') + `<span>${n} baza${n>1?'s':''}</span>` : '';
+  const pile = n => n ? Array.from({length:Math.min(n,5)}, (_,i) => back('', `style="top:${i*-2}px"`)).join('') + `<span>${n} baza${n>1?'s':''}</span>` : '';
   $('pOpp').innerHTML = pile(G.tk[ot]); $('pMe').innerHTML = pile(G.tk[team]);
 
   // Acciones
-  const acts = cantes().map(s => `<button class="btn" data-cante="${s}">Cantar las ${s === G.trump ? 40 : 20} en ${NOMBRE[s]}</button>`);
+  const acts = cantes().map(s => `<button class="btn" data-cante="${s}">Cantar las ${s === G.trump ? 40 : 20} en ${s}</button>`);
   if(canCambiar()) acts.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
   $('acts').innerHTML = acts.join('');
 
   // Mensajes
   // Puntos acumulados: manos anteriores + mano en curso (al terminar la mano, tot ya incluye sus puntos)
-  const acc = t => G.mode === 'normal' ? (G.tot[t] || 0) + (G.done ? 0 : G.pts[t]) : G.pts[t];
-  const nos = four ? '' : '', ell = four ? '' : '';
+  const acc = t => G.mode === 'normal' ? G.tot[t] + (G.done ? 0 : G.pts[t]) : G.pts[t];
   $('score').innerHTML = (G.mode === 'normal' ? `M ${G.n} · ` : '') +
-    `<i class="dot" data-tc="${col(team)}"></i>${nos} <b>${acc(team)}</b> – <i class="dot" data-tc="${col(ot)}"></i>${ell} <b>${acc(ot)}</b>`;
+    `<i class="dot" data-tc="${col(team)}"></i> <b>${acc(team)}</b> – <i class="dot" data-tc="${col(ot)}"></i> <b>${acc(ot)}</b>`;
   $('score').title = G.mode === 'normal' ? 'Puntos acumulados (se juega a 101)' : 'Puntos de la mano';
   const evc = G.ev && tm(G.ev.p) === team ? 'mine' : 'rival', evt = evText(G.ev);
   if(G.done) setMsg('Mano terminada', 'wait', evt, evc);
   else if(G.table.length === np) setMsg('Baza completa…', 'wait', evt, evc);
   else if(mt) setMsg('Tu turno', 'mine', evt, evc,
-    G.forced ? `Cantaste: sal con el rey o el caballo de ${NOMBRE[G.forced]}` :
+    G.forced ? `Cantaste: sal con el rey o el caballo de ${G.forced}` :
     G.deck.length ? '' : 'Arrastre: asiste al palo y supera si puedes');
   else setMsg('Turno de ' + nameOf(G.turn) + (four && G.turn === rel(2) ? ' (tu pareja)' : ''), 'wait', evt, evc);
 
