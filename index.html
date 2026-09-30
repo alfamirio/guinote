@@ -28,6 +28,13 @@ button{font:inherit;cursor:pointer}
 .cols{display:grid;grid-template-columns:1fr 1fr;text-align:center}
 .col{padding:0 1.4rem}
 .col+.col{border-left:1px solid #fff4}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-bottom:1rem}
+.modes label{position:relative;cursor:pointer}
+.modes input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.modes span{display:block;border:1px solid #fff4;border-radius:8px;padding:.55em .4em;font-weight:bold;background:#0003}
+.modes small{display:block;font-weight:normal;font-size:.72rem;opacity:.75;margin-top:.15em}
+.modes input:checked+span{border-color:var(--oro);background:#e0b04a26;box-shadow:0 0 0 1px var(--oro)}
+.modes input:focus-visible+span{outline:2px solid var(--crema);outline-offset:2px}
 .hint{font-size:.85rem;margin:0 0 1rem!important}
 @media (max-width:640px){.cols{grid-template-columns:1fr}.col{padding:0}.col+.col{border-left:0;border-top:1px solid #fff4;margin-top:1.4rem;padding-top:1.2rem}}
 #lobby input[type=password]{font-size:1rem;text-transform:none}
@@ -36,16 +43,36 @@ button{font:inherit;cursor:pointer}
 .room{display:flex;justify-content:space-between;align-items:center;gap:.6rem;background:#0003;color:var(--crema);border:1px solid #fff3;border-radius:8px;padding:.6em .9em;text-align:left}
 .room:hover:not(:disabled){border-color:var(--oro);background:#0005}
 .room:disabled{opacity:.45;cursor:default}
-.room b{font-size:1.2rem;letter-spacing:.12em}
+.room b{font-size:1.05rem}
+.room i{font-style:normal;opacity:.7;font-size:.85rem;letter-spacing:.1em;margin-left:.3em}
 .room small{display:block;opacity:.75;font-size:.75rem}
+#bAyuda{position:fixed;top:calc(env(safe-area-inset-top,0px) + .8rem);right:.8rem;z-index:2;font-size:.9rem;padding:.35em .9em}
+#ayuda{max-width:min(92vw,40rem);max-height:86vh;overflow:auto;border:2px solid var(--oro);border-radius:12px;background:var(--madera);color:var(--crema);padding:1.3rem 1.5rem;line-height:1.5}
+#ayuda::backdrop{background:#000b}
+#ayuda h2{margin:0 0 .6rem;font-size:1.6rem}
+#ayuda h3{margin:1.1rem 0 .2rem;font-size:.85rem;letter-spacing:.08em;text-transform:uppercase;color:var(--oro)}
+#ayuda p{margin:.2rem 0}
+#ayuda table{border-collapse:collapse;margin:.4rem 0;font-size:.9rem;max-width:100%;display:block;overflow-x:auto}
+#ayuda th,#ayuda td{border:1px solid #fff3;padding:.25em .55em;text-align:center}
+#ayuda th{text-align:left;color:var(--oro)}
 #err{color:#ffb4a0;min-height:1.4em}
 
 /* Mesa */
 #game{height:100%;display:flex;flex-direction:column;border:clamp(6px,1.4vw,14px) solid var(--madera);
  background:radial-gradient(ellipse at 50% 45%,#2b7449 0%,var(--paño) 45%,var(--paño2) 100%);
  box-shadow:inset 0 0 60px #000a}
-#top{display:flex;justify-content:space-between;align-items:center;padding:.5rem .9rem;font-size:.95rem;gap:.5rem}
-#msg{flex:1;text-align:center;min-height:1.3em}
+#top{display:flex;justify-content:space-between;align-items:center;padding:.5rem .9rem;font-size:.95rem;gap:.5rem;flex-wrap:wrap}
+#room{margin-right:auto}
+#msg{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.1rem .9rem .5rem;min-height:5.2rem;text-align:center;text-shadow:0 1px 3px #000c}
+#msg .st{font-size:clamp(1.15rem,3.4vw,1.5rem);font-weight:bold;padding:.15em 1em;border-radius:99px;background:#0006;border:1px solid #fff3;text-shadow:none;transition:background .2s,color .2s}
+#msg .st.mine{background:var(--oro);color:#2a1808;border-color:var(--oro)}
+#msg .st.wait{color:#f1e6c9cc}
+#msg .ev{font-size:clamp(1rem,2.6vw,1.2rem);min-height:1.4em;line-height:1.3}
+#msg .ev.mine{color:#ffe08a}
+#msg .ev.rival{color:#fff}
+#msg .ev.pop{animation:pop .5s ease-out}
+#msg .hint{font-size:clamp(.85rem,2.2vw,1rem);opacity:.85;min-height:1.2em;font-style:italic}
+@keyframes pop{from{transform:scale(1.12);opacity:.3}}
 .chip{background:#0004;border-radius:99px;padding:.25em .8em;white-space:nowrap}
 #mesa{flex:1;display:grid;grid-template-rows:auto 1fr auto auto;min-height:0;padding:0 .6rem .6rem}
 .card{width:var(--cw);height:auto;border-radius:calc(var(--cw)*.06);box-shadow:0 3px 8px #0009;user-select:none;-webkit-user-drag:none;background:#fff}
@@ -82,19 +109,55 @@ button{font:inherit;cursor:pointer}
 /* Fin */
 #fin{position:fixed;inset:0;background:#000b;display:grid;place-items:center;text-align:center;z-index:9}
 #fin .box{background:var(--madera);border:2px solid var(--oro);border-radius:12px;padding:1.6rem 2.2rem}
+#finS{white-space:pre-line;line-height:1.5}
 #fin h2{font-size:2.2rem;margin:0 0 .3em}
+/* Móvil: mano propia en dos filas (3 + 3) y mesa compacta */
+:root{--hw:clamp(60px,25vw,104px)}
+@supports (height:100dvh){:root{--hw:clamp(60px,min(25vw,13dvh),104px)}}
+button,.card{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+@media (max-width:640px){
+ :root{--cw:clamp(54px,17vw,84px);--gap:6px}
+ html,body{-webkit-text-size-adjust:100%}
+ @supports (height:100dvh){html,body{height:100dvh}}
+ #game{border-width:5px}
+ #top{padding:.35rem .6rem;font-size:.85rem}
+ #msg{min-height:3.9rem;padding:.05rem .6rem .3rem;gap:.15rem}
+ #msg .st{font-size:1.1rem}
+ #msg .ev{font-size:.95rem}
+ #mesa{padding:0 .3rem .4rem}
+ #opp{transform:scale(.62);margin-bottom:calc(var(--cw)*-.55)}
+ #deck .lbl{font-size:.68rem;line-height:1.15;left:-.6rem;right:-.6rem}
+ .pile span{font-size:.65rem}
+ #acts{min-height:2.3rem;padding:.2rem;gap:.4rem}
+ #acts .btn{font-size:.85rem;padding:.45em .8em}
+ /* Mano propia: 3 cartas por fila, la segunda fila solapa un poco a la primera */
+ #me{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:0 var(--gap);
+  width:calc(var(--hw)*3 + var(--gap)*2);max-width:100%;margin:0 auto;min-height:0;padding-top:.2rem}
+ #me .card,#me .card+.card{width:var(--hw);margin-left:0;border-radius:calc(var(--hw)*.06)}
+ #me .card:nth-child(n+4){margin-top:calc(var(--hw)*-.52)}
+ #me.turno .card.ok:hover{transform:none}
+ #me.turno .card.ok:active{transform:translateY(-6px)}
+ #fin .box{margin:1rem;padding:1.2rem 1.4rem}
+ #fin h2{font-size:1.8rem}
+}
+
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
 <body>
 
 <div id="lobby">
+ <button class="btn alt small" id="bAyuda" type="button" aria-haspopup="dialog">? Ayuda</button>
  <div class="box">
   <h1>Guiñote</h1>
   <p>Baraja española · 2 jugadores</p>
   <div class="cols">
    <section class="col">
     <h3>Crear sala</h3>
+    <div class="modes">
+     <label><input type="radio" name="mode" value="normal" checked><span>Normal<small>a 101 puntos, varias manos</small></span></label>
+     <label><input type="radio" name="mode" value="rapida"><span>Rápida<small>una sola mano</small></span></label>
+    </div>
     <p class="hint">Pon una contraseña para protegerla o déjala vacía para que quede abierta.</p>
     <input id="inPass" type="password" placeholder="Contraseña (opcional)" autocomplete="off">
     <button class="btn" id="bCrear" style="width:100%">Crear sala</button>
@@ -114,9 +177,13 @@ button{font:inherit;cursor:pointer}
 <div id="game" hidden>
  <div id="top">
   <span class="chip" id="room"></span>
-  <div id="msg"></div>
   <span class="chip" id="score"></span>
   <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
+ </div>
+ <div id="msg" role="status" aria-live="polite">
+  <div class="st" id="st"></div>
+  <div class="ev" id="ev"></div>
+  <div class="hint" id="hint"></div>
  </div>
  <div id="mesa">
   <div id="opp" class="hand"></div>
@@ -129,6 +196,49 @@ button{font:inherit;cursor:pointer}
   <div id="me" class="hand"></div>
  </div>
 </div>
+<dialog id="ayuda" aria-labelledby="ayT">
+ <h2 id="ayT">Cómo se juega al guiñote</h2>
+
+ <h3>Objetivo</h3>
+ <p>Conseguir más puntos que el rival ganando bazas (rondas de dos cartas), cantando y llevándote la última baza.</p>
+
+ <h3>Las cartas</h3>
+ <p>Baraja española de 40 cartas (sin 8 ni 9). De mayor a menor fuerza y su valor en puntos:</p>
+ <table>
+  <tr><th>Carta</th><td>As</td><td>Tres</td><td>Rey</td><td>Caballo</td><td>Sota</td><td>7</td><td>6</td><td>5</td><td>4</td><td>2</td></tr>
+  <tr><th>Puntos</th><td>11</td><td>10</td><td>4</td><td>3</td><td>2</td><td colspan="5">0</td></tr>
+ </table>
+
+ <h3>Reparto y triunfo</h3>
+ <p>Cada jugador recibe 6 cartas. La carta que queda girada bajo el mazo marca el <b>palo de triunfo</b>: cualquier triunfo gana a una carta de otro palo.</p>
+
+ <h3>Una baza</h3>
+ <p>Quien sale juega una carta y el otro responde. Gana la carta más alta del palo de salida, salvo que el rival juegue un triunfo. El ganador se lleva los puntos de las dos cartas, <b>roba primero</b> y sale en la siguiente baza. Para jugar una carta, pulsa sobre ella.</p>
+
+ <h3>Mientras quedan cartas en el mazo</h3>
+ <p>Puedes jugar cualquier carta, sin obligación de asistir al palo ni de superar la carta del rival.</p>
+
+ <h3>El arrastre (mazo agotado)</h3>
+ <p>Cuando ya no hay mazo, tienes que: <b>1)</b> asistir al palo de salida; <b>2)</b> superar la carta del rival si puedes; <b>3)</b> si no tienes ese palo, fallar con un triunfo si lo tienes. Las cartas que no puedes jugar se ven atenuadas.</p>
+
+ <h3>Cantes</h3>
+ <p>Si ya has ganado alguna baza y te toca salir, puedes <b>cantar</b> si tienes el <b>rey y el caballo</b> del mismo palo: <b>20 puntos</b>, o <b>40</b> si es el palo de triunfo. Después debes salir con el rey o el caballo de ese palo. Cada palo solo se canta una vez.</p>
+
+ <h3>Cambiar el 7</h3>
+ <p>Si has ganado alguna baza, te toca salir y tienes el <b>7 de triunfo</b>, puedes cambiarlo por la carta girada del mazo (mientras queden al menos 2 cartas en él).</p>
+
+ <h3>Diez de últimas</h3>
+ <p>Quien gane la última baza suma <b>10 puntos</b> extra.</p>
+
+ <h3>Modos de partida</h3>
+ <p><b>Normal:</b> varias manos hasta llegar a <b>101 puntos</b>. Los puntos de cada mano se suman a un marcador acumulado que ven los dos jugadores. Gana quien llegue a 101 o más al acabar una mano.<br>
+ <b>Rápida:</b> una sola mano; gana quien tenga más puntos al final.</p>
+
+ <h3>Salas</h3>
+ <p>Crea una sala (con contraseña opcional) y elige el modo, o únete a una de la lista o con su código de 4 letras. Las salas se eliminan solas a la hora de crearse. El botón <b>Nueva partida</b> de la mesa te devuelve a esta pantalla.</p>
+
+ <p style="text-align:center;margin-bottom:0"><button class="btn" id="bAyudaX" type="button">Cerrar</button></p>
+</dialog>
 <div id="fin" hidden><div class="box"><h2 id="finT"></h2><p id="finS"></p><button class="btn" id="bRe">Otra partida</button></div></div>
 
 <script type="module">
@@ -140,7 +250,7 @@ button{font:inherit;cursor:pointer}
    Reglas mínimas para jugar: { "rules": { "rooms": { ".read": true, ".write": true }, "lobby": { ".read": true, ".write": true } } } */
 
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-import { getDatabase, ref, set, get, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+import { getDatabase, ref, set, get, remove, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 /* Bandera global: true = lee config.dat (JSON codificado en base64);
    false = lee firebase-config.json en texto plano. */
 const CONFIG_EN_BASE64 = true;
@@ -175,13 +285,13 @@ const str = c => ORD.indexOf(rk(c)), val = c => PT[rk(c)] || 0;
 const cid = (s,r) => s + '_' + String(r).padStart(2,'0');
 const hand = (s,g=G) => g['h'+s] || [];
 
-function newGame(mano){
+function newGame(mano, mode='normal', tot=[0,0], n=1){
   const deck = SUITS.flatMap(s => RANKS.map(r => cid(s,r)));
   for(let i = deck.length-1; i > 0; i--){ const j = Math.random()*(i+1)|0; [deck[i],deck[j]] = [deck[j],deck[i]]; }
   const h0 = deck.splice(0,6), h1 = deck.splice(0,6);
   const trumpCard = deck[deck.length-1];
   return {deck, h0, h1, trumpCard, trump:suit(trumpCard), table:[], turn:mano, mano,
-          pts:[0,0], won:[false,false], tk:[0,0], sung:'', forced:null, ev:null, done:false};
+          pts:[0,0], won:[false,false], tk:[0,0], sung:'', forced:null, ev:null, done:false, fin:false, mode, tot:[...tot], n};
 }
 
 /* ============ ESTADO ============ */
@@ -192,6 +302,11 @@ const save = g => set(gref(), g);
 
 /* ---- Lobby ---- */
 const rnd = () => Array.from({length:4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random()*24|0]).join('');
+const CIUDADES = ['Sevilla','Zaragoza','Valencia','Bilbao','Granada','Toledo','Cádiz','Vigo','León','Soria','Teruel','Huesca','Jaca','Segovia','Salamanca','Córdoba','Málaga','Oviedo','Burgos','Lisboa','París','Roma','Viena','Praga','Oslo','Lima','Quito','Bogotá','Kioto','Dublín','Atenas','Cuzco'];
+const TIEMPOS = ['con sol','con lluvia','con niebla','con nieve','con viento','con tormenta','con nubes','con granizo','con calima','con bruma','con rocío','con cielo claro'];
+const pick = a => a[Math.random()*a.length|0];
+const nombreSala = () => `${pick(CIUDADES)} ${pick(TIEMPOS)}`;
+const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const HORA = 3600e3;   // duración máxima de una sala
 const purge = c => { remove(ref(db,`rooms/${c}`)).catch(()=>{}); remove(ref(db,`lobby/${c}`)).catch(()=>{}); };
 const lobbyErr = t => $('err').textContent = t;
@@ -212,8 +327,8 @@ function watchLobby(){
     const list = Object.entries(all).filter(([,r]) => now - r.t < HORA).sort((a,b) => b[1].t - a[1].t);
     $('rooms').innerHTML = list.length ? list.map(([c,r]) => {
       const full = r.n >= 2, min = Math.max(1, Math.round((now - r.t)/60000));
-      return `<button class="room" data-c="${c}" ${full ? 'disabled' : ''}>
-        <span><b>${c}</b><small>${r.lock ? '🔒 con contraseña' : 'abierta'} · hace ${min} min</small></span>
+      return `<button class="room" data-c="${esc(c)}" ${full ? 'disabled' : ''}>
+        <span><b>${esc(r.name || 'Sala')}</b><i>(${esc(c)})</i><small>${r.mode === 'rapida' ? 'Rápida' : 'Normal · 101'} · ${r.lock ? '🔒 con contraseña' : 'abierta'} · hace ${min} min</small></span>
         <span>${full ? 'En juego' : 'Unirse'}</span></button>`;
     }).join('') : '<em>No hay salas ahora mismo. Crea una.</em>';
   }, () => lobbyErr('No se pudo leer la lista de salas (revisa las reglas de la base de datos).'));
@@ -225,10 +340,11 @@ $('bCrear').onclick = async () => {
     lobbyErr('');
     do{ code = rnd(); } while((await get(ref(db,`rooms/${code}`))).exists());
     me = 0;
-    const pw = await hash($('inPass').value, code), room = {p:{0:Date.now()}};
+    const mode = document.querySelector('input[name=mode]:checked').value;
+    const pw = await hash($('inPass').value, code), name = nombreSala(), room = {p:{0:Date.now()}, mode, name};
     if(pw) room.pw = pw;
     await set(ref(db,`rooms/${code}`), room);
-    await set(ref(db,`lobby/${code}`), {t:Date.now(), lock:!!pw, n:1});
+    await set(ref(db,`lobby/${code}`), {t:Date.now(), lock:!!pw, n:1, mode, name});
     enter();
   }catch(e){ console.error(e); lobbyErr('No se pudo conectar con Firebase. Revisa la configuración.'); }
 };
@@ -252,10 +368,20 @@ async function unirse(c){
     enter();
   }catch(e){ console.error(e); lobbyErr('No se pudo conectar con Firebase. Revisa la configuración.'); }
 }
+$('bAyuda').onclick = () => $('ayuda').showModal();
+$('bAyudaX').onclick = () => $('ayuda').close();
+$('ayuda').addEventListener('click', e => { if(e.target === e.currentTarget) e.currentTarget.close(); });
 $('bUnir').onclick = () => unirse($('inCode').value);
 $('rooms').onclick = e => { const b = e.target.closest('.room'); if(b){ $('inCode').value = b.dataset.c; unirse(b.dataset.c); } };
 
-$('bRe').onclick = () => { seen = new Set(); prevTable = ''; save(newGame(1 - G.mano)); };
+$('bRe').onclick = () => {
+  const n = G.n || 1; seen = new Set(); prevTable = '';
+  runTransaction(gref(), cur => {
+    if(cur === null) return cur;
+    if(!cur.done || (cur.n || 1) !== n) return;           // ya lo ha pulsado el otro jugador
+    return cur.fin ? newGame(1 - cur.mano, cur.mode, [0,0], 1) : newGame(1 - cur.mano, cur.mode, cur.tot || [0,0], n + 1);
+  }).catch(console.error);
+};
 $('bNueva').onclick = () => {
   if(G && !G.done && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
   salir();
@@ -284,9 +410,10 @@ function enter(){
   unsub = onValue(ref(db,`rooms/${code}`), snap => {
     if(snap.val() === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
     R = snap.val(); G = R.g || null;
+    $('room').textContent = R.name ? `${R.name} (${code})` : 'Sala ' + code;
     if(R.p && R.p[0] && Date.now() - R.p[0] >= HORA) purge(code);
-    if(G){ G.table = G.table || []; G.deck = G.deck || []; G.sung = G.sung || ''; }
-    if(!G && me === 0 && R.p && R.p[1]) return save(newGame(1));   // el que no reparte empieza (mano = jugador 1)
+    if(G){ G.table = G.table || []; G.deck = G.deck || []; G.sung = G.sung || ''; G.tot = G.tot || [0,0]; G.n = G.n || 1; }
+    if(!G && me === 0 && R.p && R.p[1]) return save(newGame(1, R.mode || 'normal'));   // el que no reparte empieza (mano = jugador 1)
     render();
     if(G && me === 0 && G.table.length === 2 && !resolving){
       resolving = true; setTimeout(resolve, 1500);
@@ -354,7 +481,13 @@ function resolve(){
   g.pts[w] += n; g.won[w] = true; g.tk[w]++;
   if(deck.length){ g['h'+w] = [...hand(w), deck.shift()]; g['h'+(1-w)] = [...hand(1-w), deck.shift()]; }
   g.deck = deck;
-  if(!hand(0,g).length && !hand(1,g).length){ g.pts[w] += 10; g.done = true; g.ev.u = true; }
+  if(!hand(0,g).length && !hand(1,g).length){
+    g.pts[w] += 10; g.done = true; g.ev.u = true;
+    if(G.mode === 'normal'){
+      const t = [...(G.tot || [0,0])]; t[0] += g.pts[0]; t[1] += g.pts[1]; g.tot = t;
+      g.fin = Math.max(t[0], t[1]) >= 101 && t[0] !== t[1];       // si empatan a 101 o más, otra mano
+    }else g.fin = true;
+  }
   save(g);
 }
 
@@ -362,6 +495,12 @@ function resolve(){
 const im = (c, cl='') => `<img class="card ${cl}" src="cartas/${c}.webp" data-c="${c}" draggable="false" alt="${c}">`;
 const back = (cl='') => `<img class="card ${cl}" src="cartas/reverso.webp" draggable="false" alt="">`;
 
+function setMsg(st, cls = '', ev = '', evCls = '', hint = ''){
+  $('st').textContent = st; $('st').className = 'st ' + cls;
+  const e = $('ev'), changed = e.textContent !== ev;
+  e.textContent = ev; e.className = 'ev ' + evCls + (changed && ev ? ' pop' : '');
+  $('hint').textContent = hint;
+}
 function evText(e){
   if(!e) return '';
   const y = e.p === me;
@@ -372,7 +511,7 @@ function evText(e){
 }
 
 function render(){
-  if(!G){ $('msg').textContent = `Esperando rival… comparte el código ${code}`; $('score').textContent = ''; return; }
+  if(!G){ setMsg('Esperando rival…', 'wait', '', '', `Comparte el código ${code}`); $('score').textContent = ''; return; }
   $('bNueva').hidden = false;
   const opp = 1 - me, mt = myTurn();
 
@@ -412,20 +551,34 @@ function render(){
   $('acts').innerHTML = acts.join('');
 
   // Mensajes
-  $('score').textContent = `Tus puntos: ${G.pts[me]}`;
-  let m = evText(G.ev);
-  if(G.done) m = evText(G.ev);
-  else if(G.table.length === 2) m = m || 'Baza completa…';
-  else if(mt) m = (m ? m + ' · ' : '') + (G.forced ? `Sales con el rey o el caballo de ${NOMBRE[G.forced]}` : 'Tu turno' + (G.deck.length ? '' : ' · arrastre: asiste y supera si puedes'));
-  else m = (m ? m + ' · ' : '') + 'Turno del rival';
-  $('msg').textContent = m;
+  $('score').textContent = G.mode !== 'normal' ? `Tus puntos: ${G.pts[me]}`
+    : G.done ? `Marcador: ${G.tot[me]}–${G.tot[opp]}`
+    : `Mano ${G.n} · Tú ${G.pts[me]} · Marcador ${G.tot[me]}–${G.tot[opp]}`;
+  const evc = G.ev && G.ev.p === me ? 'mine' : 'rival', evt = evText(G.ev);
+  if(G.done) setMsg('Mano terminada', 'wait', evt, evc);
+  else if(G.table.length === 2) setMsg('Baza completa…', 'wait', evt, evc);
+  else if(mt) setMsg('Tu turno', 'mine', evt, evc,
+    G.forced ? `Cantaste: sal con el rey o el caballo de ${NOMBRE[G.forced]}` :
+    G.deck.length ? '' : 'Arrastre: asiste al palo y supera si puedes');
+  else setMsg('Turno del rival', 'wait', evt, evc);
 
-  // Final
+  // Final de mano / partida
   $('fin').hidden = !G.done;
   if(G.done){
-    const a = G.pts[me], b = G.pts[opp];
-    $('finT').textContent = a > b ? '¡Has ganado!' : a < b ? 'Has perdido' : 'Empate';
-    $('finS').textContent = `Tú ${a} — Rival ${b}`;
+    const a = G.pts[me], b = G.pts[opp], ta = G.tot[me], tb = G.tot[opp];
+    if(G.mode !== 'normal'){
+      $('finT').textContent = a > b ? '¡Has ganado!' : a < b ? 'Has perdido' : 'Empate';
+      $('finS').textContent = `Tú ${a} — Rival ${b}`;
+      $('bRe').textContent = 'Otra partida';
+    }else if(G.fin){
+      $('finT').textContent = ta > tb ? '¡Has ganado la partida!' : 'Has perdido la partida';
+      $('finS').textContent = `Última mano: Tú ${a} — Rival ${b}\nMarcador final: Tú ${ta} — Rival ${tb}`;
+      $('bRe').textContent = 'Nueva partida';
+    }else{
+      $('finT').textContent = a > b ? 'Ganas la mano' : a < b ? 'Pierdes la mano' : 'Mano empatada';
+      $('finS').textContent = `Mano ${G.n}: Tú ${a} — Rival ${b}\nMarcador: Tú ${ta} — Rival ${tb}\nSe juega a 101 puntos`;
+      $('bRe').textContent = 'Siguiente mano';
+    }
   }
 }
 
