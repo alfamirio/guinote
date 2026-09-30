@@ -455,23 +455,25 @@ import { getDatabase, ref, set, get, remove, onValue, runTransaction } from "htt
 const CONFIG_EN_BASE64 = true;
 const CONFIG_FILE = CONFIG_EN_BASE64 ? 'config.dat' : 'firebase-config.json';
 
-let db;
+let database;
 try{
-  const res = await fetch(CONFIG_FILE, {cache:'no-store'});
-  if(!res.ok) throw new Error('HTTP ' + res.status);
-  let cfg;
+  const response = await fetch(CONFIG_FILE, {cache:'no-store'});
+  if(!response.ok) throw new Error('HTTP ' + response.status);
+  let config;
   if(CONFIG_EN_BASE64){
-    const bin = atob((await res.text()).replace(/\s+/g, ''));
-    cfg = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+    const binaryString = atob((await response.text()).replace(/\s+/g, ''));
+    config = JSON.parse(new TextDecoder().decode(Uint8Array.from(binaryString, character => character.charCodeAt(0))));
   }else{
-    cfg = await res.json();
+    config = await response.json();
   }
-  db = getDatabase(initializeApp(cfg));
-}catch(e){
-  console.error(e);
+  database = getDatabase(initializeApp(config));
+}catch(error){
+  console.error(error);
   document.getElementById('err').textContent = `No se pudo cargar ${CONFIG_FILE} (sírvelo con un servidor web, no con file://). Jugar contra bots sigue disponible.`;
   document.getElementById('bUnir').disabled = true;
 }
+
+const CARD_EXT = 'webp';
 
 /* ============ REGLAS DEL JUEGO ============ */
 const REGLAS = {
@@ -488,35 +490,35 @@ const SUITS = ['oros','copas','espadas','bastos'];
 const RANKS = [1,2,3,4,5,6,7,10,11,12];
 const STRENGTH_ORDER = [2,4,5,6,7,10,11,12,3,1];           // de menor a mayor fuerza
 const POINTS = {1:11,3:10,12:4,11:3,10:2};
-const cid = (s,r) => s + '_' + String(r).padStart(2,'0');
-const ALL = SUITS.flatMap(s => RANKS.map(r => cid(s,r)));   // las 40 cartas
-const suit = c => c.split('_')[0], rank = c => +c.split('_')[1];
-const strength = c => STRENGTH_ORDER.indexOf(rank(c)), points = c => POINTS[rank(c)] || 0;
-const hand = (s,g=state.G) => g['h'+s] || [];
-const colorOf = (t, c0 = state.R.c0) => t === 0 ? c0 : (c0 === 'azul' ? 'rojo' : 'azul');   // color del equipo t
-const cap = c => c[0].toUpperCase() + c.slice(1);
-const teamOf = s => s % 2;                                   // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
-const range = n => [...Array(n).keys()];
-const nameOf = s => state.R.names[s] || (state.R.np === 4 ? `Jugador ${s + 1}` : 'Rival');
-const seats = r => range(r.np).filter(i => r.p[i]).length;
-const seatMask = p => range(4).map(i => p[i] ? '1' : '0').join('');   // asientos ocupados de una sala de 4
+const cardId = (suitName,rankNumber) => suitName + '_' + String(rankNumber).padStart(2,'0');
+const ALL = SUITS.flatMap(suitName => RANKS.map(rankNumber => cardId(suitName,rankNumber)));   // las 40 cartas
+const suit = card => card.split('_')[0], rank = card => +card.split('_')[1];
+const strength = card => STRENGTH_ORDER.indexOf(rank(card)), points = card => POINTS[rank(card)] || 0;
+const hand = (seat,game=state.game) => game['hand'+seat] || [];
+const colorOf = (teamIndex, firstColor = state.room.firstTeamColor) => teamIndex === 0 ? firstColor : (firstColor === 'azul' ? 'rojo' : 'azul');   // color del equipo t
+const capitalize = word => word[0].toUpperCase() + word.slice(1);
+const teamOf = seat => seat % 2;                                   // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
+const range = count => [...Array(count).keys()];
+const nameOf = seat => state.room.names[seat] || (state.room.playerCount === 4 ? `Jugador ${seat + 1}` : 'Rival');
+const seats = room => range(room.playerCount).filter(index => room.players[index]).length;
+const seatMask = players => range(4).map(index => players[index] ? '1' : '0').join('');   // asientos ocupados de una sala de 4
 const checked = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value;
 const FB_ERR = 'No se pudo conectar con Firebase. Revisa la configuración.';
 /* Valores por defecto: se aplican una sola vez, al leer de Firebase (que descarta arrays vacíos) */
-const normRoom = r => ({np:2, mode:'normal', c0:'azul', p:{}, names:{}, ...r});
-const normGame = g => g && ({table:[], deck:[], sung:'', tot:[0,0], played:[], tk:[0,0], n:1, np:2, ...g});
+const normRoom = room => ({playerCount:2, mode:'normal', firstTeamColor:'azul', players:{}, names:{}, ...room});
+const normGame = game => game && ({table:[], deck:[], sung:'', totalPoints:[0,0], played:[], tricksTaken:[0,0], handNumber:1, playerCount:2, ...game});
 
-function newGame(mano, mode='normal', tot=[0,0], n=1, np=2){
+function newGame(mano, mode='normal', totals=[0,0], handNumber=1, playerCount=2){
   const deck = [...ALL];
-  for(let i = deck.length-1; i > 0; i--){ const j = Math.random()*(i+1)|0; [deck[i],deck[j]] = [deck[j],deck[i]]; }
-  const hs = {}; for(let i = 0; i < np; i++) hs['h'+i] = deck.splice(0,REGLAS.cartasMano);
+  for(let index = deck.length-1; index > 0; index--){ const swapIndex = Math.random()*(index+1)|0; [deck[index],deck[swapIndex]] = [deck[swapIndex],deck[index]]; }
+  const hands = {}; for(let index = 0; index < playerCount; index++) hands['hand'+index] = deck.splice(0,REGLAS.cartasMano);
   const trumpCard = deck[deck.length-1];
-  return {deck, ...hs, np, trumpCard, trump:suit(trumpCard), table:[], turn:mano, mano,
-          pts:[0,0], won:[false,false], tk:[0,0], played:[], sung:'', forced:null, ev:null, done:false, fin:false, mode, tot:[...tot], n};
+  return {deck, ...hands, playerCount, trumpCard, trump:suit(trumpCard), table:[], turn:mano, mano,
+          handPoints:[0,0], hasWonTrick:[false,false], tricksTaken:[0,0], played:[], sung:'', forced:null, lastEvent:null, handOver:false, matchOver:false, mode, totalPoints:[...totals], handNumber};
 }
-const nextGame = g => {                                  // g ya normalizado
-  const nm = (g.mano + 1) % g.np;
-  return g.fin ? newGame(nm, g.mode, [0,0], 1, g.np) : newGame(nm, g.mode, g.tot, g.n + 1, g.np);
+const nextGame = game => {                                  // game ya normalizado
+  const nextMano = (game.mano + 1) % game.playerCount;
+  return game.matchOver ? newGame(nextMano, game.mode, [0,0], 1, game.playerCount) : newGame(nextMano, game.mode, game.totalPoints, game.handNumber + 1, game.playerCount);
 };
 
 /* ============ ESTADO ============ */
@@ -524,9 +526,9 @@ const nextGame = g => {                                  // g ya normalizado
    resetSession() los restaura (al salir o al empezar una partida local) y cancela los timers pendientes. */
 const newSession = () => ({
   code: undefined,        // código de la sala (undefined en partidas contra bots)
-  me: undefined,          // asiento propio
-  R: null,                // sala: np, mode, names, p, bots…
-  G: null,                // partida en curso
+  mySeat: undefined,          // asiento propio
+  room: null,                // sala: np, mode, names, p, bots…
+  game: null,                // partida en curso
   local: false,           // true = contra bots, sin base de datos
   botBusy: false,         // hay una jugada del bot programada
   resolving: false,       // hay una baza completa pendiente de recoger
@@ -537,7 +539,7 @@ const newSession = () => ({
 });
 const state = {
   ...newSession(),
-  tmr: null,              // intervalo que purga la sala al cumplirse la hora
+  purgeTimer: null,              // intervalo que purga la sala al cumplirse la hora
   unsub: null,            // cancela la suscripción a la sala
   unLobby: null,          // cancela la suscripción al lobby
   hayLock: false,         // ¿hay alguna sala con contraseña en la lista?
@@ -546,551 +548,551 @@ function resetSession(){
   clearTimeout(state.botTimer); clearTimeout(state.resolveTimer);
   Object.assign(state, newSession());
 }
-const $ = id => document.getElementById(id);
-const gref = () => ref(db, `rooms/${state.code}/g`);
-const save = g => state.local ? localSave(g) : set(gref(), g);
-function localSave(g){ state.G = g; setTimeout(afterState, 0); return Promise.resolve(); }   // partida contra el bot: sin base de datos
+const byId = elementId => document.getElementById(elementId);
+const gameRef = () => ref(database, `rooms/${state.code}/game`);
+const save = game => state.local ? localSave(game) : set(gameRef(), game);
+function localSave(game){ state.game = game; setTimeout(afterState, 0); return Promise.resolve(); }   // partida contra el bot: sin base de datos
 
 /* ---- Lobby ---- */
-const rnd = () => Array.from({length:REGLAS.longCodigo}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random()*24|0]).join('');
+const randomRoomCode = () => Array.from({length:REGLAS.longCodigo}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random()*24|0]).join('');
 const CIUDADES = ['Sevilla','Zaragoza','Valencia','Bilbao','Granada','Toledo','Cádiz','Vigo','León','Soria','Teruel','Huesca','Jaca','Segovia','Salamanca','Córdoba','Málaga','Oviedo','Burgos','Lisboa','París','Roma','Viena','Praga','Oslo','Lima','Quito','Bogotá','Kioto','Dublín','Atenas','Cuzco'];
 const TIEMPOS = ['con sol','con lluvia','con niebla','con nieve','con viento','con tormenta','con nubes','con granizo','con calima','con bruma','con rocío','con cielo claro'];
-const pick = a => a[Math.random()*a.length|0];
+const pickRandom = list => list[Math.random()*list.length|0];
 /* Nombres de jugador */
 const ANIMALES = [['zorro','m'],['búho','m'],['lince','m'],['lobo','m'],['oso','m'],['halcón','m'],['delfín','m'],['tigre','m'],['gato','m'],['cuervo','m'],['tejón','m'],['mapache','m'],
   ['águila','f'],['nutria','f'],['zorra','f'],['cebra','f'],['jirafa','f'],['ardilla','f'],['lechuza','f'],['foca','f'],['tortuga','f'],['garza','f'],['ballena','f'],['mariposa','f']];
 const ADJETIVOS = [['veloz','veloz'],['astuto','astuta'],['valiente','valiente'],['sabio','sabia'],['sigiloso','sigilosa'],['audaz','audaz'],['ágil','ágil'],['travieso','traviesa'],
   ['tranquilo','tranquila'],['feroz','feroz'],['curioso','curiosa'],['elegante','elegante'],['sereno','serena'],['bravo','brava'],['pícaro','pícara'],['sagaz','sagaz'],
   ['risueño','risueña'],['noble','noble'],['rápido','rápida'],['atrevido','atrevida']];
-const cleanName = t => String(t || '').replace(/\s+/g,' ').trim().slice(0,16);
+const cleanName = text => String(text || '').replace(/\s+/g,' ').trim().slice(0,16);
 function nombreAuto(usados){
-  for(let i = 0; i < 60; i++){
-    const [a,g] = pick(ANIMALES), n = cap(a) + ' ' + pick(ADJETIVOS)[g === 'm' ? 0 : 1];
-    if(!usados.includes(n)) return n;
+  for(let index = 0; index < 60; index++){
+    const [animal,gender] = pickRandom(ANIMALES), name = capitalize(animal) + ' ' + pickRandom(ADJETIVOS)[gender === 'm' ? 0 : 1];
+    if(!usados.includes(name)) return name;
   }
-  return cap(pick(ANIMALES)[0]) + ' ' + (10 + Math.random()*90|0);
+  return capitalize(pickRandom(ANIMALES)[0]) + ' ' + (10 + Math.random()*90|0);
 }
 function miNombre(usados){                                   // el escrito (único en la sala) o uno automático
-  let n = cleanName($('inName').value);
-  try{ localStorage.setItem('guinote-nombre', n); }catch(e){}
-  if(!n) return nombreAuto(usados);
-  const base = n; let k = 2;
-  while(usados.some(u => u.toLowerCase() === n.toLowerCase())) n = base.slice(0,13) + ' ' + k++;
-  return n;
+  let playerName = cleanName(byId('inName').value);
+  try{ localStorage.setItem('guinote-nombre', playerName); }catch(error){}
+  if(!playerName) return nombreAuto(usados);
+  const base = playerName; let suffix = 2;
+  while(usados.some(used => used.toLowerCase() === playerName.toLowerCase())) playerName = base.slice(0,13) + ' ' + suffix++;
+  return playerName;
 }
-try{ $('inName').value = localStorage.getItem('guinote-nombre') || ''; }catch(e){}
-const nombreSala = () => `${pick(CIUDADES)} ${pick(TIEMPOS)}`;
-const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+try{ byId('inName').value = localStorage.getItem('guinote-nombre') || ''; }catch(error){}
+const nombreSala = () => `${pickRandom(CIUDADES)} ${pickRandom(TIEMPOS)}`;
+const escapeHtml = text => String(text).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 const HORA = 3600e3;   // duración máxima de una sala
-const purge = c => { remove(ref(db,`rooms/${c}`)).catch(()=>{}); remove(ref(db,`lobby/${c}`)).catch(()=>{}); };
-const lobbyErr = t => $('err').textContent = t;
-async function hash(p, c){
-  if(!p) return null;
+const purge = code => { remove(ref(database,`rooms/${code}`)).catch(()=>{}); remove(ref(database,`lobby/${code}`)).catch(()=>{}); };
+const lobbyErr = message => byId('err').textContent = message;
+async function hash(password, code){
+  if(!password) return null;
   try{
-    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('guinote:' + c + ':' + p));
-    return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('');
-  }catch(e){ return 'p:' + btoa(unescape(encodeURIComponent(p))); }   // contexto no seguro (http)
+    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('guinote:' + code + ':' + password));
+    return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
+  }catch(error){ return 'p:' + btoa(unescape(encodeURIComponent(password))); }   // contexto no seguro (http)
 }
 
 
 function watchLobby(){
-  if(state.unLobby || !db) return;
-  state.unLobby = onValue(ref(db,'lobby'), snap => {
-    const all = snap.val() || {}, now = Date.now();
-    Object.entries(all).filter(([,r]) => now - r.t >= HORA).forEach(([c]) => purge(c));
-    const list = Object.entries(all).filter(([,r]) => now - r.t < HORA).sort((a,b) => b[1].t - a[1].t);
-    state.hayLock = list.some(([,r]) => r.lock); if($('seatsBox').children.length) updPass();
-    $('rooms').innerHTML = list.length ? list.map(([c,r]) => {
-      const {np = 2, n = 1, name = 'Sala', s: occ = '1000', c0 = 'azul'} = r, full = n >= np, min = Math.max(1, Math.round((now - r.t)/60000));
-      const info = `<span><b>${esc(name)}</b><i>(${esc(c)})</i><small>${np === 4 ? '4 jugadores' : '2 jugadores'} (${n}/${np}) · ${r.mode === 'rapida' ? 'Rápida' : 'Normal · ' + REGLAS.meta} · ${r.lock ? '🔒 con contraseña' : 'abierta'} · hace ${min} min</small></span>`;
-      if(np === 4){
-        const free = t => [t, t + 2].filter(i => occ[i] !== '1').length;
-        const tb = t => { const col = colorOf(t, c0), f = free(t);
-          return `<button type="button" class="tb tc-${col}" data-team="${col}" ${f ? '' : 'disabled'}>${cap(col)} · ${f ? f + (f > 1 ? ' libres' : ' libre') : 'completo'}</button>`; };
-        return `<div class="room room4" data-c="${esc(c)}">${info}<span class="tbs">${tb(0)}${tb(1)}</span></div>`;
+  if(state.unLobby || !database) return;
+  state.unLobby = onValue(ref(database,'lobby'), snapshot => {
+    const all = snapshot.val() || {}, now = Date.now();
+    Object.entries(all).filter(([,lobbyEntry]) => now - lobbyEntry.createdAt >= HORA).forEach(([code]) => purge(code));
+    const list = Object.entries(all).filter(([,lobbyEntry]) => now - lobbyEntry.createdAt < HORA).sort((first,second) => second[1].createdAt - first[1].createdAt);
+    state.hayLock = list.some(([,lobbyEntry]) => lobbyEntry.locked); if(byId('seatsBox').children.length) updatePasswordInput();
+    byId('rooms').innerHTML = list.length ? list.map(([code,lobbyEntry]) => {
+      const {playerCount = 2, seatedCount = 1, name = 'Sala', occupiedSeats = '1000', firstTeamColor = 'azul'} = lobbyEntry, full = seatedCount >= playerCount, minutes = Math.max(1, Math.round((now - lobbyEntry.createdAt)/60000));
+      const info = `<span><b>${escapeHtml(name)}</b><i>(${escapeHtml(code)})</i><small>${playerCount === 4 ? '4 jugadores' : '2 jugadores'} (${seatedCount}/${playerCount}) · ${lobbyEntry.mode === 'rapida' ? 'Rápida' : 'Normal · ' + REGLAS.meta} · ${lobbyEntry.locked ? '🔒 con contraseña' : 'abierta'} · hace ${minutes} min</small></span>`;
+      if(playerCount === 4){
+        const free = teamIndex => [teamIndex, teamIndex + 2].filter(index => occupiedSeats[index] !== '1').length;
+        const teamButtonHtml = teamIndex => { const col = colorOf(teamIndex, firstTeamColor), freeSeats = free(teamIndex);
+          return `<button type="button" class="tb tc-${col}" data-team="${col}" ${freeSeats ? '' : 'disabled'}>${capitalize(col)} · ${freeSeats ? freeSeats + (freeSeats > 1 ? ' libres' : ' libre') : 'completo'}</button>`; };
+        return `<div class="room room4" data-code="${escapeHtml(code)}">${info}<span class="tbs">${teamButtonHtml(0)}${teamButtonHtml(1)}</span></div>`;
       }
-      return `<button class="room" data-c="${esc(c)}" ${full ? 'disabled' : ''}>${info}<span>${full ? 'En juego' : 'Unirse'}</span></button>`;
+      return `<button class="room" data-code="${escapeHtml(code)}" ${full ? 'disabled' : ''}>${info}<span>${full ? 'En juego' : 'Unirse'}</span></button>`;
     }).join('') : '<em>No hay salas ahora mismo. Crea una.</em>';
   }, () => lobbyErr('No se pudo leer la lista de salas (revisa las reglas de la base de datos).'));
 }
 function unwatchLobby(){ if(state.unLobby) state.unLobby(); state.unLobby = null; }
 
-const npSel = () => +checked('np');
-const seatBots = np => range(np - 1).map(i => checked(`seat${i+1}`) !== 'humano');   // asientos 1..np-1: true = bot
+const selectedPlayerCount = () => +checked('np');
+const seatBots = playerCount => range(playerCount - 1).map(index => checked(`seat${index+1}`) !== 'humano');   // asientos 1..playerCount-1: true = bot
 function buildSeats(){
-  const np = npSel();
-  const lab = i => np === 4 ? (i === 2 ? 'tu pareja' : 'rival') : 'rival';
-  $('seatsBox').innerHTML = range(np - 1).map(k => { const i = k + 1;
-    return `<div class="seatrow"><div class="sl">Jugador ${i + 1}<small>${lab(i)}</small></div><div class="modes">
-      <label><input type="radio" name="seat${i}" value="bot" checked><span>🤖 Bot</span></label>
-      <label><input type="radio" name="seat${i}" value="humano"><span>👤 Humano</span></label></div></div>`; }).join('');
-  $('seatsBox').querySelectorAll('input').forEach(x => x.addEventListener('change', updCrear));
-  $('tcBox').hidden = np !== 4; updCrear();
+  const playerCount = selectedPlayerCount();
+  const seatLabel = index => playerCount === 4 ? (index === 2 ? 'tu pareja' : 'rival') : 'rival';
+  byId('seatsBox').innerHTML = range(playerCount - 1).map(offset => { const index = offset + 1;
+    return `<div class="seatrow"><div class="sl">Jugador ${index + 1}<small>${seatLabel(index)}</small></div><div class="modes">
+      <label><input type="radio" name="seat${index}" value="bot" checked><span>🤖 Bot</span></label>
+      <label><input type="radio" name="seat${index}" value="humano"><span>👤 Humano</span></label></div></div>`; }).join('');
+  byId('seatsBox').querySelectorAll('input').forEach(input => input.addEventListener('change', updateCreateButton));
+  byId('tcBox').hidden = playerCount !== 4; updateCreateButton();
 }
 
-function updPass(){
-  const allBot = seatBots(npSel()).every(Boolean), on = !allBot || state.hayLock, pi = $('inPass');
-  pi.disabled = !on;
-  pi.placeholder = on ? 'Contraseña' : 'Contraseña (no necesaria)';
+function updatePasswordInput(){
+  const allBot = seatBots(selectedPlayerCount()).every(Boolean), enabled = !allBot || state.hayLock, passwordInput = byId('inPass');
+  passwordInput.disabled = !enabled;
+  passwordInput.placeholder = enabled ? 'Contraseña' : 'Contraseña (no necesaria)';
 }
-function updCrear(){
-  const np = npSel(), allBot = seatBots(np).every(Boolean);
-  updPass();
-  $('bCrear').textContent = allBot ? (np === 2 ? 'Jugar contra el bot' : 'Jugar con bots') : 'Crear sala';
+function updateCreateButton(){
+  const playerCount = selectedPlayerCount(), allBot = seatBots(playerCount).every(Boolean);
+  updatePasswordInput();
+  byId('bCrear').textContent = allBot ? (playerCount === 2 ? 'Jugar contra el bot' : 'Jugar con bots') : 'Crear sala';
 }
-document.querySelectorAll('input[name=np]').forEach(i => i.addEventListener('change', buildSeats));
+document.querySelectorAll('input[name=np]').forEach(radio => radio.addEventListener('change', buildSeats));
 buildSeats();
 function assignBots(seatList, used){                       // nombre automático y marca de bot para cada asiento
   const names = {}, bots = {};
-  seatList.forEach(i => { const n = nombreAuto(used); used.push(n); names[i] = '🤖 ' + n; bots[i] = true; });
+  seatList.forEach(index => { const botName = nombreAuto(used); used.push(botName); names[index] = '🤖 ' + botName; bots[index] = true; });
   return {names, bots};
 }
-$('bCrear').addEventListener('click', async () => {
-  const np = npSel(), bots = seatBots(np), botSeats = range(np - 1).filter(i => bots[i]).map(i => i + 1);
-  if(botSeats.length === np - 1) return jugarBot(np, botSeats);          // todos bots: partida state.local, sin base de datos
+byId('bCrear').addEventListener('click', async () => {
+  const playerCount = selectedPlayerCount(), bots = seatBots(playerCount), botSeats = range(playerCount - 1).filter(index => bots[index]).map(index => index + 1);
+  if(botSeats.length === playerCount - 1) return jugarBot(playerCount, botSeats);          // todos bots: partida state.local, sin base de datos
   try{
     lobbyErr('');
-    do{ state.code = rnd(); } while((await get(ref(db,`rooms/${state.code}`))).exists());
-    state.me = 0;
-    const mode = checked('mode'), tc = np === 4 ? checked('tc') : 'azul';
-    const pw = await hash($('inPass').value, state.code), name = nombreSala(), yo = miNombre([]);
-    const {names: bn, bots: bm} = assignBots(botSeats, [yo]), p = {}, names = {0:yo, ...bn};
-    [0, ...botSeats].forEach(i => p[i] = Date.now());
-    const room = {p, mode, name, np, c0:tc, names};
-    if(botSeats.length) room.bots = bm;
-    if(pw) room.pw = pw;
-    await set(ref(db,`rooms/${state.code}`), room);
-    await set(ref(db,`lobby/${state.code}`), {t:Date.now(), lock:!!pw, n:seats(room), mode, name, np, c0:tc, s:np === 4 ? seatMask(p) : null});
+    do{ state.code = randomRoomCode(); } while((await get(ref(database,`rooms/${state.code}`))).exists());
+    state.mySeat = 0;
+    const mode = checked('mode'), teamColor = playerCount === 4 ? checked('tc') : 'azul';
+    const passwordHash = await hash(byId('inPass').value, state.code), name = nombreSala(), ownName = miNombre([]);
+    const {names: botNames, bots: botMarks} = assignBots(botSeats, [ownName]), players = {}, names = {0:ownName, ...botNames};
+    [0, ...botSeats].forEach(index => players[index] = Date.now());
+    const room = {players, mode, name, playerCount, firstTeamColor: teamColor, names};
+    if(botSeats.length) room.bots = botMarks;
+    if(passwordHash) room.passwordHash = passwordHash;
+    await set(ref(database,`rooms/${state.code}`), room);
+    await set(ref(database,`lobby/${state.code}`), {createdAt:Date.now(), locked:!!passwordHash, seatedCount:seats(room), mode, name, playerCount, firstTeamColor:teamColor, occupiedSeats:playerCount === 4 ? seatMask(players) : null});
     enter();
-  }catch(e){ console.error(e); lobbyErr(FB_ERR); }
+  }catch(error){ console.error(error); lobbyErr(FB_ERR); }
 });
 
-async function unirse(c, color = 'any'){
+async function unirse(code, color = 'any'){
   try{
-    lobbyErr(''); state.code = (c || '').trim().toUpperCase();
+    lobbyErr(''); state.code = (code || '').trim().toUpperCase();
     if(state.code.length !== REGLAS.longCodigo) return lobbyErr(`Escribe el código de ${REGLAS.longCodigo} letras.`);
-    const s = await get(ref(db,`rooms/${state.code}`));
-    if(!s.exists()) return lobbyErr('Esa sala no existe.');
-    const r = normRoom(s.val()), np = r.np;
-    if(seats(r) >= np) return lobbyErr('La sala ya está completa.');
-    if(r.pw){
-      const pass = $('inPass').value;
-      if(!pass){ $('inPass').focus(); return lobbyErr(`La sala ${state.code} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`); }
-      if(await hash(pass, state.code) !== r.pw){ $('inPass').focus(); return lobbyErr('Contraseña incorrecta.'); }
+    const snapshot = await get(ref(database,`rooms/${state.code}`));
+    if(!snapshot.exists()) return lobbyErr('Esa sala no existe.');
+    const room = normRoom(snapshot.val()), playerCount = room.playerCount;
+    if(seats(room) >= playerCount) return lobbyErr('La sala ya está completa.');
+    if(room.passwordHash){
+      const enteredPassword = byId('inPass').value;
+      if(!enteredPassword){ byId('inPass').focus(); return lobbyErr(`La sala ${state.code} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`); }
+      if(await hash(enteredPassword, state.code) !== room.passwordHash){ byId('inPass').focus(); return lobbyErr('Contraseña incorrecta.'); }
     }
-    let seat = -1, cand = range(np);
-    if(np === 4 && color !== 'any'){ const t = color === r.c0 ? 0 : 1; cand = [t, t + 2]; }   // asientos de ese equipo
-    const tr = await runTransaction(ref(db,`rooms/${state.code}/p`), cur => {     // primer asiento libre
-      seat = -1; const p = {...(cur || {})};
-      for(const i of cand) if(!p[i]){ seat = i; p[i] = Date.now(); return p; }
+    let seat = -1, candidateSeats = range(playerCount);
+    if(playerCount === 4 && color !== 'any'){ const teamIndex = color === room.firstTeamColor ? 0 : 1; candidateSeats = [teamIndex, teamIndex + 2]; }   // asientos de ese equipo
+    const transaction = await runTransaction(ref(database,`rooms/${state.code}/players`), currentPlayers => {     // primer asiento libre
+      seat = -1; const players = {...(currentPlayers || {})};
+      for(const index of candidateSeats) if(!players[index]){ seat = index; players[index] = Date.now(); return players; }
     });
-    if(!tr.committed || seat < 0) return lobbyErr(np === 4 && color !== 'any' ? `El equipo ${color} ya está completo.` : 'La sala ya está completa.');
-    state.me = seat;
-    await set(ref(db,`rooms/${state.code}/names/${seat}`), miNombre(Object.values(r.names).filter(Boolean)));
-    const pv = tr.snapshot.val();
-    await set(ref(db,`lobby/${state.code}/n`), seats({p: pv, np}));
-    if(np === 4) await set(ref(db,`lobby/${state.code}/s`), seatMask(pv));
+    if(!transaction.committed || seat < 0) return lobbyErr(playerCount === 4 && color !== 'any' ? `El equipo ${color} ya está completo.` : 'La sala ya está completa.');
+    state.mySeat = seat;
+    await set(ref(database,`rooms/${state.code}/names/${seat}`), miNombre(Object.values(room.names).filter(Boolean)));
+    const seatsValue = transaction.snapshot.val();
+    await set(ref(database,`lobby/${state.code}/seatedCount`), seats({players: seatsValue, playerCount}));
+    if(playerCount === 4) await set(ref(database,`lobby/${state.code}/occupiedSeats`), seatMask(seatsValue));
     enter();
-  }catch(e){ console.error(e); lobbyErr(FB_ERR); }
+  }catch(error){ console.error(error); lobbyErr(FB_ERR); }
 }
-[$('bAyuda'), $('bAyuda2')].forEach(b => b.addEventListener('click', () => $('ayuda').showModal()));
-$('bAyudaX').addEventListener('click', () => $('ayuda').close());
+[byId('bAyuda'), byId('bAyuda2')].forEach(button => button.addEventListener('click', () => byId('ayuda').showModal()));
+byId('bAyudaX').addEventListener('click', () => byId('ayuda').close());
 // Móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa
-const mq = matchMedia('(max-width:640px)');
+const mobileQuery = matchMedia('(max-width:640px)');
 function placeHud(){
-  const menu = $('menu'), mesa = $('mesa'), topL = $('topL');
-  if(mq.matches){
-    menu.prepend($('room')); menu.append($('bNueva'));
-    $('topR').prepend($('score')); topL.append($('deckInfo'));
-    mesa.insertBefore($('names'), $('row')); mesa.insertBefore($('msg'), $('me'));
+  const menu = byId('menu'), mesa = byId('mesa'), topL = byId('topL');
+  if(mobileQuery.matches){
+    menu.prepend(byId('room')); menu.append(byId('bNueva'));
+    byId('topR').prepend(byId('score')); topL.append(byId('deckInfo'));
+    mesa.insertBefore(byId('names'), byId('row')); mesa.insertBefore(byId('msg'), byId('me'));
   }else{
-    topL.prepend($('room')); $('topR').append($('bNueva'));
-    $('panel').append($('msg'), $('names'), $('score'), $('deckInfo'));
+    topL.prepend(byId('room')); byId('topR').append(byId('bNueva'));
+    byId('panel').append(byId('msg'), byId('names'), byId('score'), byId('deckInfo'));
     menu.classList.remove('open');
   }
 }
-mq.addEventListener('change', placeHud); placeHud();
-$('menuB').addEventListener('click', e => { e.stopPropagation(); $('menu').classList.toggle('open'); });
-$('menu').addEventListener('click', e => { if(e.target.closest('button')) $('menu').classList.remove('open'); });
-document.addEventListener('click', e => { if(!$('menu').contains(e.target)) $('menu').classList.remove('open'); });
-$('ayuda').addEventListener('click', e => { if(e.target === e.currentTarget) e.currentTarget.close(); });
-$('bUnir').addEventListener('click', () => unirse($('inCode').value, checked('tp')));
-$('rooms').addEventListener('click', e => {
-  const t = e.target.closest('[data-team]');
-  if(t){ const row = t.closest('.room'); $('inCode').value = row.dataset.c; return unirse(row.dataset.c, t.dataset.team); }
-  const b = e.target.closest('button.room'); if(b){ $('inCode').value = b.dataset.c; unirse(b.dataset.c); }
+mobileQuery.addEventListener('change', placeHud); placeHud();
+byId('menuB').addEventListener('click', event => { event.stopPropagation(); byId('menu').classList.toggle('open'); });
+byId('menu').addEventListener('click', event => { if(event.target.closest('button')) byId('menu').classList.remove('open'); });
+document.addEventListener('click', event => { if(!byId('menu').contains(event.target)) byId('menu').classList.remove('open'); });
+byId('ayuda').addEventListener('click', event => { if(event.target === event.currentTarget) event.currentTarget.close(); });
+byId('bUnir').addEventListener('click', () => unirse(byId('inCode').value, checked('tp')));
+byId('rooms').addEventListener('click', event => {
+  const teamButton = event.target.closest('[data-team]');
+  if(teamButton){ const row = teamButton.closest('.room'); byId('inCode').value = row.dataset.code; return unirse(row.dataset.code, teamButton.dataset.team); }
+  const button = event.target.closest('button.room'); if(button){ byId('inCode').value = button.dataset.code; unirse(button.dataset.code); }
 });
 
-$('bRe').addEventListener('click', () => {
-  const n = state.G.n; state.seen = new Set(); state.prevTable = '';
-  if(state.local) return state.G.done ? localSave(nextGame(state.G)) : undefined;
-  runTransaction(gref(), cur => {
-    if(cur === null) return cur;
-    cur = normGame(cur);
-    if(!cur.done || cur.n !== n) return;                  // ya lo ha pulsado el otro jugador
-    return nextGame(cur);
+byId('bRe').addEventListener('click', () => {
+  const handNumber = state.game.handNumber; state.seen = new Set(); state.prevTable = '';
+  if(state.local) return state.game.handOver ? localSave(nextGame(state.game)) : undefined;
+  runTransaction(gameRef(), storedGame => {
+    if(storedGame === null) return storedGame;
+    const currentGame = normGame(storedGame);
+    if(!currentGame.handOver || currentGame.handNumber !== handNumber) return;                  // ya lo ha pulsado el otro jugador
+    return nextGame(currentGame);
   }).catch(console.error);
 });
-$('bNueva').addEventListener('click', () => {
-  if(state.G && !state.G.done && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
+byId('bNueva').addEventListener('click', () => {
+  if(state.game && !state.game.handOver && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
   salir();
 });
 function salir(){
   if(state.unsub) state.unsub();
-  clearInterval(state.tmr);
-  if(state.code && !state.G){                                          // la partida no ha empezado
-    if(state.me === 0) purge(state.code);                               // anfitrión: cerrar la sala
-    else if(state.me > 0){                                        // invitado: liberar su asiento
-      remove(ref(db,`rooms/${state.code}/p/${state.me}`)).catch(()=>{});
-      runTransaction(ref(db,`lobby/${state.code}/n`), n => n === null ? n : Math.max(1, n - 1)).catch(()=>{});
-      remove(ref(db,`rooms/${state.code}/names/${state.me}`)).catch(()=>{});
-      const k = state.me; runTransaction(ref(db,`lobby/${state.code}/s`), o => o === null ? o : o.slice(0, k) + '0' + o.slice(k + 1)).catch(()=>{});
+  clearInterval(state.purgeTimer);
+  if(state.code && !state.game){                                          // la partida no ha empezado
+    if(state.mySeat === 0) purge(state.code);                               // anfitrión: cerrar la sala
+    else if(state.mySeat > 0){                                        // invitado: liberar su asiento
+      remove(ref(database,`rooms/${state.code}/players/${state.mySeat}`)).catch(()=>{});
+      runTransaction(ref(database,`lobby/${state.code}/seatedCount`), current => current === null ? current : Math.max(1, current - 1)).catch(()=>{});
+      remove(ref(database,`rooms/${state.code}/names/${state.mySeat}`)).catch(()=>{});
+      const seatIndex = state.mySeat; runTransaction(ref(database,`lobby/${state.code}/occupiedSeats`), oldMask => oldMask === null ? oldMask : oldMask.slice(0, seatIndex) + '0' + oldMask.slice(seatIndex + 1)).catch(()=>{});
     }
   }
   resetSession(); state.unsub = null;
   sessionStorage.removeItem('guinote');
-  document.body.classList.remove('p4'); $('game').hidden = true; $('fin').hidden = true; $('bNueva').hidden = true;
-  $('inCode').value = ''; $('inPass').value = ''; $('err').textContent = '';
-  $('lobby').hidden = false;
+  document.body.classList.remove('p4'); byId('game').hidden = true; byId('fin').hidden = true; byId('bNueva').hidden = true;
+  byId('inCode').value = ''; byId('inPass').value = ''; byId('err').textContent = '';
+  byId('lobby').hidden = false;
   watchLobby();
 }
 
 function enter(){
   unwatchLobby();
-  clearInterval(state.tmr);
-  state.tmr = setInterval(() => { if(state.R && state.R.p[0] && Date.now() - state.R.p[0] >= HORA) purge(state.code); }, 15000);
-  sessionStorage.setItem('guinote', JSON.stringify({code: state.code, me: state.me}));
-  $('lobby').hidden = true; $('game').hidden = false; $('bNueva').hidden = false;
-  $('room').textContent = 'Sala ' + state.code;
-  state.unsub = onValue(ref(db,`rooms/${state.code}`), snap => {
-    if(snap.val() === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
-    state.R = normRoom(snap.val()); state.G = normGame(state.R.g || null);
-    $('room').textContent = state.R.name ? `${state.R.name} (${state.code})` : 'Sala ' + state.code;
-    if(state.R.p[0] && Date.now() - state.R.p[0] >= HORA) purge(state.code);
-    if(!state.G && state.me === 0 && seats(state.R) >= state.R.np) return save(newGame(1, state.R.mode, [0,0], 1, state.R.np));   // el que no reparte empieza (mano = jugador 1)
+  clearInterval(state.purgeTimer);
+  state.purgeTimer = setInterval(() => { if(state.room && state.room.players[0] && Date.now() - state.room.players[0] >= HORA) purge(state.code); }, 15000);
+  sessionStorage.setItem('guinote', JSON.stringify({code: state.code, seat: state.mySeat}));
+  byId('lobby').hidden = true; byId('game').hidden = false; byId('bNueva').hidden = false;
+  byId('room').textContent = 'Sala ' + state.code;
+  state.unsub = onValue(ref(database,`rooms/${state.code}`), snapshot => {
+    if(snapshot.val() === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
+    state.room = normRoom(snapshot.val()); state.game = normGame(state.room.game || null);
+    byId('room').textContent = state.room.name ? `${state.room.name} (${state.code})` : 'Sala ' + state.code;
+    if(state.room.players[0] && Date.now() - state.room.players[0] >= HORA) purge(state.code);
+    if(!state.game && state.mySeat === 0 && seats(state.room) >= state.room.playerCount) return save(newGame(1, state.room.mode, [0,0], 1, state.room.playerCount));   // el que no reparte empieza (mano = jugador 1)
     afterState();
   });
 }
 const saved = JSON.parse(sessionStorage.getItem('guinote') || 'null');
-if(saved && db){ state.code = saved.code; state.me = saved.me; enter(); }
+if(saved && database){ state.code = saved.code; state.mySeat = saved.seat; enter(); }
 else watchLobby();
 
 /* ---- Lógica de turnos ---- */
-const myTurn = seat => state.G && !state.G.done && state.G.turn === seat && state.G.table.length < state.G.np;
+const myTurn = seat => state.game && !state.game.handOver && state.game.turn === seat && state.game.table.length < state.game.playerCount;
 
-function winnerOf(t, trump = state.G.trump){                  // carta que va ganando la baza
-  let b = t[0];
-  for(const x of t.slice(1)){
-    if(suit(x.c) === suit(b.c)){ if(strength(x.c) > strength(b.c)) b = x; }
-    else if(suit(x.c) === trump) b = x;
+function winnerOf(trick, trump = state.game.trump){                  // carta que va ganando la baza
+  let best = trick[0];
+  for(const entry of trick.slice(1)){
+    if(suit(entry.card) === suit(best.card)){ if(strength(entry.card) > strength(best.card)) best = entry; }
+    else if(suit(entry.card) === trump) best = entry;
   }
-  return b;
+  return best;
 }
 
 const mustBeat = (cards, best) => {                    // las que superan a best, o todas si ninguna supera
-  const hi = cards.filter(x => strength(x) > strength(best));
-  return hi.length ? hi : cards;
+  const higher = cards.filter(card => strength(card) > strength(best));
+  return higher.length ? higher : cards;
 };
 /* Cartas jugables de la mano h. Función pura: la usan la interfaz y el bot (incluido su búsqueda de final). */
-function legalCards(h, table, deckLeft, trump, forced){
-  if(!table.length) return forced ? h.filter(c => suit(c) === forced && rank(c) >= 11) : h;
-  if(deckLeft) return h;                                  // sin arrastre: libre
-  const ls = suit(table[0].c), best = winnerOf(table, trump).c;   // arrastre: asistir, superar, fallar con triunfo
-  const follow = s => {
-    const cs = h.filter(x => suit(x) === s);
-    return !cs.length ? null : suit(best) === s ? mustBeat(cs, best) : cs;
+function legalCards(handCards, table, deckLeft, trump, forced){
+  if(!table.length) return forced ? handCards.filter(card => suit(card) === forced && rank(card) >= 11) : handCards;
+  if(deckLeft) return handCards;                                  // sin arrastre: libre
+  const leadSuit = suit(table[0].card), best = winnerOf(table, trump).card;   // arrastre: asistir, superar, fallar con triunfo
+  const follow = suitName => {
+    const suitCards = handCards.filter(card => suit(card) === suitName);
+    return !suitCards.length ? null : suit(best) === suitName ? mustBeat(suitCards, best) : suitCards;
   };
-  return follow(ls) || follow(trump) || h;
+  return follow(leadSuit) || follow(trump) || handCards;
 }
-const legalNow = seat => legalCards(hand(seat), state.G.table, state.G.deck.length, state.G.trump, state.G.forced);
-const legal = (seat, c) => legalNow(seat).includes(c);
+const legalNow = seat => legalCards(hand(seat), state.game.table, state.game.deck.length, state.game.trump, state.game.forced);
+const legal = (seat, card) => legalNow(seat).includes(card);
 
-function play(seat, c){
-  if(!myTurn(seat) || !legal(seat, c)) return;
-  const g = {...state.G, table:[...state.G.table, {p:seat, c}], forced:null, ev:null};
-  g['h'+seat] = hand(seat).filter(x => x !== c);
-  g.turn = state.G.table.length + 1 < state.G.np ? (seat + 1) % state.G.np : -1;
-  save(g);
+function play(seat, card){
+  if(!myTurn(seat) || !legal(seat, card)) return;
+  const game = {...state.game, table:[...state.game.table, {seat, card}], forced:null, lastEvent:null};
+  game['hand'+seat] = hand(seat).filter(handCard => handCard !== card);
+  game.turn = state.game.table.length + 1 < state.game.playerCount ? (seat + 1) % state.game.playerCount : -1;
+  save(game);
 }
 
 function cantes(seat){
-  if(!myTurn(seat) || state.G.table.length || !state.G.won[teamOf(seat)] || state.G.forced) return [];
-  const h = hand(seat);
-  return SUITS.filter(s => h.includes(cid(s,11)) && h.includes(cid(s,12)) && !state.G.sung.split(',').includes(s));
+  if(!myTurn(seat) || state.game.table.length || !state.game.hasWonTrick[teamOf(seat)] || state.game.forced) return [];
+  const handCards = hand(seat);
+  return SUITS.filter(suitName => handCards.includes(cardId(suitName,11)) && handCards.includes(cardId(suitName,12)) && !state.game.sung.split(',').includes(suitName));
 }
-function cantar(seat, s){
-  const n = s === state.G.trump ? REGLAS.canteTriunfo : REGLAS.cante, g = {...state.G, pts:[...state.G.pts], forced:s, sung:state.G.sung + s + ',', ev:{t:'cante', p:seat, s, n}};
-  g.pts[teamOf(seat)] += n; save(g);
+function cantar(seat, suitName){
+  const singPoints = suitName === state.game.trump ? REGLAS.canteTriunfo : REGLAS.cante, game = {...state.game, handPoints:[...state.game.handPoints], forced:suitName, sung:state.game.sung + suitName + ',', lastEvent:{type:'cante', seat, suit: suitName, points: singPoints}};
+  game.handPoints[teamOf(seat)] += singPoints; save(game);
 }
 function canCambiar(seat){
-  return myTurn(seat) && !state.G.table.length && state.G.won[teamOf(seat)] && state.G.deck.length >= REGLAS.minMazoCambio &&
-         hand(seat).includes(cid(state.G.trump,7)) && state.G.trumpCard !== cid(state.G.trump,7);
+  return myTurn(seat) && !state.game.table.length && state.game.hasWonTrick[teamOf(seat)] && state.game.deck.length >= REGLAS.minMazoCambio &&
+         hand(seat).includes(cardId(state.game.trump,7)) && state.game.trumpCard !== cardId(state.game.trump,7);
 }
 function cambiar(seat){
-  const s7 = cid(state.G.trump,7), deck = [...state.G.deck]; deck[deck.length-1] = s7;
-  const g = {...state.G, deck, trumpCard:s7, ev:{t:'cambio', p:seat}};
-  g['h'+seat] = hand(seat).map(x => x === s7 ? state.G.trumpCard : x); save(g);
+  const sevenOfTrump = cardId(state.game.trump,7), deck = [...state.game.deck]; deck[deck.length-1] = sevenOfTrump;
+  const game = {...state.game, deck, trumpCard:sevenOfTrump, lastEvent:{type:'cambio', seat}};
+  game['hand'+seat] = hand(seat).map(card => card === sevenOfTrump ? state.game.trumpCard : card); save(game);
 }
 
 /* Solo el anfitrión (jugador 0) resuelve la baza */
 function resolve(){
   state.resolving = false;
-  if(!state.G || state.G.table.length !== state.G.np) return;
-  const np = state.G.np, w = winnerOf(state.G.table).p, T = teamOf(w);
-  const deck = [...state.G.deck], n = state.G.table.reduce((a,t) => a + points(t.c), 0);
-  const g = {...state.G, table:[], deck, turn:w, pts:[...state.G.pts], won:[...state.G.won], tk:[...state.G.tk], forced:null, played:[...state.G.played, ...state.G.table.map(t => t.c)], ev:{t:'baza', p:w, n}};
-  g.pts[T] += n; g.won[T] = true; g.tk[T]++;
-  if(deck.length) for(let i = 0; i < np; i++){ const x = (w + i) % np; g['h'+x] = [...hand(x), deck.shift()]; }   // roba primero el ganador
-  g.deck = deck;
-  if(range(np).every(x => !hand(x,g).length)){
-    g.pts[T] += REGLAS.ultimas; g.done = true; g.ev.u = true;
-    if(state.G.mode === 'normal'){
-      const t = [...state.G.tot]; t[0] += g.pts[0]; t[1] += g.pts[1]; g.tot = t;
-      g.fin = Math.max(t[0], t[1]) >= REGLAS.meta && t[0] !== t[1];       // si empatan a 101 o más, otra mano
-    }else g.fin = true;
+  if(!state.game || state.game.table.length !== state.game.playerCount) return;
+  const playerCount = state.game.playerCount, winnerSeat = winnerOf(state.game.table).seat, winningTeam = teamOf(winnerSeat);
+  const deck = [...state.game.deck], trickPoints = state.game.table.reduce((total,entry) => total + points(entry.card), 0);
+  const game = {...state.game, table:[], deck, turn:winnerSeat, handPoints:[...state.game.handPoints], hasWonTrick:[...state.game.hasWonTrick], tricksTaken:[...state.game.tricksTaken], forced:null, played:[...state.game.played, ...state.game.table.map(entry => entry.card)], lastEvent:{type:'baza', seat:winnerSeat, points: trickPoints}};
+  game.handPoints[winningTeam] += trickPoints; game.hasWonTrick[winningTeam] = true; game.tricksTaken[winningTeam]++;
+  if(deck.length) for(let index = 0; index < playerCount; index++){ const seatIndex = (winnerSeat + index) % playerCount; game['hand'+seatIndex] = [...hand(seatIndex), deck.shift()]; }   // roba primero el ganador
+  game.deck = deck;
+  if(range(playerCount).every(seatIndex => !hand(seatIndex,game).length)){
+    game.handPoints[winningTeam] += REGLAS.ultimas; game.handOver = true; game.lastEvent.lastTrickBonus = true;
+    if(state.game.mode === 'normal'){
+      const totals = [...state.game.totalPoints]; totals[0] += game.handPoints[0]; totals[1] += game.handPoints[1]; game.totalPoints = totals;
+      game.matchOver = Math.max(totals[0], totals[1]) >= REGLAS.meta && totals[0] !== totals[1];       // si empatan a 101 o más, otra mano
+    }else game.matchOver = true;
   }
-  save(g);
+  save(game);
 }
 
-/* ---- Bots (state.R.bots = asientos controlados por el bot; los ejecuta el anfitrión) ---- */
-const isBot = s => !!(state.R && state.R.bots && state.R.bots[s]);
+/* ---- Bots (state.room.bots = asientos controlados por el bot; los ejecuta el anfitrión) ---- */
+const isBot = seat => !!(state.room && state.room.bots && state.room.bots[seat]);
 /* Final exacto (2 jugadores, mazo agotado): con las cartas jugadas memorizadas se deduce la mano del rival
    y se resuelve el resto de la mano por búsqueda completa (minimax). Ignora cantes futuros. */
 function botEndgame(seat){
-  if(state.G.np !== 2 || state.G.deck.length) return null;
-  const mine = hand(seat), t0 = state.G.table[0] || null, tr = state.G.trump;
-  const known = new Set([...mine, ...state.G.played, ...state.G.table.map(t => t.c)]);
-  const opp = ALL.filter(c => !known.has(c));
-  if(opp.length !== mine.length - state.G.table.length) return null;          // memoria incompleta: usar la heurística
-  const oppFull = t0 ? [...opp, t0.c] : opp, memo = new Map();
-  const beats = (a,b) => suit(b) === suit(a) ? strength(b) > strength(a) : suit(b) === tr;      // ¿la respuesta b gana a la salida a?
-  const play2 = (hb,ho,lead,a,b) => {                                     // valor (bot − rival) tras jugar la baza a,b
-    const lh = lead === 0 ? hb : ho, oh = lead === 0 ? ho : hb;
-    const w = beats(a,b) ? 1 - lead : lead, p = points(a) + points(b) + (lh.length === 1 ? REGLAS.ultimas : 0);
-    const nl = lh.filter(x => x !== a), no = oh.filter(x => x !== b);
-    return (w === 0 ? p : -p) + (lead === 0 ? solve(nl,no,w) : solve(no,nl,w));
+  if(state.game.playerCount !== 2 || state.game.deck.length) return null;
+  const mine = hand(seat), leadEntry = state.game.table[0] || null, trump = state.game.trump;
+  const known = new Set([...mine, ...state.game.played, ...state.game.table.map(entry => entry.card)]);
+  const rivalCards = ALL.filter(card => !known.has(card));
+  if(rivalCards.length !== mine.length - state.game.table.length) return null;          // memoria incompleta: usar la heurística
+  const rivalCardsWithLead = leadEntry ? [...rivalCards, leadEntry.card] : rivalCards, memo = new Map();
+  const beats = (leadCard,replyCard) => suit(replyCard) === suit(leadCard) ? strength(replyCard) > strength(leadCard) : suit(replyCard) === trump;      // ¿la respuesta b gana a la salida a?
+  const playTrick = (botHand,opponentHand,lead,leadCard,replyCard) => {                                     // valor (bot − rival) tras jugar la baza a,b
+    const leaderHand = lead === 0 ? botHand : opponentHand, otherHand = lead === 0 ? opponentHand : botHand;
+    const winnerSide = beats(leadCard,replyCard) ? 1 - lead : lead, trickPoints = points(leadCard) + points(replyCard) + (leaderHand.length === 1 ? REGLAS.ultimas : 0);
+    const newLeaderHand = leaderHand.filter(card => card !== leadCard), newOtherHand = otherHand.filter(card => card !== replyCard);
+    return (winnerSide === 0 ? trickPoints : -trickPoints) + (lead === 0 ? solve(newLeaderHand,newOtherHand,winnerSide) : solve(newOtherHand,newLeaderHand,winnerSide));
   };
-  function solve(hb,ho,lead){
-    if(!hb.length) return 0;
-    const key = [...hb].sort().join() + '/' + [...ho].sort().join() + lead;
+  function solve(botHand,opponentHand,lead){
+    if(!botHand.length) return 0;
+    const key = [...botHand].sort().join() + '/' + [...opponentHand].sort().join() + lead;
     if(memo.has(key)) return memo.get(key);
-    const lh = lead === 0 ? hb : ho, oh = lead === 0 ? ho : hb;
+    const leaderHand = lead === 0 ? botHand : opponentHand, otherHand = lead === 0 ? opponentHand : botHand;
     let best = lead === 0 ? -1e9 : 1e9;
-    for(const a of lh){
+    for(const leadCard of leaderHand){
       let inner = lead === 0 ? 1e9 : -1e9;
-      for(const b of legalCards(oh, [{c:a}], 0, tr, null)){ const v = play2(hb,ho,lead,a,b); inner = lead === 0 ? Math.min(inner,v) : Math.max(inner,v); }
+      for(const replyCard of legalCards(otherHand, [{card:leadCard}], 0, trump, null)){ const value = playTrick(botHand,opponentHand,lead,leadCard,replyCard); inner = lead === 0 ? Math.min(inner,value) : Math.max(inner,value); }
       best = lead === 0 ? Math.max(best,inner) : Math.min(best,inner);
     }
     memo.set(key,best); return best;
   }
-  const cheap = c => points(c)*2 + (suit(c) === tr ? 14 : 0) + strength(c)/5;     // desempate: gastar lo menos valioso
-  let bestC = null, bestV = -1e9;
-  for(const c of [...legalNow(seat)].sort((x,y) => cheap(x) - cheap(y))){
-    const v = t0 ? play2(mine, oppFull, 1, t0.c, c)
-                 : Math.min(...legalCards(opp, [{c}], 0, tr, null).map(b => play2(mine, opp, 0, c, b)));
-    if(v > bestV){ bestV = v; bestC = c; }
+  const spendCost = card => points(card)*2 + (suit(card) === trump ? 14 : 0) + strength(card)/5;     // desempate: gastar lo menos valioso
+  let bestCard = null, bestValue = -1e9;
+  for(const card of [...legalNow(seat)].sort((cardA,cardB) => spendCost(cardA) - spendCost(cardB))){
+    const value = leadEntry ? playTrick(mine, rivalCardsWithLead, 1, leadEntry.card, card)
+                 : Math.min(...legalCards(rivalCards, [{card}], 0, trump, null).map(replyCard => playTrick(mine, rivalCards, 0, card, replyCard)));
+    if(value > bestValue){ bestValue = value; bestCard = card; }
   }
-  return bestC;
+  return bestCard;
 }
 function botChoose(seat){
-  if(state.G.np === 2 && !state.G.deck.length){ try{ const c = botEndgame(seat); if(c) return c; }catch(e){ console.error(e); } }
-  const h = hand(seat), ok = legalNow(seat), tr = state.G.trump, sung = state.G.sung.split(',');
-  const noTrump = a => { const nt = a.filter(c => suit(c) !== tr); return nt.length ? nt : a; };
+  if(state.game.playerCount === 2 && !state.game.deck.length){ try{ const chosenCard = botEndgame(seat); if(chosenCard) return chosenCard; }catch(error){ console.error(error); } }
+  const handCards = hand(seat), allowed = legalNow(seat), trump = state.game.trump, sung = state.game.sung.split(',');
+  const noTrump = cards => { const nonTrump = cards.filter(card => suit(card) !== trump); return nonTrump.length ? nonTrump : cards; };
   // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+caballo cantable
-  const cost = c => points(c)*2 + (suit(c) === tr ? 14 : 0) + strength(c)/5 +
-    (rank(c) >= 11 && h.includes(cid(suit(c), rank(c) === 11 ? 12 : 11)) && !sung.includes(suit(c)) ? 6 : 0);
-  const cheapest = a => a.reduce((m,c) => cost(c) < cost(m) ? c : m);
-  if(state.G.table.length === 0){
-    if(state.G.forced || state.G.deck.length) return cheapest(ok);                // salir con lo más barato
-    return noTrump(ok).reduce((m,c) => strength(c) > strength(m) ? c : m);      // arrastre: la carta más fuerte
+  const cost = card => points(card)*2 + (suit(card) === trump ? 14 : 0) + strength(card)/5 +
+    (rank(card) >= 11 && handCards.includes(cardId(suit(card), rank(card) === 11 ? 12 : 11)) && !sung.includes(suit(card)) ? 6 : 0);
+  const cheapest = cards => cards.reduce((currentBest,card) => cost(card) < cost(currentBest) ? card : currentBest);
+  if(state.game.table.length === 0){
+    if(state.game.forced || state.game.deck.length) return cheapest(allowed);                // salir con lo más barato
+    return noTrump(allowed).reduce((currentBest,card) => strength(card) > strength(currentBest) ? card : currentBest);      // arrastre: la carta más fuerte
   }
-  const cur = winnerOf(state.G.table), bc = cur.c, pts = state.G.table.reduce((a,t) => a + points(t.c), 0);
-  if(state.G.np === 4 && teamOf(cur.p) === teamOf(seat)){                            // la pareja va ganando la baza
-    if(state.G.table.length < 3 || state.G.deck.length === 0) return cheapest(ok);
-    return noTrump(ok).reduce((m,c) => points(c) > points(m) || (points(c) === points(m) && cost(c) < cost(m)) ? c : m);
+  const currentWinner = winnerOf(state.game.table), bestCard = currentWinner.card, tablePoints = state.game.table.reduce((total,entry) => total + points(entry.card), 0);
+  if(state.game.playerCount === 4 && teamOf(currentWinner.seat) === teamOf(seat)){                            // la pareja va ganando la baza
+    if(state.game.table.length < 3 || state.game.deck.length === 0) return cheapest(allowed);
+    return noTrump(allowed).reduce((currentBest,card) => points(card) > points(currentBest) || (points(card) === points(currentBest) && cost(card) < cost(currentBest)) ? card : currentBest);
   }
-  const beats = c => suit(c) === suit(bc) ? strength(c) > strength(bc) : suit(c) === tr && suit(bc) !== tr;
-  const win = ok.filter(beats);
-  if(state.G.deck.length === 0) return win.length ? cheapest(win) : cheapest(ok);   // en el arrastre ok ya cumple las obligaciones
-  if(win.length){
-    const w = cheapest(win), fallo = suit(w) === tr && suit(bc) !== tr;
-    if(!fallo || pts >= 10 || (pts >= 3 && points(w) === 0)) return w;          // no gastar triunfos por bazas sin valor
+  const beats = card => suit(card) === suit(bestCard) ? strength(card) > strength(bestCard) : suit(card) === trump && suit(bestCard) !== trump;
+  const winningCards = allowed.filter(beats);
+  if(state.game.deck.length === 0) return winningCards.length ? cheapest(winningCards) : cheapest(allowed);   // en el arrastre ok ya cumple las obligaciones
+  if(winningCards.length){
+    const cheapestWinner = cheapest(winningCards), isRuff = suit(cheapestWinner) === trump && suit(bestCard) !== trump;
+    if(!isRuff || tablePoints >= 10 || (tablePoints >= 3 && points(cheapestWinner) === 0)) return cheapestWinner;          // no gastar triunfos por bazas sin valor
   }
-  return cheapest(ok);
+  return cheapest(allowed);
 }
 function botStep(seat){
-  if(state.G.table.length === 0 && !state.G.forced){
+  if(state.game.table.length === 0 && !state.game.forced){
     if(canCambiar(seat)) return cambiar(seat);
-    const cs = cantes(seat);
-    if(cs.length) return cantar(seat, cs.includes(state.G.trump) ? state.G.trump : cs[0]);
+    const singableSuits = cantes(seat);
+    if(singableSuits.length) return cantar(seat, singableSuits.includes(state.game.trump) ? state.game.trump : singableSuits[0]);
   }
   play(seat, botChoose(seat));
 }
-const botHost = () => state.local || state.me === 0;
-function botMove(){ if(state.G && !state.G.done && isBot(state.G.turn) && state.G.table.length < state.G.np) botStep(state.G.turn); }
+const botHost = () => state.local || state.mySeat === 0;
+function botMove(){ if(state.game && !state.game.handOver && isBot(state.game.turn) && state.game.table.length < state.game.playerCount) botStep(state.game.turn); }
 function botTick(){
-  if(!state.G || state.G.done || !botHost() || !isBot(state.G.turn) || state.G.table.length >= state.G.np || state.botBusy) return;
+  if(!state.game || state.game.handOver || !botHost() || !isBot(state.game.turn) || state.game.table.length >= state.game.playerCount || state.botBusy) return;
   state.botBusy = true;
   state.botTimer = setTimeout(() => { state.botBusy = false; botMove(); }, REGLAS.botMinMs + Math.random()*REGLAS.botExtraMs);
 }
 function afterState(){
   render();
-  if(state.G && state.me === 0 && state.G.table.length === state.G.np && !state.resolving){ state.resolving = true; state.resolveTimer = setTimeout(resolve, REGLAS.resolverMs); }
+  if(state.game && state.mySeat === 0 && state.game.table.length === state.game.playerCount && !state.resolving){ state.resolving = true; state.resolveTimer = setTimeout(resolve, REGLAS.resolverMs); }
   botTick();
 }
-function jugarBot(np = 2, botSeats = [1]){
+function jugarBot(playerCount = 2, botSeats = [1]){
   lobbyErr('');
-  const mode = checked('mode'), yo = miNombre([]), c0 = np === 4 ? checked('tc') : 'azul';
-  unwatchLobby(); clearInterval(state.tmr);
-  resetSession(); Object.assign(state, {local: true, me: 0});
-  const p = {}, {names: bn, bots} = assignBots(botSeats, [yo]);
-  range(np).forEach(i => p[i] = Date.now());
-  state.R = {np, mode, name: np === 2 ? 'Contra el bot' : 'Con bots', c0, p, names: {0:yo, ...bn}, bots};
-  state.G = newGame(1, mode, [0,0], 1, np);
-  $('lobby').hidden = true; $('game').hidden = false; $('bNueva').hidden = false;
-  $('room').textContent = state.R.name;
+  const mode = checked('mode'), ownName = miNombre([]), firstColor = playerCount === 4 ? checked('tc') : 'azul';
+  unwatchLobby(); clearInterval(state.purgeTimer);
+  resetSession(); Object.assign(state, {local: true, mySeat: 0});
+  const players = {}, {names: botNames, bots} = assignBots(botSeats, [ownName]);
+  range(playerCount).forEach(index => players[index] = Date.now());
+  state.room = {playerCount, mode, name: playerCount === 2 ? 'Contra el bot' : 'Con bots', firstTeamColor: firstColor, players, names: {0:ownName, ...botNames}, bots};
+  state.game = newGame(1, mode, [0,0], 1, playerCount);
+  byId('lobby').hidden = true; byId('game').hidden = false; byId('bNueva').hidden = false;
+  byId('room').textContent = state.room.name;
   afterState();
 }
 
 /* ============ RENDER ============ */
-const isTf = c => state.G && suit(c) === state.G.trump;
+const isTf = card => state.game && suit(card) === state.game.trump;
 // Carta boca arriba; las de triunfo van en un <div> para poder llevar marco y estrella
-const face = (c, cl, attrs='') => isTf(c)
-  ? `<div class="card ${cl} tf" ${attrs}><img src="cartas/${c}.webp" draggable="false" alt="${c}"></div>`
-  : `<img class="card ${cl}" ${attrs} src="cartas/${c}.webp" draggable="false" alt="${c}">`;
-const cardImg = (c, cl='') => face(c, cl, `data-c="${c}"`);
-const back = (cl='', attrs='') => `<img class="card ${cl}" ${attrs} src="cartas/reverso.webp" draggable="false" alt="">`;
+const face = (card, className, attrs='', ext=CARD_EXT) => isTf(card)
+  ? `<div class="card ${className} tf" ${attrs}><img src="cartas/${card}.${ext}" draggable="false" alt="${card}"></div>`
+  : `<img class="card ${className}" ${attrs} src="cartas/${card}.${ext}" draggable="false" alt="${card}">`;
+const cardImg = (card, className='') => face(card, className, `data-card="${card}"`);
+const back = (className='', attrs='', ext=CARD_EXT) => `<img class="card ${className}" ${attrs} src="cartas/reverso.${ext}" draggable="false" alt="">`;
 
-function setMsg(st, cls = '', ev = '', evCls = '', hint = ''){
-  $('st').textContent = st; $('st').className = 'st ' + cls;
-  const e = $('ev'), changed = e.textContent !== ev;
-  e.textContent = ev; e.className = 'ev ' + evCls + (changed && ev ? ' pop' : '');
-  $('hint').textContent = hint;
+function setMsg(statusText, statusClass = '', eventText = '', eventClass = '', hint = ''){
+  byId('st').textContent = statusText; byId('st').className = 'st ' + statusClass;
+  const eventElement = byId('ev'), changed = eventElement.textContent !== eventText;
+  eventElement.textContent = eventText; eventElement.className = 'ev ' + eventClass + (changed && eventText ? ' pop' : '');
+  byId('hint').textContent = hint;
 }
-function evText(e){
-  if(!e) return '';
-  const y = e.p === state.me, nm = nameOf(e.p) + (state.G.np === 4 && !y && teamOf(e.p) === teamOf(state.me) ? ' (tu pareja)' : '');
-  if(e.t === 'baza') return `${y ? 'Te llevas' : nm + ' se lleva'} la baza (${e.n} puntos)` + (e.u ? ' y las diez de últimas' : '');
-  if(e.t === 'cante') return `${y ? 'Cantas' : nm + ' canta'} las ${e.n} en ${e.s}`;
-  if(e.t === 'cambio') return `${y ? 'Cambias' : nm + ' cambia'} el siete de triunfo`;
+function evText(gameEvent){
+  if(!gameEvent) return '';
+  const isMine = gameEvent.seat === state.mySeat, displayName = nameOf(gameEvent.seat) + (state.game.playerCount === 4 && !isMine && teamOf(gameEvent.seat) === teamOf(state.mySeat) ? ' (tu pareja)' : '');
+  if(gameEvent.type === 'baza') return `${isMine ? 'Te llevas' : displayName + ' se lleva'} la baza (${gameEvent.points} puntos)` + (gameEvent.lastTrickBonus ? ' y las diez de últimas' : '');
+  if(gameEvent.type === 'cante') return `${isMine ? 'Cantas' : displayName + ' canta'} las ${gameEvent.points} en ${gameEvent.suit}`;
+  if(gameEvent.type === 'cambio') return `${isMine ? 'Cambias' : displayName + ' cambia'} el siete de triunfo`;
   return '';
 }
 
-const backs = h => h.map(() => back()).join('');
+const backs = handCards => handCards.map(() => back()).join('');
 
 function renderWaiting(){
-  if(!state.R) return;
-  const np = state.R.np, n = seats(state.R), cnt = t => [t, t + 2].filter(i => state.R.p[i]).length;
-  setMsg(np === 4 ? `Esperando jugadores (${n}/4)…` : 'Esperando rival…', 'wait', '', '',
-    np === 4 ? `Tu equipo: ${colorOf(teamOf(state.me))} · ${colorOf(0)} ${cnt(0)}/2 · ${colorOf(1)} ${cnt(1)}/2 · Código ${state.code}` : `Comparte el código ${state.code}`);
-  $('names').innerHTML = range(np).filter(i => state.R.p[i]).map(i =>
-    `<span class="pn${i === state.me ? ' on' : ''}" data-tc="${colorOf(teamOf(i))}"><i class="dot"></i>${esc(nameOf(i))}${i === state.me ? ' (tú)' : ''}</span>`).join('');
-  $('score').textContent = ''; $('deckInfo').textContent = '';
+  if(!state.room) return;
+  const playerCount = state.room.playerCount, seatedCount = seats(state.room), seatedInTeam = teamIndex => [teamIndex, teamIndex + 2].filter(index => state.room.players[index]).length;
+  setMsg(playerCount === 4 ? `Esperando jugadores (${seatedCount}/4)…` : 'Esperando rival…', 'wait', '', '',
+    playerCount === 4 ? `Tu equipo: ${colorOf(teamOf(state.mySeat))} · ${colorOf(0)} ${seatedInTeam(0)}/2 · ${colorOf(1)} ${seatedInTeam(1)}/2 · Código ${state.code}` : `Comparte el código ${state.code}`);
+  byId('names').innerHTML = range(playerCount).filter(index => state.room.players[index]).map(index =>
+    `<span class="pn${index === state.mySeat ? ' on' : ''}" data-tc="${colorOf(teamOf(index))}"><i class="dot"></i>${escapeHtml(nameOf(index))}${index === state.mySeat ? ' (tú)' : ''}</span>`).join('');
+  byId('score').textContent = ''; byId('deckInfo').textContent = '';
 }
 
-function renderNames({np, cur}){
-  $('names').innerHTML = range(np).map(k => { const seat = (state.me + k) % np;
-    return `<span class="pn${cur === seat ? ' on' : ''}" data-tc="${colorOf(teamOf(seat))}"><i class="dot"></i>${esc(nameOf(seat))}${seat === state.me ? ' (tú)' : ''}</span>`; }).join('');
+function renderNames({playerCount, currentSeat}){
+  byId('names').innerHTML = range(playerCount).map(offset => { const seat = (state.mySeat + offset) % playerCount;
+    return `<span class="pn${currentSeat === seat ? ' on' : ''}" data-tc="${colorOf(teamOf(seat))}"><i class="dot"></i>${escapeHtml(nameOf(seat))}${seat === state.mySeat ? ' (tú)' : ''}</span>`; }).join('');
 }
 
-function renderHands({four, mt, rel, cur}){
-  const setTc = (id, seat) => $(id).setAttribute('data-tc', colorOf(teamOf(seat)));   // contorno del color de cada jugador/equipo
-  setTc('me', state.me); setTc('opp', four ? rel(2) : rel(1));
-  if(four){ setTc('oR', rel(1)); setTc('oL', rel(3)); }
+function renderHands({four, isMyTurn, relativeSeat, currentSeat}){
+  const setTeamColor = (elementId, seat) => byId(elementId).setAttribute('data-tc', colorOf(teamOf(seat)));   // contorno del color de cada jugador/equipo
+  setTeamColor('me', state.mySeat); setTeamColor('opp', four ? relativeSeat(2) : relativeSeat(1));
+  if(four){ setTeamColor('oR', relativeSeat(1)); setTeamColor('oL', relativeSeat(3)); }
   // Rivales y pareja (en 4: pareja arriba, rivales a derecha e izquierda)
-  if(four){ $('opp').innerHTML = backs(hand(rel(2))); $('oR').innerHTML = backs(hand(rel(1))); $('oL').innerHTML = backs(hand(rel(3))); }
-  else{ $('opp').innerHTML = backs(hand(1 - state.me)); $('oR').innerHTML = $('oL').innerHTML = ''; }
-  $('opp').classList.toggle('act', four && cur === rel(2));
-  $('oR').classList.toggle('act', four && cur === rel(1));
-  $('oL').classList.toggle('act', four && cur === rel(3));
+  if(four){ byId('opp').innerHTML = backs(hand(relativeSeat(2))); byId('oR').innerHTML = backs(hand(relativeSeat(1))); byId('oL').innerHTML = backs(hand(relativeSeat(3))); }
+  else{ byId('opp').innerHTML = backs(hand(1 - state.mySeat)); byId('oR').innerHTML = byId('oL').innerHTML = ''; }
+  byId('opp').classList.toggle('act', four && currentSeat === relativeSeat(2));
+  byId('oR').classList.toggle('act', four && currentSeat === relativeSeat(1));
+  byId('oL').classList.toggle('act', four && currentSeat === relativeSeat(3));
   // Mano propia, ordenada por palo y fuerza (el triunfo siempre a la izquierda)
-  const suitOrder = c => suit(c) === state.G.trump ? -1 : SUITS.indexOf(suit(c));
-  const mine = [...hand(state.me)].sort((a,b) => suitOrder(a) - suitOrder(b) || strength(b) - strength(a));
-  const playable = mt ? legalNow(state.me) : [];
-  let k = 0;
-  $('me').className = 'hand' + (mt ? ' turno' : '');
-  $('me').innerHTML = mine.map(c => {
-    const nuevo = !state.seen.has(c), ok = playable.includes(c);
-    return face(c, `${ok ? 'ok' : ''} ${mt && !ok ? 'dim' : ''} ${nuevo ? 'deal' : ''}`, `style="${nuevo ? `animation-delay:${k++*70}ms` : ''}" data-c="${c}"`);
+  const suitOrder = card => suit(card) === state.game.trump ? -1 : SUITS.indexOf(suit(card));
+  const mine = [...hand(state.mySeat)].sort((first,second) => suitOrder(first) - suitOrder(second) || strength(second) - strength(first));
+  const playable = isMyTurn ? legalNow(state.mySeat) : [];
+  let dealtCount = 0;
+  byId('me').className = 'hand' + (isMyTurn ? ' turno' : '');
+  byId('me').innerHTML = mine.map(card => {
+    const nuevo = !state.seen.has(card), isPlayable = playable.includes(card);
+    return face(card, `${isPlayable ? 'ok' : ''} ${isMyTurn && !isPlayable ? 'dim' : ''} ${nuevo ? 'deal' : ''}`, `style="${nuevo ? `animation-delay:${dealtCount++*70}ms` : ''}" data-card="${card}"`);
   }).join('');
   state.seen = new Set(mine);
   // Acciones (cantes y cambio del 7)
-  const acts = cantes(state.me).map(s => `<button class="btn" data-cante="${s}">Cantar las ${s === state.G.trump ? REGLAS.canteTriunfo : REGLAS.cante} en ${s}</button>`);
-  if(canCambiar(state.me)) acts.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
-  $('acts').innerHTML = acts.join('');
+  const actionButtons = cantes(state.mySeat).map(suitName => `<button class="btn" data-cante="${suitName}">Cantar las ${suitName === state.game.trump ? REGLAS.canteTriunfo : REGLAS.cante} en ${suitName}</button>`);
+  if(canCambiar(state.mySeat)) actionButtons.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
+  byId('acts').innerHTML = actionButtons.join('');
 }
 
-function renderTable({np, four, team, ot}){
+function renderTable({playerCount, four, team, otherTeam}){
   // Mazo con el triunfo girado debajo
-  const d = state.G.deck.length;
-  $('deck').innerHTML = (d ? cardImg(state.G.trumpCard,'tr') : '') + (d > 1 ? back('bk') + (d > 2 ? back('bk') : '') : '');
+  const deckCount = state.game.deck.length;
+  byId('deck').innerHTML = (deckCount ? cardImg(state.game.trumpCard,'tr') : '') + (deckCount > 1 ? back('bk') + (deckCount > 2 ? back('bk') : '') : '');
   // Cartas en la mesa (en 4: cada una en su lado, según el asiento relativo)
-  $('play').className = four ? 'p4' : '';
-  $('play').innerHTML = state.G.table.map(t => {
-    const nuevo = !state.prevTable.includes(t.c), cl = four ? 's' + ((t.p - state.me + np) % np) : (t.p === state.me ? 'mine' : 'theirs');
-    return face(t.c, cl, `data-tc="${colorOf(teamOf(t.p))}" style="${nuevo ? '' : 'animation:none'}"`);
+  byId('play').className = four ? 'p4' : '';
+  byId('play').innerHTML = state.game.table.map(entry => {
+    const nuevo = !state.prevTable.includes(entry.card), className = four ? 's' + ((entry.seat - state.mySeat + playerCount) % playerCount) : (entry.seat === state.mySeat ? 'mine' : 'theirs');
+    return face(entry.card, className, `data-tc="${colorOf(teamOf(entry.seat))}" style="${nuevo ? '' : 'animation:none'}"`);
   }).join('');
-  state.prevTable = state.G.table.map(t => t.c).join();
+  state.prevTable = state.game.table.map(entry => entry.card).join();
   // Montones de bazas (por equipo)
-  const pile = n => n ? Array.from({length:Math.min(n,5)}, (_,i) => back('', `style="top:${i*-2}px"`)).join('') + `<span>${n} baza${n>1?'s':''}</span>` : '';
-  $('pMe').setAttribute('data-tc', colorOf(team)); $('pOpp').setAttribute('data-tc', colorOf(ot));
-  $('pOpp').innerHTML = pile(state.G.tk[ot]); $('pMe').innerHTML = pile(state.G.tk[team]);
+  const pile = count => count ? Array.from({length:Math.min(count,5)}, (unused, index) => back('', `style="top:${index*-2}px"`)).join('') + `<span>${count} baza${count>1?'s':''}</span>` : '';
+  byId('pMe').setAttribute('data-tc', colorOf(team)); byId('pOpp').setAttribute('data-tc', colorOf(otherTeam));
+  byId('pOpp').innerHTML = pile(state.game.tricksTaken[otherTeam]); byId('pMe').innerHTML = pile(state.game.tricksTaken[team]);
 }
 
-function renderScore({team, ot}){
-  $('deckInfo').innerHTML = `<span class="tfs">★</span> Triunfo: ${state.G.trump} · ${state.G.deck.length}<span class="mz"> en el mazo</span>`;
+function renderScore({team, otherTeam}){
+  byId('deckInfo').innerHTML = `<span class="tfs">★</span> Triunfo: ${state.game.trump} · ${state.game.deck.length}<span class="mz"> en el mazo</span>`;
   // Puntos acumulados: manos anteriores + mano en curso (al terminar la mano, tot ya incluye sus puntos)
-  const acc = t => state.G.mode === 'normal' ? state.G.tot[t] + (state.G.done ? 0 : state.G.pts[t]) : state.G.pts[t];
-  $('score').innerHTML = (state.G.mode === 'normal' ? `M ${state.G.n} · ` : '') +
-    `<i class="dot" data-tc="${colorOf(team)}"></i> <b>${acc(team)}</b> – <i class="dot" data-tc="${colorOf(ot)}"></i> <b>${acc(ot)}</b>`;
-  $('score').title = state.G.mode === 'normal' ? `Puntos acumulados (se juega a ${REGLAS.meta})` : 'Puntos de la mano';
+  const accumulatedPoints = teamIndex => state.game.mode === 'normal' ? state.game.totalPoints[teamIndex] + (state.game.handOver ? 0 : state.game.handPoints[teamIndex]) : state.game.handPoints[teamIndex];
+  byId('score').innerHTML = (state.game.mode === 'normal' ? `M ${state.game.handNumber} · ` : '') +
+    `<i class="dot" data-tc="${colorOf(team)}"></i> <b>${accumulatedPoints(team)}</b> – <i class="dot" data-tc="${colorOf(otherTeam)}"></i> <b>${accumulatedPoints(otherTeam)}</b>`;
+  byId('score').title = state.game.mode === 'normal' ? `Puntos acumulados (se juega a ${REGLAS.meta})` : 'Puntos de la mano';
 }
 
-function renderStatus({np, four, team, mt, rel}){
-  const evc = state.G.ev && teamOf(state.G.ev.p) === team ? 'mine' : 'rival', evt = evText(state.G.ev);
-  if(state.G.done) setMsg('Mano terminada', 'wait', evt, evc);
-  else if(state.G.table.length === np) setMsg('Baza completa…', 'wait', evt, evc);
-  else if(mt) setMsg('Tu turno', 'mine', evt, evc,
-    state.G.forced ? `Cantaste: sal con el rey o el caballo de ${state.G.forced}` :
-    state.G.deck.length ? '' : 'Arrastre: asiste al palo y supera si puedes');
-  else setMsg('Turno de ' + nameOf(state.G.turn) + (four && state.G.turn === rel(2) ? ' (tu pareja)' : ''), 'wait', evt, evc);
+function renderStatus({playerCount, four, team, isMyTurn, relativeSeat}){
+  const eventOwner = state.game.lastEvent && teamOf(state.game.lastEvent.seat) === team ? 'mine' : 'rival', eventMessage = evText(state.game.lastEvent);
+  if(state.game.handOver) setMsg('Mano terminada', 'wait', eventMessage, eventOwner);
+  else if(state.game.table.length === playerCount) setMsg('Baza completa…', 'wait', eventMessage, eventOwner);
+  else if(isMyTurn) setMsg('Tu turno', 'mine', eventMessage, eventOwner,
+    state.game.forced ? `Cantaste: sal con el rey o el caballo de ${state.game.forced}` :
+    state.game.deck.length ? '' : 'Arrastre: asiste al palo y supera si puedes');
+  else setMsg('Turno de ' + nameOf(state.game.turn) + (four && state.game.turn === relativeSeat(2) ? ' (tu pareja)' : ''), 'wait', eventMessage, eventOwner);
 }
 
-function renderFin({four, team, ot}){
-  $('fin').hidden = !state.G.done;
-  if(!state.G.done) return;
-  const a = state.G.pts[team], b = state.G.pts[ot], ta = state.G.tot[team], tb = state.G.tot[ot], v = (x, y) => four ? y : x;
-  const yo = four ? `Equipo ${colorOf(team)}` : 'Tú', el = four ? `Equipo ${colorOf(ot)}` : 'Rival';
-  if(state.G.mode !== 'normal'){
-    $('finT').textContent = a > b ? v('¡Has ganado!','¡Habéis ganado!') : a < b ? v('Has perdido','Habéis perdido') : 'Empate';
-    $('finS').textContent = `${yo} ${a} — ${el} ${b}`;
-    $('bRe').textContent = 'Otra partida';
-  }else if(state.G.fin){
-    $('finT').textContent = ta > tb ? v('¡Has ganado la partida!','¡Habéis ganado la partida!') : v('Has perdido la partida','Habéis perdido la partida');
-    $('finS').textContent = `Última mano: ${yo} ${a} — ${el} ${b}\nMarcador final: ${yo} ${ta} — ${el} ${tb}`;
-    $('bRe').textContent = 'Nueva partida';
+function renderFin({four, team, otherTeam}){
+  byId('fin').hidden = !state.game.handOver;
+  if(!state.game.handOver) return;
+  const ownPoints = state.game.handPoints[team], rivalPoints = state.game.handPoints[otherTeam], ownTotal = state.game.totalPoints[team], rivalTotal = state.game.totalPoints[otherTeam], byMode = (twoPlayers, fourPlayers) => four ? fourPlayers : twoPlayers;
+  const ownLabel = four ? `Equipo ${colorOf(team)}` : 'Tú', rivalLabel = four ? `Equipo ${colorOf(otherTeam)}` : 'Rival';
+  if(state.game.mode !== 'normal'){
+    byId('finT').textContent = ownPoints > rivalPoints ? byMode('¡Has ganado!','¡Habéis ganado!') : ownPoints < rivalPoints ? byMode('Has perdido','Habéis perdido') : 'Empate';
+    byId('finS').textContent = `${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}`;
+    byId('bRe').textContent = 'Otra partida';
+  }else if(state.game.matchOver){
+    byId('finT').textContent = ownTotal > rivalTotal ? byMode('¡Has ganado la partida!','¡Habéis ganado la partida!') : byMode('Has perdido la partida','Habéis perdido la partida');
+    byId('finS').textContent = `Última mano: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador final: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}`;
+    byId('bRe').textContent = 'Nueva partida';
   }else{
-    $('finT').textContent = a > b ? v('Ganas la mano','Ganáis la mano') : a < b ? v('Pierdes la mano','Perdéis la mano') : 'Mano empatada';
-    $('finS').textContent = `Mano ${state.G.n}: ${yo} ${a} — ${el} ${b}\nMarcador: ${yo} ${ta} — ${el} ${tb}\nSe juega a ${REGLAS.meta} puntos`;
-    $('bRe').textContent = 'Siguiente mano';
+    byId('finT').textContent = ownPoints > rivalPoints ? byMode('Ganas la mano','Ganáis la mano') : ownPoints < rivalPoints ? byMode('Pierdes la mano','Perdéis la mano') : 'Mano empatada';
+    byId('finS').textContent = `Mano ${state.game.handNumber}: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}\nSe juega a ${REGLAS.meta} puntos`;
+    byId('bRe').textContent = 'Siguiente mano';
   }
 }
 
 function render(){
-  if(!state.G) return renderWaiting();
-  $('bNueva').hidden = false;
-  const np = state.G.np, team = teamOf(state.me);
-  const v = {np, four: np === 4, team, ot: 1 - team, mt: myTurn(state.me), rel: k => (state.me + k) % np,
-             cur: state.G.done || state.G.table.length === np ? -1 : state.G.turn};   // cur: de quién es el turno (para resaltar)
-  document.body.classList.toggle('p4', v.four);
-  renderNames(v); renderHands(v); renderTable(v); renderScore(v); renderStatus(v); renderFin(v);
+  if(!state.game) return renderWaiting();
+  byId('bNueva').hidden = false;
+  const playerCount = state.game.playerCount, team = teamOf(state.mySeat);
+  const view = {playerCount, four: playerCount === 4, team, otherTeam: 1 - team, isMyTurn: myTurn(state.mySeat), relativeSeat: offset => (state.mySeat + offset) % playerCount,
+             currentSeat: state.game.handOver || state.game.table.length === playerCount ? -1 : state.game.turn};   // currentSeat: de quién es el turno (para resaltar)
+  document.body.classList.toggle('p4', view.four);
+  renderNames(view); renderHands(view); renderTable(view); renderScore(view); renderStatus(view); renderFin(view);
 }
 
 /* Eventos */
-$('me').addEventListener('click', e => { const c = e.target.dataset && e.target.dataset.c; if(c) play(state.me, c); });
-$('acts').addEventListener('click', e => {
-  if(e.target.dataset.cante) cantar(state.me, e.target.dataset.cante);
-  if(e.target.id === 'bCamb') cambiar(state.me);
+byId('me').addEventListener('click', event => { const card = event.target.dataset && event.target.dataset.card; if(card) play(state.mySeat, card); });
+byId('acts').addEventListener('click', event => {
+  if(event.target.dataset.cante) cantar(state.mySeat, event.target.dataset.cante);
+  if(event.target.id === 'bCamb') cambiar(state.mySeat);
 });
 </script>
 </body>
