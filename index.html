@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Guiñote</title>
+<style>
+:root{--cw:clamp(80px,18.5vw,152px);--paño:#1f5a3a;--paño2:#12402a;--madera:#4a2c17;--crema:#f1e6c9;--oro:#e0b04a}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:Georgia,"Palatino Linotype",serif;color:var(--crema);background:var(--madera);overflow:hidden;
+ padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+[hidden]{display:none!important}
+button{font:inherit;cursor:pointer}
+.btn{background:var(--oro);color:#2a1808;border:0;border-radius:6px;padding:.55em 1.1em;font-weight:bold;box-shadow:0 2px 0 #8a6420}
+.btn:active{transform:translateY(2px);box-shadow:none}
+.btn.small{padding:.25em .8em;font-size:.85rem;white-space:nowrap}
+.btn.alt{background:#0000;color:var(--crema);border:1px solid var(--crema);box-shadow:none}
+
+/* Lobby */
+#lobby{height:100%;display:flex;overflow:auto;background:radial-gradient(circle at 50% 40%,var(--paño),var(--paño2))}
+#lobby .box{text-align:center;padding:2rem 1.2rem;width:min(100%,46rem);margin:auto}
+#lobby h1{font-size:3rem;margin:0 0 .2em;letter-spacing:.02em}
+#lobby p{opacity:.8;margin:.2em 0 1.4em}
+#lobby input{width:100%;font:inherit;font-size:1.4rem;text-align:center;text-transform:uppercase;padding:.5em;border-radius:6px;border:2px solid var(--oro);background:#0003;color:var(--crema);margin:.6em 0}
+#lobby .row{display:flex;gap:.6rem;justify-content:center}
+#lobby h3{margin:.2em 0 .7em;font-weight:normal;letter-spacing:.08em;text-transform:uppercase;font-size:.85rem;opacity:.8}
+.cols{display:grid;grid-template-columns:1fr 1fr;text-align:center}
+.col{padding:0 1.4rem}
+.col+.col{border-left:1px solid #fff4}
+.hint{font-size:.85rem;margin:0 0 1rem!important}
+@media (max-width:640px){.cols{grid-template-columns:1fr}.col{padding:0}.col+.col{border-left:0;border-top:1px solid #fff4;margin-top:1.4rem;padding-top:1.2rem}}
+#lobby input[type=password]{font-size:1rem;text-transform:none}
+#rooms{display:flex;flex-direction:column;gap:.4rem;max-height:30vh;overflow:auto}
+#rooms em{opacity:.6;padding:.6em}
+.room{display:flex;justify-content:space-between;align-items:center;gap:.6rem;background:#0003;color:var(--crema);border:1px solid #fff3;border-radius:8px;padding:.6em .9em;text-align:left}
+.room:hover:not(:disabled){border-color:var(--oro);background:#0005}
+.room:disabled{opacity:.45;cursor:default}
+.room b{font-size:1.2rem;letter-spacing:.12em}
+.room small{display:block;opacity:.75;font-size:.75rem}
+#err{color:#ffb4a0;min-height:1.4em}
+
+/* Mesa */
+#game{height:100%;display:flex;flex-direction:column;border:clamp(6px,1.4vw,14px) solid var(--madera);
+ background:radial-gradient(ellipse at 50% 45%,#2b7449 0%,var(--paño) 45%,var(--paño2) 100%);
+ box-shadow:inset 0 0 60px #000a}
+#top{display:flex;justify-content:space-between;align-items:center;padding:.5rem .9rem;font-size:.95rem;gap:.5rem}
+#msg{flex:1;text-align:center;min-height:1.3em}
+.chip{background:#0004;border-radius:99px;padding:.25em .8em;white-space:nowrap}
+#mesa{flex:1;display:grid;grid-template-rows:auto 1fr auto auto;min-height:0;padding:0 .6rem .6rem}
+.card{width:var(--cw);height:auto;border-radius:calc(var(--cw)*.06);box-shadow:0 3px 8px #0009;user-select:none;-webkit-user-drag:none;background:#fff}
+.hand{display:flex;justify-content:center;min-height:calc(var(--cw)*1.6)}
+.hand .card+.card{margin-left:calc(var(--cw)*-.14)}
+#opp{transform:scale(.72);transform-origin:top center;margin-bottom:calc(var(--cw)*-.4)}
+#opp .card+.card{margin-left:calc(var(--cw)*-.4)}
+#me .card{transition:transform .15s,filter .2s}
+#me .card.ok{cursor:pointer}
+#me.turno .card.ok:hover{transform:translateY(-18px)}
+#me .card.dim{filter:brightness(.5)}
+#me .card.deal{animation:deal .5s backwards}
+@keyframes deal{from{transform:translate(-40vw,-30vh) rotate(-30deg);opacity:0}}
+#mid{display:flex;align-items:center;justify-content:space-around;min-height:0;gap:.5rem}
+#deck{position:relative;width:calc(var(--cw)*1.75);height:calc(var(--cw)*1.6);flex:none}
+#deck .card{position:absolute}
+#deck .tr{left:calc(var(--cw)*.45);top:calc(var(--cw)*.3);transform:rotate(90deg);transform-origin:center}
+#deck .bk{left:0;top:calc(var(--cw)*.04)}
+#deck .bk+.bk{left:2px;top:calc(var(--cw)*.04 - 2px)}
+#deck .lbl{position:absolute;bottom:-1.3em;left:0;right:0;text-align:center;font-size:.8rem;opacity:.8}
+#play{position:relative;width:calc(var(--cw)*2.5);height:calc(var(--cw)*2.1);flex:none}
+#play .card{position:absolute}
+#play .mine{left:8%;top:38%;transform:rotate(-4deg);animation:up .35s ease-out}
+#play .theirs{left:38%;top:2%;transform:rotate(5deg);animation:down .35s ease-out}
+@keyframes up{from{transform:translateY(45vh) rotate(0);opacity:.4}}
+@keyframes down{from{transform:translateY(-40vh) rotate(0);opacity:.4}}
+#piles{display:flex;flex-direction:column;justify-content:space-between;align-items:center;align-self:stretch;padding:.3rem 0;flex:none;width:calc(var(--cw)*.9)}
+.pile{position:relative;width:calc(var(--cw)*.6);height:calc(var(--cw)*.95);font-size:.75rem;text-align:center}
+.pile .card{position:absolute;width:calc(var(--cw)*.6);left:0}
+.pile span{position:absolute;bottom:-1.4em;left:0;right:0}
+#acts{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;min-height:2.6rem;align-items:center;padding:.3rem}
+#me{padding-top:.3rem}
+
+/* Fin */
+#fin{position:fixed;inset:0;background:#000b;display:grid;place-items:center;text-align:center;z-index:9}
+#fin .box{background:var(--madera);border:2px solid var(--oro);border-radius:12px;padding:1.6rem 2.2rem}
+#fin h2{font-size:2.2rem;margin:0 0 .3em}
+@media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+
+<div id="lobby">
+ <div class="box">
+  <h1>Guiñote</h1>
+  <p>Baraja española · 2 jugadores</p>
+  <div class="cols">
+   <section class="col">
+    <h3>Crear sala</h3>
+    <p class="hint">Pon una contraseña para protegerla o déjala vacía para que quede abierta.</p>
+    <input id="inPass" type="password" placeholder="Contraseña (opcional)" autocomplete="off">
+    <button class="btn" id="bCrear" style="width:100%">Crear sala</button>
+   </section>
+   <section class="col">
+    <h3>Unirse a una sala</h3>
+    <div id="rooms"><em>Buscando salas…</em></div>
+    <input id="inPassJoin" type="password" placeholder="Contraseña (si la sala la tiene)" autocomplete="off">
+    <input id="inCode" maxlength="4" placeholder="CÓDIGO" autocomplete="off">
+    <button class="btn alt" id="bUnir" style="width:100%">Unirse con código</button>
+   </section>
+  </div>
+  <div id="err"></div>
+ </div>
+</div>
+
+<div id="game" hidden>
+ <div id="top">
+  <span class="chip" id="room"></span>
+  <div id="msg"></div>
+  <span class="chip" id="score"></span>
+  <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
+ </div>
+ <div id="mesa">
+  <div id="opp" class="hand"></div>
+  <div id="mid">
+   <div id="deck"></div>
+   <div id="play"></div>
+   <div id="piles"><div class="pile" id="pOpp"></div><div class="pile" id="pMe"></div></div>
+  </div>
+  <div id="acts"></div>
+  <div id="me" class="hand"></div>
+ </div>
+</div>
+<div id="fin" hidden><div class="box"><h2 id="finT"></h2><p id="finS"></p><button class="btn" id="bRe">Otra partida</button></div></div>
+
+<script type="module">
+/* ============ CONFIGURACIÓN DE FIREBASE ============
+   Las credenciales se cargan de config.dat (o firebase-config.json, según
+   CONFIG_EN_BASE64 más abajo), junto a este archivo. Formato del JSON:
+   { "apiKey": "...", "authDomain": "...", "databaseURL": "https://...firebaseio.com",
+     "projectId": "...", "appId": "..." }
+   Reglas mínimas para jugar: { "rules": { "rooms": { ".read": true, ".write": true }, "lobby": { ".read": true, ".write": true } } } */
+
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getDatabase, ref, set, get, remove, onValue } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
+/* Bandera global: true = lee config.dat (JSON codificado en base64);
+   false = lee firebase-config.json en texto plano. */
+const CONFIG_EN_BASE64 = true;
+const CONFIG_FILE = CONFIG_EN_BASE64 ? 'config.dat' : 'firebase-config.json';
+
+let db;
+try{
+  const res = await fetch(CONFIG_FILE, {cache:'no-store'});
+  if(!res.ok) throw new Error('HTTP ' + res.status);
+  let cfg;
+  if(CONFIG_EN_BASE64){
+    const bin = atob((await res.text()).replace(/\s+/g, ''));
+    cfg = JSON.parse(new TextDecoder().decode(Uint8Array.from(bin, ch => ch.charCodeAt(0))));
+  }else{
+    cfg = await res.json();
+  }
+  db = getDatabase(initializeApp(cfg));
+}catch(e){
+  console.error(e);
+  document.getElementById('err').textContent = `No se pudo cargar ${CONFIG_FILE} (sírvelo con un servidor web, no con file://).`;
+  document.getElementById('bCrear').disabled = document.getElementById('bUnir').disabled = true;
+}
+
+/* ============ REGLAS DEL JUEGO ============ */
+const SUITS = ['oros','copas','espadas','bastos'];
+const RANKS = [1,2,3,4,5,6,7,10,11,12];
+const ORD = [2,4,5,6,7,10,11,12,3,1];           // de menor a mayor fuerza
+const PT = {1:11,3:10,12:4,11:3,10:2};
+const NOMBRE = {oros:'oros',copas:'copas',espadas:'espadas',bastos:'bastos'};
+const suit = c => c.split('_')[0], rk = c => +c.split('_')[1];
+const str = c => ORD.indexOf(rk(c)), val = c => PT[rk(c)] || 0;
+const cid = (s,r) => s + '_' + String(r).padStart(2,'0');
+const hand = (s,g=G) => g['h'+s] || [];
+
+function newGame(mano){
+  const deck = SUITS.flatMap(s => RANKS.map(r => cid(s,r)));
+  for(let i = deck.length-1; i > 0; i--){ const j = Math.random()*(i+1)|0; [deck[i],deck[j]] = [deck[j],deck[i]]; }
+  const h0 = deck.splice(0,6), h1 = deck.splice(0,6);
+  const trumpCard = deck[deck.length-1];
+  return {deck, h0, h1, trumpCard, trump:suit(trumpCard), table:[], turn:mano, mano,
+          pts:[0,0], won:[false,false], tk:[0,0], sung:'', forced:null, ev:null, done:false};
+}
+
+/* ============ ESTADO ============ */
+let tmr, unsub, code, me, R, G = null, resolving = false, seen = new Set(), prevTable = '';
+const $ = id => document.getElementById(id);
+const gref = () => ref(db, `rooms/${code}/g`);
+const save = g => set(gref(), g);
+
+/* ---- Lobby ---- */
+const rnd = () => Array.from({length:4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random()*24|0]).join('');
+const HORA = 3600e3;   // duración máxima de una sala
+const purge = c => { remove(ref(db,`rooms/${c}`)).catch(()=>{}); remove(ref(db,`lobby/${c}`)).catch(()=>{}); };
+const lobbyErr = t => $('err').textContent = t;
+async function hash(p, c){
+  if(!p) return null;
+  try{
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('guinote:' + c + ':' + p));
+    return [...new Uint8Array(b)].map(x => x.toString(16).padStart(2,'0')).join('');
+  }catch(e){ return 'p:' + btoa(unescape(encodeURIComponent(p))); }   // contexto no seguro (http)
+}
+
+let unLobby = null;
+function watchLobby(){
+  if(unLobby || !db) return;
+  unLobby = onValue(ref(db,'lobby'), snap => {
+    const all = snap.val() || {}, now = Date.now();
+    Object.entries(all).filter(([,r]) => now - r.t >= HORA).forEach(([c]) => purge(c));
+    const list = Object.entries(all).filter(([,r]) => now - r.t < HORA).sort((a,b) => b[1].t - a[1].t);
+    $('rooms').innerHTML = list.length ? list.map(([c,r]) => {
+      const full = r.n >= 2, min = Math.max(1, Math.round((now - r.t)/60000));
+      return `<button class="room" data-c="${c}" ${full ? 'disabled' : ''}>
+        <span><b>${c}</b><small>${r.lock ? '🔒 con contraseña' : 'abierta'} · hace ${min} min</small></span>
+        <span>${full ? 'En juego' : 'Unirse'}</span></button>`;
+    }).join('') : '<em>No hay salas ahora mismo. Crea una.</em>';
+  }, () => lobbyErr('No se pudo leer la lista de salas (revisa las reglas de la base de datos).'));
+}
+function unwatchLobby(){ if(unLobby) unLobby(); unLobby = null; }
+
+$('bCrear').onclick = async () => {
+  try{
+    lobbyErr('');
+    do{ code = rnd(); } while((await get(ref(db,`rooms/${code}`))).exists());
+    me = 0;
+    const pw = await hash($('inPass').value, code), room = {p:{0:Date.now()}};
+    if(pw) room.pw = pw;
+    await set(ref(db,`rooms/${code}`), room);
+    await set(ref(db,`lobby/${code}`), {t:Date.now(), lock:!!pw, n:1});
+    enter();
+  }catch(e){ console.error(e); lobbyErr('No se pudo conectar con Firebase. Revisa la configuración.'); }
+};
+
+async function unirse(c){
+  try{
+    lobbyErr(''); code = (c || '').trim().toUpperCase();
+    if(code.length !== 4) return lobbyErr('Escribe el código de 4 letras.');
+    const s = await get(ref(db,`rooms/${code}`));
+    if(!s.exists()) return lobbyErr('Esa sala no existe.');
+    const r = s.val();
+    if(r.p && r.p[1]) return lobbyErr('La sala ya está completa.');
+    if(r.pw){
+      const pass = $('inPassJoin').value;
+      if(!pass){ $('inPassJoin').focus(); return lobbyErr(`La sala ${code} tiene contraseña: escríbela en el campo de contraseña y vuelve a pulsar.`); }
+      if(await hash(pass, code) !== r.pw){ $('inPassJoin').focus(); return lobbyErr('Contraseña incorrecta.'); }
+    }
+    me = 1;
+    await set(ref(db,`rooms/${code}/p/1`), Date.now());
+    await set(ref(db,`lobby/${code}/n`), 2);
+    enter();
+  }catch(e){ console.error(e); lobbyErr('No se pudo conectar con Firebase. Revisa la configuración.'); }
+}
+$('bUnir').onclick = () => unirse($('inCode').value);
+$('rooms').onclick = e => { const b = e.target.closest('.room'); if(b){ $('inCode').value = b.dataset.c; unirse(b.dataset.c); } };
+
+$('bRe').onclick = () => { seen = new Set(); prevTable = ''; save(newGame(1 - G.mano)); };
+$('bNueva').onclick = () => {
+  if(G && !G.done && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
+  salir();
+};
+function salir(){
+  if(unsub) unsub();
+  clearInterval(tmr);
+  if(me === 0 && code && !(R && R.p && R.p[1])){          // anfitrión sin rival: cerrar la sala
+    remove(ref(db,`rooms/${code}`)).catch(()=>{}); remove(ref(db,`lobby/${code}`)).catch(()=>{});
+  }
+  unsub = null; G = null; R = null; code = me = undefined; resolving = false; seen = new Set(); prevTable = '';
+  sessionStorage.removeItem('guinote');
+  $('game').hidden = true; $('fin').hidden = true; $('bNueva').hidden = true;
+  $('inCode').value = ''; $('inPass').value = ''; $('inPassJoin').value = ''; $('err').textContent = '';
+  $('lobby').hidden = false;
+  watchLobby();
+}
+
+function enter(){
+  unwatchLobby();
+  clearInterval(tmr);
+  tmr = setInterval(() => { if(R && R.p && R.p[0] && Date.now() - R.p[0] >= HORA) purge(code); }, 15000);
+  sessionStorage.setItem('guinote', JSON.stringify({code, me}));
+  $('lobby').hidden = true; $('game').hidden = false; $('bNueva').hidden = false;
+  $('room').textContent = 'Sala ' + code;
+  unsub = onValue(ref(db,`rooms/${code}`), snap => {
+    if(snap.val() === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
+    R = snap.val(); G = R.g || null;
+    if(R.p && R.p[0] && Date.now() - R.p[0] >= HORA) purge(code);
+    if(G){ G.table = G.table || []; G.deck = G.deck || []; G.sung = G.sung || ''; }
+    if(!G && me === 0 && R.p && R.p[1]) return save(newGame(1));   // el que no reparte empieza (mano = jugador 1)
+    render();
+    if(G && me === 0 && G.table.length === 2 && !resolving){
+      resolving = true; setTimeout(resolve, 1500);
+    }
+  });
+}
+const saved = JSON.parse(sessionStorage.getItem('guinote') || 'null');
+if(saved && db){ code = saved.code; me = saved.me; enter(); }
+else watchLobby();
+
+/* ---- Lógica de turnos ---- */
+const myTurn = () => G && !G.done && G.turn === me && G.table.length < 2;
+
+function legal(c){
+  const h = hand(me);
+  if(G.table.length === 0){
+    if(G.forced) return suit(c) === G.forced && rk(c) >= 11;
+    return true;
+  }
+  if(G.deck.length > 0) return true;                     // sin arrastre: libre
+  const lead = G.table[0].c, ls = suit(lead);           // arrastre: asistir, superar, fallar con triunfo
+  const same = h.filter(x => suit(x) === ls);
+  if(same.length){ const hi = same.filter(x => str(x) > str(lead)); return (hi.length ? hi : same).includes(c); }
+  const tr = h.filter(x => suit(x) === G.trump);
+  return tr.length ? tr.includes(c) : true;
+}
+
+function play(c){
+  if(!myTurn() || !legal(c)) return;
+  const g = {...G, table:[...G.table, {p:me, c}], forced:null, ev:null};
+  g['h'+me] = hand(me).filter(x => x !== c);
+  g.turn = G.table.length === 0 ? 1 - me : -1;
+  save(g);
+}
+
+function cantes(){
+  if(!myTurn() || G.table.length || !G.won[me] || G.forced) return [];
+  const h = hand(me);
+  return SUITS.filter(s => h.includes(cid(s,11)) && h.includes(cid(s,12)) && !G.sung.split(',').includes(s));
+}
+function cantar(s){
+  const n = s === G.trump ? 40 : 20, g = {...G, pts:[...G.pts], forced:s, sung:G.sung + s + ',', ev:{t:'cante', p:me, s, n}};
+  g.pts[me] += n; save(g);
+}
+function canCambiar(){
+  return myTurn() && !G.table.length && G.won[me] && G.deck.length >= 2 &&
+         hand(me).includes(cid(G.trump,7)) && G.trumpCard !== cid(G.trump,7);
+}
+function cambiar(){
+  const s7 = cid(G.trump,7), deck = [...G.deck]; deck[deck.length-1] = s7;
+  const g = {...G, deck, trumpCard:s7, ev:{t:'cambio', p:me}};
+  g['h'+me] = hand(me).map(x => x === s7 ? G.trumpCard : x); save(g);
+}
+
+/* Solo el anfitrión (jugador 0) resuelve la baza */
+function resolve(){
+  resolving = false;
+  if(!G || G.table.length !== 2) return;
+  const [a,b] = G.table;
+  let w = a.p;
+  if(suit(b.c) === suit(a.c)){ if(str(b.c) > str(a.c)) w = b.p; }
+  else if(suit(b.c) === G.trump) w = b.p;
+  const deck = [...G.deck], n = val(a.c) + val(b.c);
+  const g = {...G, table:[], deck, turn:w, pts:[...G.pts], won:[...G.won], tk:[...(G.tk||[0,0])], forced:null, ev:{t:'baza', p:w, n}};
+  g.pts[w] += n; g.won[w] = true; g.tk[w]++;
+  if(deck.length){ g['h'+w] = [...hand(w), deck.shift()]; g['h'+(1-w)] = [...hand(1-w), deck.shift()]; }
+  g.deck = deck;
+  if(!hand(0,g).length && !hand(1,g).length){ g.pts[w] += 10; g.done = true; g.ev.u = true; }
+  save(g);
+}
+
+/* ============ RENDER ============ */
+const im = (c, cl='') => `<img class="card ${cl}" src="cartas/${c}.webp" data-c="${c}" draggable="false" alt="${c}">`;
+const back = (cl='') => `<img class="card ${cl}" src="cartas/reverso.webp" draggable="false" alt="">`;
+
+function evText(e){
+  if(!e) return '';
+  const y = e.p === me;
+  if(e.t === 'baza') return `${y ? 'Te llevas' : 'El rival se lleva'} la baza (${e.n} puntos)` + (e.u ? ' y las diez de últimas' : '');
+  if(e.t === 'cante') return `${y ? 'Cantas' : 'El rival canta'} las ${e.n} en ${NOMBRE[e.s]}`;
+  if(e.t === 'cambio') return `${y ? 'Cambias' : 'El rival cambia'} el siete de triunfo`;
+  return '';
+}
+
+function render(){
+  if(!G){ $('msg').textContent = `Esperando rival… comparte el código ${code}`; $('score').textContent = ''; return; }
+  $('bNueva').hidden = false;
+  const opp = 1 - me, mt = myTurn();
+
+  // Rival
+  $('opp').innerHTML = hand(opp).map(() => back()).join('');
+
+  // Mano propia, ordenada por palo y fuerza
+  const mine = [...hand(me)].sort((a,b) => SUITS.indexOf(suit(a)) - SUITS.indexOf(suit(b)) || str(b) - str(a));
+  let k = 0;
+  $('me').className = 'hand' + (mt ? ' turno' : '');
+  $('me').innerHTML = mine.map(c => {
+    const nuevo = !seen.has(c), ok = mt && legal(c);
+    return `<img class="card ${ok ? 'ok' : ''} ${mt && !ok ? 'dim' : ''} ${nuevo ? 'deal' : ''}" style="${nuevo ? `animation-delay:${k++*70}ms` : ''}" src="cartas/${c}.webp" data-c="${c}" draggable="false" alt="${c}">`;
+  }).join('');
+  seen = new Set(mine);
+
+  // Mazo con el triunfo girado debajo
+  const d = G.deck.length;
+  $('deck').innerHTML = (d ? im(G.trumpCard,'tr') : '') + (d > 1 ? back('bk') + (d > 2 ? back('bk') : '') : '') +
+    `<div class="lbl">Triunfo: ${NOMBRE[G.trump]} · ${d} en el mazo</div>`;
+
+  // Cartas en la mesa
+  const key = G.table.map(t => t.c).join();
+  $('play').innerHTML = G.table.map(t => {
+    const nuevo = !prevTable.includes(t.c);
+    return `<img class="card ${t.p === me ? 'mine' : 'theirs'}" style="${nuevo ? '' : 'animation:none'}" src="cartas/${t.c}.webp" alt="">`;
+  }).join('');
+  prevTable = key;
+
+  // Montones de bazas
+  const pile = n => n ? Array.from({length:Math.min(n,5)}, (_,i) => back('').replace('class="card "', `class="card" style="top:${i*-2}px"`)).join('') + `<span>${n} baza${n>1?'s':''}</span>` : '';
+  $('pOpp').innerHTML = pile(G.tk[opp]); $('pMe').innerHTML = pile(G.tk[me]);
+
+  // Acciones
+  const acts = cantes().map(s => `<button class="btn" data-cante="${s}">Cantar las ${s === G.trump ? 40 : 20} en ${NOMBRE[s]}</button>`);
+  if(canCambiar()) acts.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
+  $('acts').innerHTML = acts.join('');
+
+  // Mensajes
+  $('score').textContent = `Tus puntos: ${G.pts[me]}`;
+  let m = evText(G.ev);
+  if(G.done) m = evText(G.ev);
+  else if(G.table.length === 2) m = m || 'Baza completa…';
+  else if(mt) m = (m ? m + ' · ' : '') + (G.forced ? `Sales con el rey o el caballo de ${NOMBRE[G.forced]}` : 'Tu turno' + (G.deck.length ? '' : ' · arrastre: asiste y supera si puedes'));
+  else m = (m ? m + ' · ' : '') + 'Turno del rival';
+  $('msg').textContent = m;
+
+  // Final
+  $('fin').hidden = !G.done;
+  if(G.done){
+    const a = G.pts[me], b = G.pts[opp];
+    $('finT').textContent = a > b ? '¡Has ganado!' : a < b ? 'Has perdido' : 'Empate';
+    $('finS').textContent = `Tú ${a} — Rival ${b}`;
+  }
+}
+
+/* Eventos */
+$('me').addEventListener('click', e => { const c = e.target.dataset && e.target.dataset.c; if(c) play(c); });
+$('acts').addEventListener('click', e => {
+  if(e.target.dataset.cante) cantar(e.target.dataset.cante);
+  if(e.target.id === 'bCamb') cambiar();
+});
+</script>
+</body>
+</html>
