@@ -38,6 +38,7 @@ button{font:inherit;cursor:pointer}
 .hint{font-size:.85rem;margin:0 0 1rem!important}
 @media (max-width:640px){.cols{grid-template-columns:1fr}.col{padding:0}.col+.col{border-left:0;border-top:1px solid #fff4;margin-top:1.4rem;padding-top:1.2rem}}
 #lobby input[type=password]{font-size:1rem;text-transform:none}
+#lobby input:disabled{opacity:.45;cursor:not-allowed}
 #rooms{display:flex;flex-direction:column;gap:.4rem;max-height:30vh;overflow:auto}
 #rooms em{opacity:.6;padding:.6em}
 .room{display:flex;justify-content:space-between;align-items:center;gap:.6rem;background:#0003;color:var(--crema);border:1px solid #fff3;border-radius:8px;padding:.6em .9em;text-align:left}
@@ -74,13 +75,13 @@ button{font:inherit;cursor:pointer}
 #msg .hint{font-size:clamp(.85rem,2.2vw,1rem);opacity:.85;min-height:1.2em;font-style:italic}
 @keyframes pop{from{transform:scale(1.12);opacity:.3}}
 .chip{background:#0004;border-radius:99px;padding:.25em .8em;white-space:nowrap}
-#mesa{flex:1;display:grid;grid-template-rows:auto 1fr auto auto;min-height:0;padding:0 .6rem .6rem}
+#mesa{flex:1;display:grid;grid-template-rows:1fr auto auto;min-height:0;padding:0 .6rem .6rem}
 .card{width:var(--cw);height:auto;border-radius:calc(var(--cw)*.06);box-shadow:0 3px 8px #0009;user-select:none;-webkit-user-drag:none;background:#fff}
 .hand{display:flex;justify-content:center;min-height:calc(var(--cw)*1.6)}
 .hand .card+.card{margin-left:calc(var(--cw)*-.14)}
 #opp{transform:scale(.72);transform-origin:top center;margin-bottom:calc(var(--cw)*-.4)}
 #opp .card+.card{margin-left:calc(var(--cw)*-.4)}
-#me .card{transition:transform .15s,filter .2s}
+#me .card{position:relative;transition:transform .15s,filter .2s}
 #me .card.ok{cursor:pointer}
 #me.turno .card.ok:hover{transform:translateY(-18px)}
 #me .card.dim{filter:brightness(.5)}
@@ -112,8 +113,8 @@ button{font:inherit;cursor:pointer}
 #finS{white-space:pre-line;line-height:1.5}
 #fin h2{font-size:2.2rem;margin:0 0 .3em}
 /* Móvil: mano propia en dos filas (3 + 3) y mesa compacta */
-:root{--hw:clamp(60px,25vw,104px)}
-@supports (height:100dvh){:root{--hw:clamp(60px,min(25vw,13dvh),104px)}}
+:root{--hw:clamp(60px,29.5vw,132px)}
+@supports (height:100dvh){:root{--hw:clamp(60px,min(29.5vw,15dvh),132px)}}
 button,.card{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 @media (max-width:640px){
  :root{--cw:clamp(54px,17vw,84px);--gap:6px}
@@ -130,42 +131,255 @@ button,.card{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
  .pile span{font-size:.65rem}
  #acts{min-height:2.3rem;padding:.2rem;gap:.4rem}
  #acts .btn{font-size:.85rem;padding:.45em .8em}
- /* Mano propia: 3 cartas por fila, la segunda fila solapa un poco a la primera */
- #me{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:0 var(--gap);
-  width:calc(var(--hw)*3 + var(--gap)*2);max-width:100%;margin:0 auto;min-height:0;padding-top:.2rem}
- #me .card,#me .card+.card{width:var(--hw);margin-left:0;border-radius:calc(var(--hw)*.06)}
- #me .card:nth-child(n+4){margin-top:calc(var(--hw)*-.52)}
+ /* Mano propia: 3 cartas por fila, sin solapar */
+ #me{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:4px;
+  width:calc(var(--hw)*3 + 8px + 2px);max-width:100%;margin:0 auto;min-height:0;padding-top:.2rem}
+ #me .card{width:var(--hw);border-radius:calc(var(--hw)*.06)}
+ #me .card+.card{margin-left:0}          /* sin solapes: 3 + 3 con un pequeño hueco */
  #me.turno .card.ok:hover{transform:none}
  #me.turno .card.ok:active{transform:translateY(-6px)}
  #fin .box{margin:1rem;padding:1.2rem 1.4rem}
  #fin h2{font-size:1.8rem}
 }
 
+/* Nombres */
+#lobby #inName,#lobby #inPass{display:block;max-width:20rem;margin:.2em auto 1.2em;text-transform:none;font-size:1.1rem}
+#lobby #inPass{margin-top:-.6em}
+#top{align-items:flex-start}
+#topL{display:flex;flex-direction:column;align-items:flex-start;gap:.3rem;margin-right:auto}
+#names{display:flex;flex-direction:column;align-items:flex-start;gap:.05rem;font-size:.85rem;padding-left:.3rem;text-shadow:0 1px 3px #000c}
+.pn{display:flex;align-items:center;white-space:nowrap}
+.pn{opacity:.75}
+.pn.on{opacity:1;font-weight:bold;color:var(--oro)}
+@media (max-width:640px){#msg .hint:empty{display:none}#names{font-size:.78rem}
+ #opp,.side,body.p4 .side{display:none!important}   /* en móvil solo tus cartas y el tablero */
+}
+
+/* Equipos (azul / rojo) */
+[data-tc=azul]{--tcol:#4a86e8}
+[data-tc=rojo]{--tcol:#e85a5a}
+[data-tc] .card,.card[data-tc]{box-shadow:0 0 0 3px var(--tcol),0 3px 8px #0009}
+/* Triunfo: estrellas en las esquinas superior derecha e inferior izquierda (lejos de los números) */
+div.card.tf{position:relative}
+#play div.card.tf,#deck div.card.tf{position:absolute}
+div.card.tf>img{display:block;width:100%;height:auto;border-radius:inherit;pointer-events:none}
+div.card.tf::before,div.card.tf::after{content:"";position:absolute;width:15%;aspect-ratio:1;pointer-events:none;
+  background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5l3 7.1 7.7.6-5.9 5 1.8 7.5L12 17.7 5.4 21.7l1.8-7.5-5.9-5 7.7-.6z' fill='%23e0b04a' stroke='%23422a06' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
+  filter:drop-shadow(0 0 1.5px #fff)}
+/* Triunfo: conserva el margen de color del equipo, sin fondo blanco que asome alrededor de la imagen */
+[data-tc] div.card.tf,div.card.tf[data-tc]{background:none}
+/* La mano estira las cartas a lo alto de la fila; el triunfo (un div) hace lo mismo y su imagen rellena todo el div */
+div.card.tf{align-self:stretch;height:auto}
+div.card.tf>img{height:100%}
+div.card.tf::before{right:5%;top:3.5%}
+div.card.tf::after{left:5%;bottom:3.5%}
+.dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;margin-right:.4em;background:var(--tcol)}
+.modes.three{grid-template-columns:repeat(3,1fr)}
+div.room{cursor:default}
+.room4{flex-wrap:wrap}
+.tbs{display:flex;gap:.4rem}
+.tb{font:inherit;font-size:.8rem;border:0;border-radius:6px;padding:.35em .7em;color:#fff;font-weight:bold}
+.tb.tc-azul{background:#2f66c4}
+.tb.tc-rojo{background:#c43c3c}
+.tb:disabled{opacity:.4;cursor:default}
+
+/* Partidas de 4 */
+#row{display:flex;align-items:stretch;min-height:0;gap:.3rem}
+#row #mid{flex:1;min-width:0}
+.side{--sw:calc(var(--cw)*.55);display:none;flex-direction:column;align-items:center;align-self:center;flex:none;width:var(--sw)}
+body.p4 .side{display:flex}
+.side .card{width:var(--sw)}
+.side .card+.card{margin-top:calc(var(--sw)*-1.05)}
+.act{filter:drop-shadow(0 0 7px var(--oro))}
+body.p4{--cw:clamp(56px,13vw,130px)}
+#play.p4{width:calc(var(--cw)*3);height:calc(var(--cw)*2.55)}
+#play.p4 .card{width:calc(var(--cw)*.92)}
+#play .s0{left:34.7%;top:43%;transform:rotate(-3deg);animation:up .35s ease-out}
+#play .s1{left:69.3%;top:22%;transform:rotate(4deg);animation:fromR .35s ease-out}
+#play .s2{left:34.7%;top:0;transform:rotate(3deg);animation:down .35s ease-out}
+#play .s3{left:0;top:22%;transform:rotate(-4deg);animation:fromL .35s ease-out}
+@keyframes fromR{from{transform:translateX(45vw) rotate(0);opacity:.4}}
+@keyframes fromL{from{transform:translateX(-45vw) rotate(0);opacity:.4}}
+@media (min-width:641px){
+ body.p4{--cw:clamp(56px,min(13.5vw,calc((100vh - 210px)/5.8)),170px)}
+ body.p4 #row{justify-content:center;gap:1rem}
+ body.p4 #row #mid{max-width:calc(var(--cw)*9.5)}
+ body.p4 .side{--sw:calc(var(--cw)*.65)}
+ body.p4 #opp{transform:scale(.85);margin-bottom:calc(var(--cw)*-.25)}
+}
+@media (max-width:640px){
+ body.p4{--cw:clamp(44px,16vw,84px);--hw:clamp(56px,29.5vw,124px)}
+ @supports (height:100dvh){body.p4{--cw:clamp(44px,min(16vw,8dvh),84px);--hw:clamp(56px,min(29.5vw,12.4dvh),124px)}}
+ body.p4 .side{--sw:calc(var(--cw)*.5)}
+ #row{gap:.15rem}
+ body.p4 #mid{display:grid;grid-template-columns:1fr auto 1fr;align-content:space-around;align-items:center;gap:.3rem 0}
+ body.p4 #play{grid-column:1 / -1;grid-row:1;justify-self:center}
+ body.p4 #deck{grid-column:2;grid-row:2;justify-self:center;margin-bottom:1.1rem}
+ body.p4 #piles{display:contents}
+ body.p4 #pOpp{grid-column:1;grid-row:2;justify-self:start;margin:0 0 1.4rem .4rem}   /* montón rival a la izquierda del mazo */
+ body.p4 #pMe{grid-column:3;grid-row:2;justify-self:end;margin:0 .4rem 1.4rem 0}      /* el tuyo a la derecha */
+}
+
+/* HUD superior: sala, jugadores y estado de la partida */
+#topR{display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;flex:none}
+#topL #msg{align-items:flex-start;text-align:left;min-height:3.4rem;padding:0 0 0 .3rem;gap:.2rem;max-width:min(24rem,62vw)}
+#topL #msg .st{font-size:1rem;border-radius:14px;padding:.15em .8em;text-align:left}
+#topL #msg .ev{font-size:.85rem;min-height:0;line-height:1.25;transform-origin:left}
+#topL #msg .hint{font-size:.78rem;min-height:0}
+#topL #msg .ev:empty,#topL #msg .hint:empty{display:none}
+@media (min-width:641px){
+ #me{gap:calc(var(--cw)*.06)}
+ #me .card{width:calc(var(--cw)*1.06)}
+ #me .card+.card{margin-left:0}
+ #me{min-height:calc(var(--cw)*1.8)}
+ /* montones de bazas: uno arriba y otro abajo, en columnas distintas para que no se pisen */
+ #piles{flex-direction:row;justify-content:center;align-items:stretch;gap:.7rem;width:calc(var(--cw)*1.5);padding:.3rem 0 1.6rem}
+ #pOpp{align-self:flex-start}
+ #pMe{align-self:flex-end}
+}
+@media (max-width:640px){
+ #top{flex-wrap:nowrap}
+ #topL{flex:1;min-width:0}
+ #topL #msg{min-height:2.6rem;max-width:none}
+ #topL #msg .st{font-size:.9rem;border-radius:12px}
+}
+
+/* Mano del rival pegada al borde superior de la pantalla */
+#game{position:relative}
+#opp{position:absolute;top:.6rem;left:0;right:0;z-index:0;pointer-events:none;margin:0}
+#top{position:relative;z-index:2}
+#mesa{position:relative;z-index:1}
+
+
+#deckInfo:empty{display:none}
+#deckInfo .tfs{color:var(--oro)}
+#menuB,#menu,#panel{display:none}
+.seatrow{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
+.seatrow .sl{flex:0 0 7.4rem;text-align:left;font-size:.85rem;line-height:1.2}
+.seatrow .sl small{display:block;opacity:.7;font-size:.72rem}
+.seatrow .modes{flex:1;margin:0;gap:.4rem}
+.seatrow .modes span{padding:.4em .3em;font-size:.85rem}
+#seatsBox{margin-bottom:.5rem}
+/* ===== Móvil: HUD compacto arriba y cartas del tapete más grandes ===== */
+@media (max-width:640px){
+ /* Barra superior de una línea: marcador · triunfo · menú */
+ body:has(#game:not([hidden])) #bAyuda{display:none}
+ #top{display:flex;flex-wrap:nowrap;align-items:center;gap:.4rem;padding:.3rem .45rem;font-size:.75rem}
+ #topL{display:contents}
+ #topR{order:1;flex:1 1 auto;min-width:0;flex-direction:row;align-items:center;margin:0}
+ #score.chip{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;padding:.3em .65em}
+ #deckInfo.chip{order:2;flex:none;font-size:.72rem;padding:.3em .7em;border:1px solid var(--oro);color:var(--oro);font-weight:bold;background:#0007}
+ #deckInfo .mz{display:none}
+ #menuB{display:block;order:3;flex:none;font-size:1.15rem;line-height:1;padding:.2em .55em}
+ #menu.open{display:flex;flex-direction:column;align-items:stretch;gap:.4rem;position:absolute;top:100%;right:.4rem;z-index:5;
+  background:var(--madera);border:1px solid var(--oro);border-radius:10px;padding:.6rem;box-shadow:0 6px 18px #000a}
+ #menu .chip{text-align:center}
+ #menu #bNueva,#menu #bAyuda2{font-size:.85rem;padding:.45em .8em}
+ /* Nombres sobre la mesa y estado del turno sobre tu mano */
+ #mesa{padding:0 .3rem .3rem;grid-template-rows:auto 1fr auto auto auto}
+ #mesa #names{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0 .8rem;font-size:.74rem;padding:.1rem .35rem .25rem}
+ #mesa #msg{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:.1rem .5rem;min-height:0;padding:.2rem .4rem}
+ #mesa #msg .st{font-size:.9rem;padding:.12em .9em}
+ #mesa #msg .ev{font-size:.78rem;min-height:0;line-height:1.2}
+ #mesa #msg .ev:empty{display:none}
+ #mesa #msg .hint{flex:1 0 100%;font-size:.72rem;min-height:0;line-height:1.2}
+
+ /* Tapete: sin mazo ni montones de bazas; la baza en juego ocupa el espacio libre */
+ #deck,#piles,#pOpp,#pMe{display:none!important}
+ body:not(.p4){--cw:clamp(56px,min(21vw,9.6dvh),92px);--pw:clamp(84px,min(37vw,17dvh),170px);--dw:clamp(64px,min(24vw,11.2dvh),106px)}
+ body:not(.p4) #mid{display:grid;grid-template-columns:1fr 1fr;align-content:space-evenly;align-items:center;justify-items:center;gap:.2rem .3rem}
+ body:not(.p4) #play{--cw:var(--pw);grid-column:1 / -1;grid-row:1}
+ body:not(.p4) #deck{--cw:var(--dw);grid-column:1;grid-row:2}
+ body:not(.p4) #piles{grid-column:2;grid-row:2;flex-direction:row;justify-content:center;align-items:flex-start;align-self:auto;gap:.6rem;width:auto;padding:0;margin-bottom:1.5rem}
+ body:not(.p4) .pile{width:calc(var(--cw)*.8);height:calc(var(--cw)*1.25)}
+ body:not(.p4) .pile .card{width:calc(var(--cw)*.8)}
+ body.p4{--cw:clamp(48px,min(21vw,9.5dvh),96px)}
+ body.p4 #play{--cw:clamp(56px,min(26vw,12.5dvh),124px)}
+}
+@media (max-width:640px) and (max-height:700px){
+ body:not(.p4){--cw:clamp(50px,8dvh,80px);--pw:clamp(66px,13.5dvh,140px);--dw:clamp(50px,8.8dvh,92px)}
+ :root{--hw:clamp(60px,min(29.5vw,14.4dvh),132px)}
+}
+@media (max-width:640px) and (max-height:600px){
+ body:not(.p4){--pw:clamp(62px,12.5dvh,130px);--dw:clamp(48px,8.6dvh,92px)}
+ :root{--hw:clamp(56px,min(29.5vw,13.6dvh),132px)}
+}
+
+/* ===== Escritorio: barra fina arriba + panel lateral (turno, jugadores, marcador, triunfo) ===== */
+@media (min-width:641px){
+ :root{--panelw:clamp(12.5rem,21vw,18rem);--cw:clamp(56px,min(12.5vw,calc((100vh - 190px)/4.9),calc((100vw - var(--panelw) - 2.6rem)/6.95)),152px)}   /* nunca más ancho que la mesa */
+ #game{display:grid;grid-template-columns:var(--panelw) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+ #top{grid-column:1 / -1;align-items:center;padding:.4rem 7rem .3rem .9rem}
+ #topL,#topR{flex-direction:row;align-items:center;gap:.5rem}
+ #panel{display:flex;flex-direction:column;gap:1rem;grid-column:1;grid-row:2;align-self:start;margin:.4rem 0 .6rem .6rem;padding:1rem;
+  background:#0004;border:1px solid #fff2;border-radius:12px;position:relative;z-index:1}
+ #mesa{grid-column:2;grid-row:2;padding-top:calc(var(--cw)*1.1 + .4rem)}
+ body.p4 #mesa{padding-top:calc(var(--cw)*1.35 + .4rem)}
+ body.p4{--cw:clamp(52px,min(11vw,calc((100vh - 170px)/5.8),calc((100vw - var(--panelw) - 3.6rem)/8.3)),150px)}   /* 4 jugadores: manos laterales + baza + mazo caben en la mesa */
+ #opp{top:2.7rem;left:calc(var(--panelw) + .6rem)}
+ #panel #msg{order:1;align-items:flex-start;text-align:left;min-height:0;padding:0;gap:.4rem}
+ #panel #msg .st{font-size:1.15rem;border-radius:14px}
+ #panel #msg .ev{font-size:.95rem;min-height:0}
+ #panel #msg .hint{font-size:.85rem;min-height:0}
+ #panel #msg .ev:empty,#panel #msg .hint:empty{display:none}
+ #panel #names{order:2;font-size:1rem;gap:.35rem;padding:0}
+ #panel #score{order:3;display:block;white-space:normal;border-radius:10px;padding:.5em .8em;line-height:1.35}
+ #panel #deckInfo{order:4;white-space:normal;border-radius:10px;padding:.5em .8em;border:1px solid var(--oro);font-size:1rem}
+ #panel #names::before,#panel #score::before{display:block;font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--oro);margin-bottom:.25rem}
+ #panel #names::before{content:"Jugadores"}
+}
+
+/* ===== Tablet vertical: panel en una fila arriba y mesa a todo el ancho ===== */
+@media (min-width:641px) and (orientation:portrait){
+ :root{--panelw:0px}
+ #game{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(0,1fr)}
+ #top{padding-right:7rem}
+ #panel{grid-column:1;grid-row:2;flex-direction:row;flex-wrap:wrap;align-items:center;align-self:stretch;gap:.5rem 1rem;margin:.2rem .6rem;padding:.6rem .9rem}
+ #panel #msg{align-items:center}
+ #panel #names{flex-direction:row;flex-wrap:wrap;gap:.2rem 1rem}
+ #panel #names::before,#panel #score::before{display:none}
+ #panel #score,#panel #deckInfo{padding:.35em .8em}
+ #opp{position:static;grid-column:1;grid-row:3}
+ #mesa,body.p4 #mesa{grid-column:1;grid-row:4;padding-top:.3rem}
+}
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
 </head>
 <body>
 
 <div id="lobby">
- <button class="btn alt small" id="bAyuda" type="button" aria-haspopup="dialog">? Ayuda</button>
+ <button class="btn alt small" id="bAyuda" type="button" aria-haspopup="dialog" aria-label="Ayuda">?<span class="ayt"> Ayuda</span></button>
  <div class="box">
   <h1>Guiñote</h1>
-  <p>Baraja española · 2 jugadores</p>
+  <p>Baraja española · 2 jugadores, o 4 por parejas</p>
+  <input id="inName" maxlength="16" placeholder="Tu nombre (opcional)" autocomplete="off" aria-label="Tu nombre (opcional)">
+  <input id="inPass" type="password" placeholder="Contraseña" autocomplete="off" aria-label="Contraseña de la sala">
   <div class="cols">
    <section class="col">
     <h3>Crear sala</h3>
     <div class="modes">
+     <label><input type="radio" name="np" value="2" checked><span>2 jugadores<small>uno contra uno</small></span></label>
+     <label><input type="radio" name="np" value="4"><span>4 jugadores<small>por parejas</small></span></label>
+    </div>
+    <div class="modes" id="tcBox" hidden>
+     <label><input type="radio" name="tc" value="azul" checked><span>🔵 Equipo azul<small>tu equipo</small></span></label>
+     <label><input type="radio" name="tc" value="rojo"><span>🔴 Equipo rojo<small>tu equipo</small></span></label>
+    </div>
+    <div id="seatsBox"></div>
+    <div class="modes">
      <label><input type="radio" name="mode" value="normal" checked><span>Normal<small>a 101 puntos, varias manos</small></span></label>
      <label><input type="radio" name="mode" value="rapida"><span>Rápida<small>una sola mano</small></span></label>
     </div>
-    <p class="hint">Pon una contraseña para protegerla o déjala vacía para que quede abierta.</p>
-    <input id="inPass" type="password" placeholder="Contraseña (opcional)" autocomplete="off">
-    <button class="btn" id="bCrear" style="width:100%">Crear sala</button>
+    <button class="btn" id="bCrear" style="width:100%">Jugar contra el bot</button>
    </section>
    <section class="col">
     <h3>Unirse a una sala</h3>
     <div id="rooms"><em>Buscando salas…</em></div>
-    <input id="inPassJoin" type="password" placeholder="Contraseña (si la sala la tiene)" autocomplete="off">
+    <div class="modes three">
+     <label><input type="radio" name="tp" value="any" checked><span>Cualquiera<small>equipo</small></span></label>
+     <label><input type="radio" name="tp" value="azul"><span>🔵 Azul<small>equipo</small></span></label>
+     <label><input type="radio" name="tp" value="rojo"><span>🔴 Rojo<small>equipo</small></span></label>
+    </div>
     <input id="inCode" maxlength="4" placeholder="CÓDIGO" autocomplete="off">
     <button class="btn alt" id="bUnir" style="width:100%">Unirse con código</button>
    </section>
@@ -175,22 +389,35 @@ button,.card{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 </div>
 
 <div id="game" hidden>
+ <div id="opp" class="hand"></div>
  <div id="top">
-  <span class="chip" id="room"></span>
-  <span class="chip" id="score"></span>
-  <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
+  <div id="topL">
+   <span class="chip" id="room"></span>
+   <span class="chip" id="deckInfo"></span>
+   <div id="names"></div>
+   <div id="msg" role="status" aria-live="polite">
+    <div class="st" id="st"></div>
+    <div class="ev" id="ev"></div>
+    <div class="hint" id="hint"></div>
+   </div>
+  </div>
+  <div id="topR">
+   <span class="chip" id="score"></span>
+   <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
+  </div>
+  <button class="btn alt small" id="menuB" type="button" aria-label="Menú" aria-haspopup="true">☰</button>
+  <div id="menu"><button class="btn alt small" id="bAyuda2" type="button">? Ayuda</button></div>
  </div>
- <div id="msg" role="status" aria-live="polite">
-  <div class="st" id="st"></div>
-  <div class="ev" id="ev"></div>
-  <div class="hint" id="hint"></div>
- </div>
+ <aside id="panel"></aside>
  <div id="mesa">
-  <div id="opp" class="hand"></div>
-  <div id="mid">
-   <div id="deck"></div>
-   <div id="play"></div>
-   <div id="piles"><div class="pile" id="pOpp"></div><div class="pile" id="pMe"></div></div>
+  <div id="row">
+   <div id="oL" class="side"></div>
+   <div id="mid">
+    <div id="deck"></div>
+    <div id="play"></div>
+    <div id="piles"><div class="pile" id="pOpp"></div><div class="pile" id="pMe"></div></div>
+   </div>
+   <div id="oR" class="side"></div>
   </div>
   <div id="acts"></div>
   <div id="me" class="hand"></div>
@@ -231,11 +458,18 @@ button,.card{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
  <p>Quien gane la última baza suma <b>10 puntos</b> extra.</p>
 
  <h3>Modos de partida</h3>
- <p><b>Normal:</b> varias manos hasta llegar a <b>101 puntos</b>. Los puntos de cada mano se suman a un marcador acumulado que ven los dos jugadores. Gana quien llegue a 101 o más al acabar una mano.<br>
+ <p><b>Normal:</b> varias manos hasta llegar a <b>101 puntos</b>. Los puntos de cada mano se suman a un marcador acumulado que ven los dos jugadores; el marcador se actualiza en vivo, sumando los puntos de la mano en curso. Gana quien llegue a 101 o más al acabar una mano.<br>
  <b>Rápida:</b> una sola mano; gana quien tenga más puntos al final.</p>
+
+ <h3>Partidas de 4 (por parejas)</h3>
+ <p>Se juega con las mismas reglas, en dos equipos: <b>azul</b> contra <b>rojo</b>, dos jugadores por equipo (tu pareja se sienta enfrente). Quien crea la sala elige el color de su equipo; quien se une elige equipo (o "cualquiera") y cada equipo tiene 2 plazas. Cada uno recibe 6 cartas y cada baza es de 4 cartas; se juega en sentido antihorario. Los puntos, las bazas y los cantes son <b>del equipo</b>: puedes cantar o cambiar el 7 si tu equipo ya ha ganado alguna baza. En el arrastre hay que superar la carta ganadora aunque sea de tu pareja. No hay señas.</p>
+
+ <h3>Jugar contra bots</h3>
+ <p>Al crear la sala elige <b>2</b> o <b>4 jugadores</b> y, para cada asiento, si lo ocupa un <b>bot</b> (por defecto) o un <b>humano</b>. Si todos son bots, la partida es solo tuya: no crea sala ni usa la base de datos. Si hay asientos humanos, se crea la sala y los bots ocupan sus sitios; en 4 jugadores el bot de tu pareja juega contigo.</p>
 
  <h3>Salas</h3>
  <p>Crea una sala (con contraseña opcional) y elige el modo, o únete a una de la lista o con su código de 4 letras. Las salas se eliminan solas a la hora de crearse. El botón <b>Nueva partida</b> de la mesa te devuelve a esta pantalla.</p>
+ <p>Antes de crear o unirte puedes escribir un <b>nombre</b> (opcional). Si lo dejas vacío, se te asigna uno automático de animal, como «Zorro veloz».</p>
 
  <p style="text-align:center;margin-bottom:0"><button class="btn" id="bAyudaX" type="button">Cerrar</button></p>
 </dialog>
@@ -270,8 +504,8 @@ try{
   db = getDatabase(initializeApp(cfg));
 }catch(e){
   console.error(e);
-  document.getElementById('err').textContent = `No se pudo cargar ${CONFIG_FILE} (sírvelo con un servidor web, no con file://).`;
-  document.getElementById('bCrear').disabled = document.getElementById('bUnir').disabled = true;
+  document.getElementById('err').textContent = `No se pudo cargar ${CONFIG_FILE} (sírvelo con un servidor web, no con file://). Jugar contra bots sigue disponible.`;
+  document.getElementById('bUnir').disabled = true;
 }
 
 /* ============ REGLAS DEL JUEGO ============ */
@@ -280,31 +514,62 @@ const RANKS = [1,2,3,4,5,6,7,10,11,12];
 const ORD = [2,4,5,6,7,10,11,12,3,1];           // de menor a mayor fuerza
 const PT = {1:11,3:10,12:4,11:3,10:2};
 const NOMBRE = {oros:'oros',copas:'copas',espadas:'espadas',bastos:'bastos'};
+const ALL = SUITS.flatMap(s => RANKS.map(r => s + '_' + String(r).padStart(2,'0')));   // las 40 cartas
 const suit = c => c.split('_')[0], rk = c => +c.split('_')[1];
 const str = c => ORD.indexOf(rk(c)), val = c => PT[rk(c)] || 0;
 const cid = (s,r) => s + '_' + String(r).padStart(2,'0');
 const hand = (s,g=G) => g['h'+s] || [];
+const colorOf = (t, c0 = (R && R.c0) || 'azul') => t === 0 ? c0 : (c0 === 'azul' ? 'rojo' : 'azul');   // color del equipo t
+const cap = c => c[0].toUpperCase() + c.slice(1);
+const tm = s => s % 2;                                   // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
+const range = n => [...Array(n).keys()];
+const nameOf = s => (R && R.names && R.names[s]) || (((R && R.np) || 2) === 4 ? `Jugador ${s + 1}` : 'Rival');
+const seats = r => range(r.np || 2).filter(i => r.p && r.p[i]).length;
 
-function newGame(mano, mode='normal', tot=[0,0], n=1){
+function newGame(mano, mode='normal', tot=[0,0], n=1, np=2){
   const deck = SUITS.flatMap(s => RANKS.map(r => cid(s,r)));
   for(let i = deck.length-1; i > 0; i--){ const j = Math.random()*(i+1)|0; [deck[i],deck[j]] = [deck[j],deck[i]]; }
-  const h0 = deck.splice(0,6), h1 = deck.splice(0,6);
+  const hs = {}; for(let i = 0; i < np; i++) hs['h'+i] = deck.splice(0,6);
   const trumpCard = deck[deck.length-1];
-  return {deck, h0, h1, trumpCard, trump:suit(trumpCard), table:[], turn:mano, mano,
-          pts:[0,0], won:[false,false], tk:[0,0], sung:'', forced:null, ev:null, done:false, fin:false, mode, tot:[...tot], n};
+  return {deck, ...hs, np, trumpCard, trump:suit(trumpCard), table:[], turn:mano, mano,
+          pts:[0,0], won:[false,false], tk:[0,0], played:[], sung:'', forced:null, ev:null, done:false, fin:false, mode, tot:[...tot], n};
 }
 
 /* ============ ESTADO ============ */
-let tmr, unsub, code, me, R, G = null, resolving = false, seen = new Set(), prevTable = '';
+let tmr, unsub, code, me, R, G = null, local = false, botBusy = false, resolving = false, seen = new Set(), prevTable = '';
 const $ = id => document.getElementById(id);
 const gref = () => ref(db, `rooms/${code}/g`);
-const save = g => set(gref(), g);
+const save = g => local ? localSave(g) : set(gref(), g);
+function localSave(g){ G = g; setTimeout(afterState, 0); return Promise.resolve(); }   // partida contra el bot: sin base de datos
 
 /* ---- Lobby ---- */
 const rnd = () => Array.from({length:4}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random()*24|0]).join('');
 const CIUDADES = ['Sevilla','Zaragoza','Valencia','Bilbao','Granada','Toledo','Cádiz','Vigo','León','Soria','Teruel','Huesca','Jaca','Segovia','Salamanca','Córdoba','Málaga','Oviedo','Burgos','Lisboa','París','Roma','Viena','Praga','Oslo','Lima','Quito','Bogotá','Kioto','Dublín','Atenas','Cuzco'];
 const TIEMPOS = ['con sol','con lluvia','con niebla','con nieve','con viento','con tormenta','con nubes','con granizo','con calima','con bruma','con rocío','con cielo claro'];
 const pick = a => a[Math.random()*a.length|0];
+/* Nombres de jugador */
+const ANIMALES = [['zorro','m'],['búho','m'],['lince','m'],['lobo','m'],['oso','m'],['halcón','m'],['delfín','m'],['tigre','m'],['gato','m'],['cuervo','m'],['tejón','m'],['mapache','m'],
+  ['águila','f'],['nutria','f'],['zorra','f'],['cebra','f'],['jirafa','f'],['ardilla','f'],['lechuza','f'],['foca','f'],['tortuga','f'],['garza','f'],['ballena','f'],['mariposa','f']];
+const ADJETIVOS = [['veloz','veloz'],['astuto','astuta'],['valiente','valiente'],['sabio','sabia'],['sigiloso','sigilosa'],['audaz','audaz'],['ágil','ágil'],['travieso','traviesa'],
+  ['tranquilo','tranquila'],['feroz','feroz'],['curioso','curiosa'],['elegante','elegante'],['sereno','serena'],['bravo','brava'],['pícaro','pícara'],['sagaz','sagaz'],
+  ['risueño','risueña'],['noble','noble'],['rápido','rápida'],['atrevido','atrevida']];
+const cleanName = t => String(t || '').replace(/\s+/g,' ').trim().slice(0,16);
+function nombreAuto(usados){
+  for(let i = 0; i < 60; i++){
+    const [a,g] = pick(ANIMALES), n = cap(a) + ' ' + pick(ADJETIVOS)[g === 'm' ? 0 : 1];
+    if(!usados.includes(n)) return n;
+  }
+  return cap(pick(ANIMALES)[0]) + ' ' + (10 + Math.random()*90|0);
+}
+function miNombre(usados){                                   // el escrito (único en la sala) o uno automático
+  let n = cleanName($('inName').value);
+  try{ localStorage.setItem('guinote-nombre', n); }catch(e){}
+  if(!n) return nombreAuto(usados);
+  const base = n; let k = 2;
+  while(usados.some(u => u.toLowerCase() === n.toLowerCase())) n = base.slice(0,13) + ' ' + k++;
+  return n;
+}
+try{ $('inName').value = localStorage.getItem('guinote-nombre') || ''; }catch(e){}
 const nombreSala = () => `${pick(CIUDADES)} ${pick(TIEMPOS)}`;
 const esc = t => String(t).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const HORA = 3600e3;   // duración máxima de una sala
@@ -325,61 +590,137 @@ function watchLobby(){
     const all = snap.val() || {}, now = Date.now();
     Object.entries(all).filter(([,r]) => now - r.t >= HORA).forEach(([c]) => purge(c));
     const list = Object.entries(all).filter(([,r]) => now - r.t < HORA).sort((a,b) => b[1].t - a[1].t);
+    hayLock = list.some(([,r]) => r.lock); if(typeof updPass === 'function' && $('seatsBox').children.length) updPass();
     $('rooms').innerHTML = list.length ? list.map(([c,r]) => {
-      const full = r.n >= 2, min = Math.max(1, Math.round((now - r.t)/60000));
-      return `<button class="room" data-c="${esc(c)}" ${full ? 'disabled' : ''}>
-        <span><b>${esc(r.name || 'Sala')}</b><i>(${esc(c)})</i><small>${r.mode === 'rapida' ? 'Rápida' : 'Normal · 101'} · ${r.lock ? '🔒 con contraseña' : 'abierta'} · hace ${min} min</small></span>
-        <span>${full ? 'En juego' : 'Unirse'}</span></button>`;
+      const np = r.np || 2, full = (r.n || 1) >= np, min = Math.max(1, Math.round((now - r.t)/60000));
+      const info = `<span><b>${esc(r.name || 'Sala')}</b><i>(${esc(c)})</i><small>${np === 4 ? '4 jugadores' : '2 jugadores'} (${r.n || 1}/${np}) · ${r.mode === 'rapida' ? 'Rápida' : 'Normal · 101'} · ${r.lock ? '🔒 con contraseña' : 'abierta'} · hace ${min} min</small></span>`;
+      if(np === 4){
+        const occ = r.s || '1000', c0 = r.c0 || 'azul', free = t => [t, t + 2].filter(i => occ[i] !== '1').length;
+        const tb = t => { const col = colorOf(t, c0), f = free(t);
+          return `<button type="button" class="tb tc-${col}" data-team="${col}" ${f ? '' : 'disabled'}>${cap(col)} · ${f ? f + (f > 1 ? ' libres' : ' libre') : 'completo'}</button>`; };
+        return `<div class="room room4" data-c="${esc(c)}">${info}<span class="tbs">${tb(0)}${tb(1)}</span></div>`;
+      }
+      return `<button class="room" data-c="${esc(c)}" ${full ? 'disabled' : ''}>${info}<span>${full ? 'En juego' : 'Unirse'}</span></button>`;
     }).join('') : '<em>No hay salas ahora mismo. Crea una.</em>';
   }, () => lobbyErr('No se pudo leer la lista de salas (revisa las reglas de la base de datos).'));
 }
 function unwatchLobby(){ if(unLobby) unLobby(); unLobby = null; }
 
+const npSel = () => +document.querySelector('input[name=np]:checked').value;
+const seatBots = np => range(np - 1).map(i => (document.querySelector(`input[name=seat${i+1}]:checked`) || {}).value !== 'humano');   // asientos 1..np-1: true = bot
+function buildSeats(){
+  const np = npSel();
+  const lab = i => np === 4 ? (i === 2 ? 'tu pareja' : 'rival') : 'rival';
+  $('seatsBox').innerHTML = range(np - 1).map(k => { const i = k + 1;
+    return `<div class="seatrow"><div class="sl">Jugador ${i + 1}<small>${lab(i)}</small></div><div class="modes">
+      <label><input type="radio" name="seat${i}" value="bot" checked><span>🤖 Bot</span></label>
+      <label><input type="radio" name="seat${i}" value="humano"><span>👤 Humano</span></label></div></div>`; }).join('');
+  $('seatsBox').querySelectorAll('input').forEach(x => x.onchange = updCrear);
+  $('tcBox').hidden = np !== 4; updCrear();
+}
+let hayLock = false;   // ¿hay alguna sala con contraseña en la lista?
+function updPass(){
+  const allBot = seatBots(npSel()).every(Boolean), on = !allBot || hayLock, pi = $('inPass');
+  pi.disabled = !on;
+  pi.placeholder = on ? 'Contraseña' : 'Contraseña (no necesaria)';
+}
+function updCrear(){
+  const np = npSel(), allBot = seatBots(np).every(Boolean);
+  updPass();
+  $('bCrear').textContent = allBot ? (np === 2 ? 'Jugar contra el bot' : 'Jugar con bots') : 'Crear sala';
+}
+document.querySelectorAll('input[name=np]').forEach(i => i.onchange = buildSeats);
+buildSeats();
 $('bCrear').onclick = async () => {
+  const np = npSel(), bots = seatBots(np), botSeats = range(np - 1).filter(i => bots[i]).map(i => i + 1);
+  if(botSeats.length === np - 1) return jugarBot(np, botSeats);          // todos bots: partida local, sin base de datos
   try{
     lobbyErr('');
     do{ code = rnd(); } while((await get(ref(db,`rooms/${code}`))).exists());
     me = 0;
-    const mode = document.querySelector('input[name=mode]:checked').value;
-    const pw = await hash($('inPass').value, code), name = nombreSala(), room = {p:{0:Date.now()}, mode, name};
+    const mode = document.querySelector('input[name=mode]:checked').value, tc = np === 4 ? document.querySelector('input[name=tc]:checked').value : 'azul';
+    const pw = await hash($('inPass').value, code), name = nombreSala(), yo = miNombre([]), used = [yo];
+    const p = {0:Date.now()}, names = {0:yo}, bm = {};
+    botSeats.forEach(i => { const n = nombreAuto(used); used.push(n); names[i] = '🤖 ' + n; p[i] = Date.now(); bm[i] = true; });
+    const room = {p, mode, name, np, c0:tc, names};
+    if(botSeats.length) room.bots = bm;
     if(pw) room.pw = pw;
     await set(ref(db,`rooms/${code}`), room);
-    await set(ref(db,`lobby/${code}`), {t:Date.now(), lock:!!pw, n:1, mode, name});
+    await set(ref(db,`lobby/${code}`), {t:Date.now(), lock:!!pw, n:seats(room), mode, name, np, c0:tc, s:np === 4 ? range(4).map(i => p[i] ? '1' : '0').join('') : null});
     enter();
   }catch(e){ console.error(e); lobbyErr('No se pudo conectar con Firebase. Revisa la configuración.'); }
 };
 
-async function unirse(c){
+async function unirse(c, color = 'any'){
   try{
     lobbyErr(''); code = (c || '').trim().toUpperCase();
     if(code.length !== 4) return lobbyErr('Escribe el código de 4 letras.');
     const s = await get(ref(db,`rooms/${code}`));
     if(!s.exists()) return lobbyErr('Esa sala no existe.');
     const r = s.val();
-    if(r.p && r.p[1]) return lobbyErr('La sala ya está completa.');
+    const np = r.np || 2;
+    if(seats(r) >= np) return lobbyErr('La sala ya está completa.');
     if(r.pw){
-      const pass = $('inPassJoin').value;
-      if(!pass){ $('inPassJoin').focus(); return lobbyErr(`La sala ${code} tiene contraseña: escríbela en el campo de contraseña y vuelve a pulsar.`); }
-      if(await hash(pass, code) !== r.pw){ $('inPassJoin').focus(); return lobbyErr('Contraseña incorrecta.'); }
+      const pass = $('inPass').value;
+      if(!pass){ $('inPass').focus(); return lobbyErr(`La sala ${code} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`); }
+      if(await hash(pass, code) !== r.pw){ $('inPass').focus(); return lobbyErr('Contraseña incorrecta.'); }
     }
-    me = 1;
-    await set(ref(db,`rooms/${code}/p/1`), Date.now());
-    await set(ref(db,`lobby/${code}/n`), 2);
+    let seat = -1, cand = range(np);
+    if(np === 4 && color !== 'any'){ const t = color === (r.c0 || 'azul') ? 0 : 1; cand = [t, t + 2]; }   // asientos de ese equipo
+    const tr = await runTransaction(ref(db,`rooms/${code}/p`), cur => {     // primer asiento libre
+      seat = -1; const p = {...(cur || {})};
+      for(const i of cand) if(!p[i]){ seat = i; p[i] = Date.now(); return p; }
+    });
+    if(!tr.committed || seat < 0) return lobbyErr(np === 4 && color !== 'any' ? `El equipo ${color} ya está completo.` : 'La sala ya está completa.');
+    me = seat;
+    await set(ref(db,`rooms/${code}/names/${seat}`), miNombre(Object.values(r.names || {}).filter(Boolean)));
+    const pv = tr.snapshot.val();
+    await set(ref(db,`lobby/${code}/n`), seats({p: pv, np}));
+    if(np === 4) await set(ref(db,`lobby/${code}/s`), range(4).map(i => pv[i] ? '1' : '0').join(''));
     enter();
   }catch(e){ console.error(e); lobbyErr('No se pudo conectar con Firebase. Revisa la configuración.'); }
 }
 $('bAyuda').onclick = () => $('ayuda').showModal();
 $('bAyudaX').onclick = () => $('ayuda').close();
+$('bAyuda2').onclick = () => $('ayuda').showModal();
+// Móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa
+const mq = matchMedia('(max-width:640px)');
+function placeHud(){
+  const menu = $('menu'), mesa = $('mesa'), topL = $('topL');
+  if(mq.matches){
+    menu.prepend($('room')); menu.append($('bNueva'));
+    $('topR').prepend($('score')); topL.append($('deckInfo'));
+    mesa.insertBefore($('names'), $('row')); mesa.insertBefore($('msg'), $('me'));
+  }else{
+    topL.prepend($('room')); $('topR').append($('bNueva'));
+    $('panel').append($('msg'), $('names'), $('score'), $('deckInfo'));
+    menu.classList.remove('open');
+  }
+}
+mq.addEventListener('change', placeHud); placeHud();
+$('menuB').onclick = e => { e.stopPropagation(); $('menu').classList.toggle('open'); };
+$('menu').addEventListener('click', e => { if(e.target.closest('button')) $('menu').classList.remove('open'); });
+document.addEventListener('click', e => { if(!$('menu').contains(e.target)) $('menu').classList.remove('open'); });
 $('ayuda').addEventListener('click', e => { if(e.target === e.currentTarget) e.currentTarget.close(); });
-$('bUnir').onclick = () => unirse($('inCode').value);
-$('rooms').onclick = e => { const b = e.target.closest('.room'); if(b){ $('inCode').value = b.dataset.c; unirse(b.dataset.c); } };
+$('bUnir').onclick = () => unirse($('inCode').value, document.querySelector('input[name=tp]:checked').value);
+$('rooms').onclick = e => {
+  const t = e.target.closest('[data-team]');
+  if(t){ const row = t.closest('.room'); $('inCode').value = row.dataset.c; return unirse(row.dataset.c, t.dataset.team); }
+  const b = e.target.closest('button.room'); if(b){ $('inCode').value = b.dataset.c; unirse(b.dataset.c); }
+};
 
 $('bRe').onclick = () => {
   const n = G.n || 1; seen = new Set(); prevTable = '';
+  if(local){
+    if(!G.done) return;
+    const cur = G, np = cur.np || 2, nm = (cur.mano + 1) % np;
+    return localSave(cur.fin ? newGame(nm, cur.mode, [0,0], 1, np) : newGame(nm, cur.mode, cur.tot || [0,0], n + 1, np));
+  }
   runTransaction(gref(), cur => {
     if(cur === null) return cur;
     if(!cur.done || (cur.n || 1) !== n) return;           // ya lo ha pulsado el otro jugador
-    return cur.fin ? newGame(1 - cur.mano, cur.mode, [0,0], 1) : newGame(1 - cur.mano, cur.mode, cur.tot || [0,0], n + 1);
+    const np = cur.np || 2, nm = (cur.mano + 1) % np;
+    return cur.fin ? newGame(nm, cur.mode, [0,0], 1, np) : newGame(nm, cur.mode, cur.tot || [0,0], n + 1, np);
   }).catch(console.error);
 };
 $('bNueva').onclick = () => {
@@ -389,13 +730,19 @@ $('bNueva').onclick = () => {
 function salir(){
   if(unsub) unsub();
   clearInterval(tmr);
-  if(me === 0 && code && !(R && R.p && R.p[1])){          // anfitrión sin rival: cerrar la sala
-    remove(ref(db,`rooms/${code}`)).catch(()=>{}); remove(ref(db,`lobby/${code}`)).catch(()=>{});
+  if(code && !G){                                          // la partida no ha empezado
+    if(me === 0){ remove(ref(db,`rooms/${code}`)).catch(()=>{}); remove(ref(db,`lobby/${code}`)).catch(()=>{}); }   // anfitrión: cerrar la sala
+    else if(me > 0){                                        // invitado: liberar su asiento
+      remove(ref(db,`rooms/${code}/p/${me}`)).catch(()=>{});
+      runTransaction(ref(db,`lobby/${code}/n`), n => n === null ? n : Math.max(1, n - 1)).catch(()=>{});
+      remove(ref(db,`rooms/${code}/names/${me}`)).catch(()=>{});
+      const k = me; runTransaction(ref(db,`lobby/${code}/s`), o => o === null ? o : o.slice(0, k) + '0' + o.slice(k + 1)).catch(()=>{});
+    }
   }
-  unsub = null; G = null; R = null; code = me = undefined; resolving = false; seen = new Set(); prevTable = '';
+  unsub = null; G = null; R = null; code = me = undefined; local = false; botBusy = false; resolving = false; seen = new Set(); prevTable = '';
   sessionStorage.removeItem('guinote');
-  $('game').hidden = true; $('fin').hidden = true; $('bNueva').hidden = true;
-  $('inCode').value = ''; $('inPass').value = ''; $('inPassJoin').value = ''; $('err').textContent = '';
+  document.body.classList.remove('p4'); $('game').hidden = true; $('fin').hidden = true; $('bNueva').hidden = true;
+  $('inCode').value = ''; $('inPass').value = ''; $('err').textContent = '';
   $('lobby').hidden = false;
   watchLobby();
 }
@@ -412,12 +759,9 @@ function enter(){
     R = snap.val(); G = R.g || null;
     $('room').textContent = R.name ? `${R.name} (${code})` : 'Sala ' + code;
     if(R.p && R.p[0] && Date.now() - R.p[0] >= HORA) purge(code);
-    if(G){ G.table = G.table || []; G.deck = G.deck || []; G.sung = G.sung || ''; G.tot = G.tot || [0,0]; G.n = G.n || 1; }
-    if(!G && me === 0 && R.p && R.p[1]) return save(newGame(1, R.mode || 'normal'));   // el que no reparte empieza (mano = jugador 1)
-    render();
-    if(G && me === 0 && G.table.length === 2 && !resolving){
-      resolving = true; setTimeout(resolve, 1500);
-    }
+    if(G){ G.table = G.table || []; G.deck = G.deck || []; G.sung = G.sung || ''; G.tot = G.tot || [0,0]; G.played = G.played || []; G.n = G.n || 1; G.np = G.np || 2; }
+    if(!G && me === 0 && seats(R) >= (R.np || 2)) return save(newGame(1, R.mode || 'normal', [0,0], 1, R.np || 2));   // el que no reparte empieza (mano = jugador 1)
+    afterState();
   });
 }
 const saved = JSON.parse(sessionStorage.getItem('guinote') || 'null');
@@ -425,7 +769,16 @@ if(saved && db){ code = saved.code; me = saved.me; enter(); }
 else watchLobby();
 
 /* ---- Lógica de turnos ---- */
-const myTurn = () => G && !G.done && G.turn === me && G.table.length < 2;
+const myTurn = () => G && !G.done && G.turn === me && G.table.length < G.np;
+
+function winnerOf(t){                                   // carta que va ganando la baza
+  let b = t[0];
+  for(const x of t.slice(1)){
+    if(suit(x.c) === suit(b.c)){ if(str(x.c) > str(b.c)) b = x; }
+    else if(suit(x.c) === G.trump) b = x;
+  }
+  return b;
+}
 
 function legal(c){
   const h = hand(me);
@@ -434,32 +787,39 @@ function legal(c){
     return true;
   }
   if(G.deck.length > 0) return true;                     // sin arrastre: libre
-  const lead = G.table[0].c, ls = suit(lead);           // arrastre: asistir, superar, fallar con triunfo
+  const ls = suit(G.table[0].c), best = winnerOf(G.table).c;   // arrastre: asistir, superar, fallar con triunfo
   const same = h.filter(x => suit(x) === ls);
-  if(same.length){ const hi = same.filter(x => str(x) > str(lead)); return (hi.length ? hi : same).includes(c); }
+  if(same.length){
+    if(suit(best) !== ls) return same.includes(c);
+    const hi = same.filter(x => str(x) > str(best)); return (hi.length ? hi : same).includes(c);
+  }
   const tr = h.filter(x => suit(x) === G.trump);
-  return tr.length ? tr.includes(c) : true;
+  if(tr.length){
+    if(suit(best) !== G.trump) return tr.includes(c);
+    const hi = tr.filter(x => str(x) > str(best)); return (hi.length ? hi : tr).includes(c);
+  }
+  return true;
 }
 
 function play(c){
   if(!myTurn() || !legal(c)) return;
   const g = {...G, table:[...G.table, {p:me, c}], forced:null, ev:null};
   g['h'+me] = hand(me).filter(x => x !== c);
-  g.turn = G.table.length === 0 ? 1 - me : -1;
+  g.turn = G.table.length + 1 < G.np ? (me + 1) % G.np : -1;
   save(g);
 }
 
 function cantes(){
-  if(!myTurn() || G.table.length || !G.won[me] || G.forced) return [];
+  if(!myTurn() || G.table.length || !G.won[tm(me)] || G.forced) return [];
   const h = hand(me);
   return SUITS.filter(s => h.includes(cid(s,11)) && h.includes(cid(s,12)) && !G.sung.split(',').includes(s));
 }
 function cantar(s){
   const n = s === G.trump ? 40 : 20, g = {...G, pts:[...G.pts], forced:s, sung:G.sung + s + ',', ev:{t:'cante', p:me, s, n}};
-  g.pts[me] += n; save(g);
+  g.pts[tm(me)] += n; save(g);
 }
 function canCambiar(){
-  return myTurn() && !G.table.length && G.won[me] && G.deck.length >= 2 &&
+  return myTurn() && !G.table.length && G.won[tm(me)] && G.deck.length >= 2 &&
          hand(me).includes(cid(G.trump,7)) && G.trumpCard !== cid(G.trump,7);
 }
 function cambiar(){
@@ -471,18 +831,15 @@ function cambiar(){
 /* Solo el anfitrión (jugador 0) resuelve la baza */
 function resolve(){
   resolving = false;
-  if(!G || G.table.length !== 2) return;
-  const [a,b] = G.table;
-  let w = a.p;
-  if(suit(b.c) === suit(a.c)){ if(str(b.c) > str(a.c)) w = b.p; }
-  else if(suit(b.c) === G.trump) w = b.p;
-  const deck = [...G.deck], n = val(a.c) + val(b.c);
-  const g = {...G, table:[], deck, turn:w, pts:[...G.pts], won:[...G.won], tk:[...(G.tk||[0,0])], forced:null, ev:{t:'baza', p:w, n}};
-  g.pts[w] += n; g.won[w] = true; g.tk[w]++;
-  if(deck.length){ g['h'+w] = [...hand(w), deck.shift()]; g['h'+(1-w)] = [...hand(1-w), deck.shift()]; }
+  if(!G || G.table.length !== G.np) return;
+  const np = G.np, w = winnerOf(G.table).p, T = tm(w);
+  const deck = [...G.deck], n = G.table.reduce((a,t) => a + val(t.c), 0);
+  const g = {...G, table:[], deck, turn:w, pts:[...G.pts], won:[...G.won], tk:[...(G.tk||[0,0])], forced:null, played:[...(G.played||[]), ...G.table.map(t => t.c)], ev:{t:'baza', p:w, n}};
+  g.pts[T] += n; g.won[T] = true; g.tk[T]++;
+  if(deck.length) for(let i = 0; i < np; i++){ const x = (w + i) % np; g['h'+x] = [...hand(x), deck.shift()]; }   // roba primero el ganador
   g.deck = deck;
-  if(!hand(0,g).length && !hand(1,g).length){
-    g.pts[w] += 10; g.done = true; g.ev.u = true;
+  if(range(np).every(x => !hand(x,g).length)){
+    g.pts[T] += 10; g.done = true; g.ev.u = true;
     if(G.mode === 'normal'){
       const t = [...(G.tot || [0,0])]; t[0] += g.pts[0]; t[1] += g.pts[1]; g.tot = t;
       g.fin = Math.max(t[0], t[1]) >= 101 && t[0] !== t[1];       // si empatan a 101 o más, otra mano
@@ -491,8 +848,124 @@ function resolve(){
   save(g);
 }
 
+/* ---- Bots (R.bots = asientos controlados por el bot; los ejecuta el anfitrión) ---- */
+const isBot = s => !!(R && R.bots && R.bots[s]);
+/* Final exacto (2 jugadores, mazo agotado): con las cartas jugadas memorizadas se deduce la mano del rival
+   y se resuelve el resto de la mano por búsqueda completa (minimax). Ignora cantes futuros. */
+function botEndgame(){
+  if(G.np !== 2 || G.deck.length) return null;
+  const mine = hand(me), t0 = G.table[0] || null, tr = G.trump;
+  const known = new Set([...mine, ...(G.played || []), ...G.table.map(t => t.c)]);
+  const opp = ALL.filter(c => !known.has(c));
+  if(opp.length !== mine.length - G.table.length) return null;          // memoria incompleta: usar la heurística
+  const oppFull = t0 ? [...opp, t0.c] : opp, memo = new Map();
+  const beats = (a,b) => suit(b) === suit(a) ? str(b) > str(a) : suit(b) === tr;      // ¿la respuesta b gana a la salida a?
+  const legalIn = (h,a) => {                                              // reglas del arrastre para responder a la carta a
+    const same = h.filter(x => suit(x) === suit(a));
+    if(same.length){ const hi = same.filter(x => str(x) > str(a)); return hi.length ? hi : same; }
+    const t = h.filter(x => suit(x) === tr); return t.length ? t : h;
+  };
+  const play2 = (hb,ho,lead,a,b) => {                                     // valor (bot − rival) tras jugar la baza a,b
+    const lh = lead === 0 ? hb : ho, oh = lead === 0 ? ho : hb;
+    const w = beats(a,b) ? 1 - lead : lead, p = val(a) + val(b) + (lh.length === 1 ? 10 : 0);
+    const nl = lh.filter(x => x !== a), no = oh.filter(x => x !== b);
+    return (w === 0 ? p : -p) + (lead === 0 ? solve(nl,no,w) : solve(no,nl,w));
+  };
+  function solve(hb,ho,lead){
+    if(!hb.length) return 0;
+    const key = [...hb].sort().join() + '/' + [...ho].sort().join() + lead;
+    if(memo.has(key)) return memo.get(key);
+    const lh = lead === 0 ? hb : ho, oh = lead === 0 ? ho : hb;
+    let best = lead === 0 ? -1e9 : 1e9;
+    for(const a of lh){
+      let inner = lead === 0 ? 1e9 : -1e9;
+      for(const b of legalIn(oh,a)){ const v = play2(hb,ho,lead,a,b); inner = lead === 0 ? Math.min(inner,v) : Math.max(inner,v); }
+      best = lead === 0 ? Math.max(best,inner) : Math.min(best,inner);
+    }
+    memo.set(key,best); return best;
+  }
+  const cheap = c => val(c)*2 + (suit(c) === tr ? 14 : 0) + str(c)/5;     // desempate: gastar lo menos valioso
+  let bestC = null, bestV = -1e9;
+  for(const c of mine.filter(legal).sort((x,y) => cheap(x) - cheap(y))){
+    const v = t0 ? play2(mine, oppFull, 1, t0.c, c)
+                 : Math.min(...legalIn(opp,c).map(b => play2(mine, opp, 0, c, b)));
+    if(v > bestV){ bestV = v; bestC = c; }
+  }
+  return bestC;
+}
+function botChoose(){                                   // se ejecuta con me = asiento del bot
+  if(G.np === 2 && !G.deck.length){ try{ const c = botEndgame(); if(c) return c; }catch(e){ console.error(e); } }
+  const h = hand(me), ok = h.filter(legal), tr = G.trump, sung = G.sung.split(',');
+  // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+caballo cantable
+  const cost = c => val(c)*2 + (suit(c) === tr ? 14 : 0) + str(c)/5 +
+    (rk(c) >= 11 && h.includes(cid(suit(c), rk(c) === 11 ? 12 : 11)) && !sung.includes(suit(c)) ? 6 : 0);
+  const cheapest = a => a.reduce((m,c) => cost(c) < cost(m) ? c : m);
+  if(G.table.length === 0){
+    if(G.forced || G.deck.length) return cheapest(ok);                // salir con lo más barato
+    const nt = ok.filter(c => suit(c) !== tr), pool = nt.length ? nt : ok;   // arrastre: la carta más fuerte
+    return pool.reduce((m,c) => str(c) > str(m) ? c : m);
+  }
+  const cur = winnerOf(G.table), bc = cur.c, pts = G.table.reduce((a,t) => a + val(t.c), 0);
+  if(G.np === 4 && tm(cur.p) === tm(me)){                            // la pareja va ganando la baza
+    if(G.table.length < 3 || G.deck.length === 0) return cheapest(ok);
+    const nt = ok.filter(c => suit(c) !== tr), pool = nt.length ? nt : ok;   // última en jugar: regalar puntos
+    return pool.reduce((m,c) => val(c) > val(m) || (val(c) === val(m) && cost(c) < cost(m)) ? c : m);
+  }
+  const beats = c => suit(c) === suit(bc) ? str(c) > str(bc) : suit(c) === tr && suit(bc) !== tr;
+  const win = ok.filter(beats);
+  if(G.deck.length === 0) return win.length ? cheapest(win) : cheapest(ok);   // en el arrastre ok ya cumple las obligaciones
+  if(win.length){
+    const w = cheapest(win), fallo = suit(w) === tr && suit(bc) !== tr;
+    if(!fallo || pts >= 10 || (pts >= 3 && val(w) === 0)) return w;          // no gastar triunfos por bazas sin valor
+  }
+  return cheapest(ok);
+}
+function botStep(seat){
+  const keep = me; me = seat;
+  try{
+    if(G.table.length === 0 && !G.forced){
+      if(canCambiar()) return cambiar();
+      const cs = cantes();
+      if(cs.length) return cantar(cs.includes(G.trump) ? G.trump : cs[0]);
+    }
+    play(botChoose());
+  }finally{ me = keep; }
+}
+const botHost = () => local || me === 0;
+function botMove(){ if(G && !G.done && isBot(G.turn) && G.table.length < G.np) botStep(G.turn); }
+function botTick(){
+  if(!G || G.done || !botHost() || !isBot(G.turn) || G.table.length >= G.np || botBusy) return;
+  botBusy = true;
+  setTimeout(() => { botBusy = false; botMove(); }, 750 + Math.random()*650);
+}
+function afterState(){
+  render();
+  if(G && me === 0 && G.table.length === G.np && !resolving){ resolving = true; setTimeout(resolve, 1500); }
+  botTick();
+}
+function jugarBot(np = 2, botSeats = [1]){
+  lobbyErr('');
+  const mode = document.querySelector('input[name=mode]:checked').value, yo = miNombre([]);
+  const c0 = np === 4 ? document.querySelector('input[name=tc]:checked').value : 'azul';
+  unwatchLobby(); clearInterval(tmr);
+  local = true; botBusy = false; resolving = false; code = undefined; me = 0; seen = new Set(); prevTable = '';
+  const p = {}, names = {0:yo}, bots = {}, used = [yo];
+  range(np).forEach(i => p[i] = Date.now());
+  botSeats.forEach(i => { const n = nombreAuto(used); used.push(n); names[i] = '🤖 ' + n; bots[i] = true; });
+  R = {np, mode, name: np === 2 ? 'Contra el bot' : 'Con bots', c0, p, names, bots};
+  G = newGame(1, mode, [0,0], 1, np);
+  $('lobby').hidden = true; $('game').hidden = false; $('bNueva').hidden = false;
+  $('room').textContent = R.name;
+  afterState();
+}
+
 /* ============ RENDER ============ */
-const im = (c, cl='') => `<img class="card ${cl}" src="cartas/${c}.webp" data-c="${c}" draggable="false" alt="${c}">`;
+const isTf = c => typeof G !== 'undefined' && G && suit(c) === G.trump;
+// Carta boca arriba; las de triunfo van en un <div> para poder llevar marco y estrella
+const face = (c, cl, attrs='') => isTf(c)
+  ? `<div class="card ${cl} tf" ${attrs}><img src="cartas/${c}.webp" draggable="false" alt="${c}"></div>`
+  : `<img class="card ${cl}" ${attrs} src="cartas/${c}.webp" draggable="false" alt="${c}">`;
+const im = (c, cl='') => face(c, cl, `data-c="${c}"`);
 const back = (cl='') => `<img class="card ${cl}" src="cartas/reverso.webp" draggable="false" alt="">`;
 
 function setMsg(st, cls = '', ev = '', evCls = '', hint = ''){
@@ -503,47 +976,71 @@ function setMsg(st, cls = '', ev = '', evCls = '', hint = ''){
 }
 function evText(e){
   if(!e) return '';
-  const y = e.p === me;
-  if(e.t === 'baza') return `${y ? 'Te llevas' : 'El rival se lleva'} la baza (${e.n} puntos)` + (e.u ? ' y las diez de últimas' : '');
-  if(e.t === 'cante') return `${y ? 'Cantas' : 'El rival canta'} las ${e.n} en ${NOMBRE[e.s]}`;
-  if(e.t === 'cambio') return `${y ? 'Cambias' : 'El rival cambia'} el siete de triunfo`;
+  const y = e.p === me, nm = nameOf(e.p) + (G.np === 4 && !y && tm(e.p) === tm(me) ? ' (tu pareja)' : '');
+  if(e.t === 'baza') return `${y ? 'Te llevas' : nm + ' se lleva'} la baza (${e.n} puntos)` + (e.u ? ' y las diez de últimas' : '');
+  if(e.t === 'cante') return `${y ? 'Cantas' : nm + ' canta'} las ${e.n} en ${NOMBRE[e.s]}`;
+  if(e.t === 'cambio') return `${y ? 'Cambias' : nm + ' cambia'} el siete de triunfo`;
   return '';
 }
 
-function render(){
-  if(!G){ setMsg('Esperando rival…', 'wait', '', '', `Comparte el código ${code}`); $('score').textContent = ''; return; }
-  $('bNueva').hidden = false;
-  const opp = 1 - me, mt = myTurn();
+const backs = h => h.map(() => back()).join('');
 
-  // Rival
-  $('opp').innerHTML = hand(opp).map(() => back()).join('');
+function render(){
+  if(!G){
+    const np = (R && R.np) || 2, n = R ? seats(R) : 1, cnt = t => [t, t + 2].filter(i => R && R.p && R.p[i]).length;
+    setMsg(np === 4 ? `Esperando jugadores (${n}/4)…` : 'Esperando rival…', 'wait', '', '',
+      np === 4 ? `Tu equipo: ${colorOf(tm(me))} · ${colorOf(0)} ${cnt(0)}/2 · ${colorOf(1)} ${cnt(1)}/2 · Código ${code}` : `Comparte el código ${code}`);
+    $('names').innerHTML = range(np).filter(i => R && R.p && R.p[i]).map(i =>
+      `<span class="pn${i === me ? ' on' : ''}" data-tc="${colorOf(tm(i))}"><i class="dot"></i>${esc(nameOf(i))}${i === me ? ' (tú)' : ''}</span>`).join('');
+    $('score').textContent = ''; $('deckInfo').textContent = ''; return;
+  }
+  $('bNueva').hidden = false;
+  const np = G.np, four = np === 4, team = tm(me), ot = 1 - team, mt = myTurn(), rel = k => (me + k) % np;
+  document.body.classList.toggle('p4', four);
+  const cur = G.done || G.table.length === np ? -1 : G.turn;     // de quién es el turno (para resaltar su mano)
+  const col = t => colorOf(t);
+  const setTc = (id, seat) => $(id).setAttribute('data-tc', col(tm(seat)));
+  $('names').innerHTML = range(np).map(k => { const seat = (me + k) % np;
+    return `<span class="pn${cur === seat ? ' on' : ''}" data-tc="${col(tm(seat))}"><i class="dot"></i>${esc(nameOf(seat))}${seat === me ? ' (tú)' : ''}</span>`; }).join('');
+  setTc('me', me); setTc('opp', four ? rel(2) : rel(1)); if(four){ setTc('oR', rel(1)); setTc('oL', rel(3)); }   // contorno del color de cada jugador/equipo
+  $('pMe').setAttribute('data-tc', col(team)); $('pOpp').setAttribute('data-tc', col(ot));
+
+  // Rivales y pareja (en 4: pareja arriba, rivales a derecha e izquierda)
+  if(four){ $('opp').innerHTML = backs(hand(rel(2))); $('oR').innerHTML = backs(hand(rel(1))); $('oL').innerHTML = backs(hand(rel(3))); }
+  else{ $('opp').innerHTML = backs(hand(1 - me)); $('oR').innerHTML = $('oL').innerHTML = ''; }
+  $('opp').classList.toggle('act', four && cur === rel(2));
+  $('oR').classList.toggle('act', four && cur === rel(1));
+  $('oL').classList.toggle('act', four && cur === rel(3));
 
   // Mano propia, ordenada por palo y fuerza
-  const mine = [...hand(me)].sort((a,b) => SUITS.indexOf(suit(a)) - SUITS.indexOf(suit(b)) || str(b) - str(a));
+  const so = c => suit(c) === G.trump ? -1 : SUITS.indexOf(suit(c));   // el palo de triunfo va siempre el primero (a la izquierda)
+  const mine = [...hand(me)].sort((a,b) => so(a) - so(b) || str(b) - str(a));
   let k = 0;
   $('me').className = 'hand' + (mt ? ' turno' : '');
   $('me').innerHTML = mine.map(c => {
     const nuevo = !seen.has(c), ok = mt && legal(c);
-    return `<img class="card ${ok ? 'ok' : ''} ${mt && !ok ? 'dim' : ''} ${nuevo ? 'deal' : ''}" style="${nuevo ? `animation-delay:${k++*70}ms` : ''}" src="cartas/${c}.webp" data-c="${c}" draggable="false" alt="${c}">`;
+    return face(c, `${ok ? 'ok' : ''} ${mt && !ok ? 'dim' : ''} ${nuevo ? 'deal' : ''}`, `style="${nuevo ? `animation-delay:${k++*70}ms` : ''}" data-c="${c}"`);
   }).join('');
   seen = new Set(mine);
 
   // Mazo con el triunfo girado debajo
   const d = G.deck.length;
   $('deck').innerHTML = (d ? im(G.trumpCard,'tr') : '') + (d > 1 ? back('bk') + (d > 2 ? back('bk') : '') : '') +
-    `<div class="lbl">Triunfo: ${NOMBRE[G.trump]} · ${d} en el mazo</div>`;
+    '';
+  $('deckInfo').innerHTML = `<span class="tfs">★</span> Triunfo: ${NOMBRE[G.trump]} · ${d}<span class="mz"> en el mazo</span>`;
 
-  // Cartas en la mesa
+  // Cartas en la mesa (en 4: cada una en su lado, según el asiento relativo)
   const key = G.table.map(t => t.c).join();
+  $('play').className = four ? 'p4' : '';
   $('play').innerHTML = G.table.map(t => {
-    const nuevo = !prevTable.includes(t.c);
-    return `<img class="card ${t.p === me ? 'mine' : 'theirs'}" style="${nuevo ? '' : 'animation:none'}" src="cartas/${t.c}.webp" alt="">`;
+    const nuevo = !prevTable.includes(t.c), cl = four ? 's' + ((t.p - me + np) % np) : (t.p === me ? 'mine' : 'theirs');
+    return face(t.c, cl, `data-tc="${col(tm(t.p))}" style="${nuevo ? '' : 'animation:none'}"`);
   }).join('');
   prevTable = key;
 
-  // Montones de bazas
+  // Montones de bazas (por equipo)
   const pile = n => n ? Array.from({length:Math.min(n,5)}, (_,i) => back('').replace('class="card "', `class="card" style="top:${i*-2}px"`)).join('') + `<span>${n} baza${n>1?'s':''}</span>` : '';
-  $('pOpp').innerHTML = pile(G.tk[opp]); $('pMe').innerHTML = pile(G.tk[me]);
+  $('pOpp').innerHTML = pile(G.tk[ot]); $('pMe').innerHTML = pile(G.tk[team]);
 
   // Acciones
   const acts = cantes().map(s => `<button class="btn" data-cante="${s}">Cantar las ${s === G.trump ? 40 : 20} en ${NOMBRE[s]}</button>`);
@@ -551,32 +1048,36 @@ function render(){
   $('acts').innerHTML = acts.join('');
 
   // Mensajes
-  $('score').textContent = G.mode !== 'normal' ? `Tus puntos: ${G.pts[me]}`
-    : G.done ? `Marcador: ${G.tot[me]}–${G.tot[opp]}`
-    : `Mano ${G.n} · Tú ${G.pts[me]} · Marcador ${G.tot[me]}–${G.tot[opp]}`;
-  const evc = G.ev && G.ev.p === me ? 'mine' : 'rival', evt = evText(G.ev);
+  // Puntos acumulados: manos anteriores + mano en curso (al terminar la mano, tot ya incluye sus puntos)
+  const acc = t => G.mode === 'normal' ? (G.tot[t] || 0) + (G.done ? 0 : G.pts[t]) : G.pts[t];
+  const nos = four ? '' : '', ell = four ? '' : '';
+  $('score').innerHTML = (G.mode === 'normal' ? `M ${G.n} · ` : '') +
+    `<i class="dot" data-tc="${col(team)}"></i>${nos} <b>${acc(team)}</b> – <i class="dot" data-tc="${col(ot)}"></i>${ell} <b>${acc(ot)}</b>`;
+  $('score').title = G.mode === 'normal' ? 'Puntos acumulados (se juega a 101)' : 'Puntos de la mano';
+  const evc = G.ev && tm(G.ev.p) === team ? 'mine' : 'rival', evt = evText(G.ev);
   if(G.done) setMsg('Mano terminada', 'wait', evt, evc);
-  else if(G.table.length === 2) setMsg('Baza completa…', 'wait', evt, evc);
+  else if(G.table.length === np) setMsg('Baza completa…', 'wait', evt, evc);
   else if(mt) setMsg('Tu turno', 'mine', evt, evc,
     G.forced ? `Cantaste: sal con el rey o el caballo de ${NOMBRE[G.forced]}` :
     G.deck.length ? '' : 'Arrastre: asiste al palo y supera si puedes');
-  else setMsg('Turno del rival', 'wait', evt, evc);
+  else setMsg('Turno de ' + nameOf(G.turn) + (four && G.turn === rel(2) ? ' (tu pareja)' : ''), 'wait', evt, evc);
 
   // Final de mano / partida
   $('fin').hidden = !G.done;
   if(G.done){
-    const a = G.pts[me], b = G.pts[opp], ta = G.tot[me], tb = G.tot[opp];
+    const a = G.pts[team], b = G.pts[ot], ta = G.tot[team], tb = G.tot[ot], v = (x, y) => four ? y : x;
+    const yo = four ? `Equipo ${col(team)}` : 'Tú', el = four ? `Equipo ${col(ot)}` : 'Rival';
     if(G.mode !== 'normal'){
-      $('finT').textContent = a > b ? '¡Has ganado!' : a < b ? 'Has perdido' : 'Empate';
-      $('finS').textContent = `Tú ${a} — Rival ${b}`;
+      $('finT').textContent = a > b ? v('¡Has ganado!','¡Habéis ganado!') : a < b ? v('Has perdido','Habéis perdido') : 'Empate';
+      $('finS').textContent = `${yo} ${a} — ${el} ${b}`;
       $('bRe').textContent = 'Otra partida';
     }else if(G.fin){
-      $('finT').textContent = ta > tb ? '¡Has ganado la partida!' : 'Has perdido la partida';
-      $('finS').textContent = `Última mano: Tú ${a} — Rival ${b}\nMarcador final: Tú ${ta} — Rival ${tb}`;
+      $('finT').textContent = ta > tb ? v('¡Has ganado la partida!','¡Habéis ganado la partida!') : v('Has perdido la partida','Habéis perdido la partida');
+      $('finS').textContent = `Última mano: ${yo} ${a} — ${el} ${b}\nMarcador final: ${yo} ${ta} — ${el} ${tb}`;
       $('bRe').textContent = 'Nueva partida';
     }else{
-      $('finT').textContent = a > b ? 'Ganas la mano' : a < b ? 'Pierdes la mano' : 'Mano empatada';
-      $('finS').textContent = `Mano ${G.n}: Tú ${a} — Rival ${b}\nMarcador: Tú ${ta} — Rival ${tb}\nSe juega a 101 puntos`;
+      $('finT').textContent = a > b ? v('Ganas la mano','Ganáis la mano') : a < b ? v('Pierdes la mano','Perdéis la mano') : 'Mano empatada';
+      $('finS').textContent = `Mano ${G.n}: ${yo} ${a} — ${el} ${b}\nMarcador: ${yo} ${ta} — ${el} ${tb}\nSe juega a 101 puntos`;
       $('bRe').textContent = 'Siguiente mano';
     }
   }

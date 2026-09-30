@@ -7,8 +7,8 @@ Juego de guiñote con baraja española para 2 jugadores, en un único `index.htm
 ```
 baraja/
 ├── index.html
-├── firebase-config.json      # tus credenciales (no lo subas a git)
-├── firebase-config.example.json
+├── config.dat
+├── README.md
 └── cartas/
     ├── oros_01.webp … oros_12.webp
     ├── copas_*.webp, espadas_*.webp, bastos_*.webp
