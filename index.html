@@ -452,7 +452,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getDatabase, ref, set, get, remove, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 /* ============ CLASES DEL DOMINIO ============ */
-/* Carta, Baraja, ReglasGuinote, Marcador y Partida: sin DOM, sin Firebase y sin estado global. */
+/* Carta, Baraja, ReglasGuinote, Marcador, Partida, Jugador y Bot: sin DOM, sin Firebase y sin estado global. */
 
 /**
  * Una carta de la baraja española de 40 cartas (sin 8 ni 9).
@@ -1020,6 +1020,124 @@ class Partida {
   }
 }
 
+/**
+ * Un jugador sentado a la mesa: su asiento y su nombre. Es el modelo de un humano; el equipo
+ * se deduce del asiento (pares contra impares). No conoce el DOM ni Firebase.
+ */
+class Jugador {
+  constructor(asiento, nombre) {
+    this.asiento = asiento;
+    this.nombre = nombre;
+  }
+
+  get esBot() { return false; }
+  get equipo() { return Partida.equipoDe(this.asiento); }
+
+  /** Jugadores de una sala por asiento (null si el asiento está vacío). Único sitio donde se decide Jugador o Bot. */
+  static lista(sala) {
+    return Array.from({ length: sala.playerCount }, (_, asiento) => {
+      if (!sala.players?.[asiento]) return null;
+      const nombre = sala.names?.[asiento];
+      return sala.bots?.[asiento] ? new Bot(asiento, nombre) : new Jugador(asiento, nombre);
+    });
+  }
+}
+
+/**
+ * Jugador controlado por el programa. No tiene estado propio: decide solo a partir de la Partida que
+ * recibe (la memoria de cartas jugadas ya está en Partida), así se puede reconstruir en cada
+ * actualización de la sala sin perder nada. No ejecuta nada: devuelve la acción elegida.
+ *
+ * Acción: { tipo: 'jugar', carta } | { tipo: 'cantar', palo } | { tipo: 'cambiar' }
+ */
+class Bot extends Jugador {
+  static PREFIJO = '🤖 ';                 // marca que llevan los nombres de bot guardados en la sala
+  static PAUSA_MIN_MS = 500;              // pausa del bot antes de jugar
+  static PAUSA_EXTRA_MS = 400;
+
+  get esBot() { return true; }
+
+  /** Milisegundos que "piensa" antes de jugar. */
+  retardo(aleatorio = Math.random) {
+    return Bot.PAUSA_MIN_MS + aleatorio() * Bot.PAUSA_EXTRA_MS;
+  }
+
+  /** Qué hace ahora en `partida` (debe ser su turno): cambiar el 7, cantar o jugar una carta. */
+  elegirJugada(partida) {
+    const asiento = this.asiento;
+    if (partida.mesa.length === 0 && !partida.paloForzado) {
+      if (partida.puedeCambiarSiete(asiento)) return { tipo: 'cambiar' };
+      const palos = partida.cantesPosibles(asiento);
+      if (palos.length) return { tipo: 'cantar', palo: palos.includes(partida.triunfo) ? partida.triunfo : palos[0] };
+    }
+    return { tipo: 'jugar', carta: this.#elegirCarta(partida) };
+  }
+
+  #elegirCarta(partida){
+    const seat = this.asiento, mesa = partida.mesa;
+    if(partida.jugadores === 2 && !partida.cartasEnMazo){ try{ const chosenCard = this.#finalExacto(partida); if(chosenCard) return chosenCard; }catch(error){ console.error(error); } }
+    const handCards = partida.cartasDe(seat), allowed = partida.cartasLegales(seat), trump = partida.triunfo, sung = partida.cantados;
+    const noTrump = cards => { const nonTrump = cards.filter(card => card.palo !== trump); return nonTrump.length ? nonTrump : cards; };
+    // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+caballo cantable
+    const cost = card => card.puntos*2 + (card.palo === trump ? 14 : 0) + card.fuerza/5 +
+      (card.parejaDeCante && handCards.includes(card.parejaDeCante) && !sung.has(card.palo) ? 6 : 0);
+    const cheapest = cards => cards.reduce((currentBest,card) => cost(card) < cost(currentBest) ? card : currentBest);
+    if(mesa.length === 0){
+      if(partida.paloForzado || partida.cartasEnMazo) return cheapest(allowed);                // salir con lo más barato
+      return noTrump(allowed).reduce((currentBest,card) => card.fuerza > currentBest.fuerza ? card : currentBest);      // arrastre: la carta más fuerte
+    }
+    const currentWinner = ReglasGuinote.ganadoraDeBaza(mesa, trump), bestCard = currentWinner.card, tablePoints = ReglasGuinote.puntosDeBaza(mesa);
+    if(partida.jugadores === 4 && Partida.equipoDe(currentWinner.seat) === Partida.equipoDe(seat)){                            // la pareja va ganando la baza
+      if(mesa.length < 3 || partida.cartasEnMazo === 0) return cheapest(allowed);
+      return noTrump(allowed).reduce((currentBest,card) => card.puntos > currentBest.puntos || (card.puntos === currentBest.puntos && cost(card) < cost(currentBest)) ? card : currentBest);
+    }
+    const winningCards = allowed.filter(card => ReglasGuinote.superaA(card, bestCard, trump));
+    if(partida.cartasEnMazo === 0) return winningCards.length ? cheapest(winningCards) : cheapest(allowed);   // en el arrastre ok ya cumple las obligaciones
+    if(winningCards.length){
+      const cheapestWinner = cheapest(winningCards), isRuff = cheapestWinner.palo === trump && bestCard.palo !== trump;
+      if(!isRuff || tablePoints >= 10 || (tablePoints >= 3 && cheapestWinner.puntos === 0)) return cheapestWinner;          // no gastar triunfos por bazas sin valor
+    }
+    return cheapest(allowed);
+  }
+
+  #finalExacto(partida){
+    const seat = this.asiento;
+    if(partida.jugadores !== 2 || partida.cartasEnMazo) return null;
+    const mine = partida.cartasDe(seat), mesa = partida.mesa, leadEntry = mesa[0] || null, leadCardOnTable = leadEntry && leadEntry.card, trump = partida.triunfo;
+    const known = new Set([...mine, ...partida.cartasJugadas, ...mesa.map(entry => entry.card)]);
+    const rivalCards = Carta.todas().filter(card => !known.has(card));
+    if(rivalCards.length !== mine.length - mesa.length) return null;          // memoria incompleta: usar la heurística
+    const rivalCardsWithLead = leadEntry ? [...rivalCards, leadCardOnTable] : rivalCards, memo = new Map();
+    const playTrick = (botHand,opponentHand,lead,leadCard,replyCard) => {                                     // valor (bot − rival) tras jugar la baza a,b
+      const leaderHand = lead === 0 ? botHand : opponentHand, otherHand = lead === 0 ? opponentHand : botHand;
+      const winnerSide = ReglasGuinote.superaA(replyCard, leadCard, trump) ? 1 - lead : lead, trickPoints = leadCard.puntos + replyCard.puntos + (leaderHand.length === 1 ? ReglasGuinote.DIEZ_DE_ULTIMAS : 0);
+      const newLeaderHand = leaderHand.filter(card => card !== leadCard), newOtherHand = otherHand.filter(card => card !== replyCard);
+      return (winnerSide === 0 ? trickPoints : -trickPoints) + (lead === 0 ? solve(newLeaderHand,newOtherHand,winnerSide) : solve(newOtherHand,newLeaderHand,winnerSide));
+    };
+    function solve(botHand,opponentHand,lead){
+      if(!botHand.length) return 0;
+      const key = [...botHand].sort().join() + '/' + [...opponentHand].sort().join() + lead;
+      if(memo.has(key)) return memo.get(key);
+      const leaderHand = lead === 0 ? botHand : opponentHand, otherHand = lead === 0 ? opponentHand : botHand;
+      let best = lead === 0 ? -1e9 : 1e9;
+      for(const leadCard of leaderHand){
+        let inner = lead === 0 ? 1e9 : -1e9;
+        for(const replyCard of ReglasGuinote.cartasLegales(otherHand, [{card:leadCard}], 0, trump, null)){ const value = playTrick(botHand,opponentHand,lead,leadCard,replyCard); inner = lead === 0 ? Math.min(inner,value) : Math.max(inner,value); }
+        best = lead === 0 ? Math.max(best,inner) : Math.min(best,inner);
+      }
+      memo.set(key,best); return best;
+    }
+    const spendCost = card => card.puntos*2 + (card.palo === trump ? 14 : 0) + card.fuerza/5;     // desempate: gastar lo menos valioso
+    let bestCard = null, bestValue = -1e9;
+    for(const card of partida.cartasLegales(seat).sort((cardA,cardB) => spendCost(cardA) - spendCost(cardB))){
+      const value = leadEntry ? playTrick(mine, rivalCardsWithLead, 1, leadCardOnTable, card)
+                   : Math.min(...ReglasGuinote.cartasLegales(rivalCards, [{card}], 0, trump, null).map(replyCard => playTrick(mine, rivalCards, 0, card, replyCard)));
+      if(value > bestValue){ bestValue = value; bestCard = card; }
+    }
+    return bestCard;
+  }
+}
+
 /* Bandera global: true = lee config.dat (JSON codificado en base64);
    false = lee firebase-config.json en texto plano. */
 const CONFIG_EN_BASE64 = true;
@@ -1049,14 +1167,13 @@ const CARD_EXT = 'webp';
 /* Las reglas del juego (puntos, cantes, cartas legales…) viven en ReglasGuinote; aquí solo lo que no es regla. */
 const AJUSTES = {
   longCodigo: 4,          // letras del código de sala
-  botMinMs: 500, botExtraMs: 400,   // pausa del bot antes de jugar
   resolverMs: 1500,       // pausa con la baza completa antes de recogerla
 };
 const colorOf = (teamIndex, firstColor = state.room.firstTeamColor) => teamIndex === 0 ? firstColor : (firstColor === 'azul' ? 'rojo' : 'azul');   // color del equipo t
 const capitalize = word => word[0].toUpperCase() + word.slice(1);
 const teamOf = Partida.equipoDe;                                 // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
 const range = count => [...Array(count).keys()];
-const nameOf = seat => state.room.names[seat] || (state.room.playerCount === 4 ? `Jugador ${seat + 1}` : 'Rival');
+const nameOf = seat => state.jugadores[seat]?.nombre || (state.room.playerCount === 4 ? `Jugador ${seat + 1}` : 'Rival');
 const seats = room => range(room.playerCount).filter(index => room.players[index]).length;
 const seatMask = players => range(4).map(index => players[index] ? '1' : '0').join('');   // asientos ocupados de una sala de 4
 const checked = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value;
@@ -1071,6 +1188,7 @@ const newSession = () => ({
   code: undefined,        // código de la sala (undefined en partidas contra bots)
   mySeat: undefined,          // asiento propio
   room: null,                // sala: np, mode, names, p, bots…
+  jugadores: [],          // Jugador / Bot por asiento (null = asiento vacío), derivado de room
   game: null,                // partida en curso
   local: false,           // true = contra bots, sin base de datos
   botBusy: false,         // hay una jugada del bot programada
@@ -1187,7 +1305,7 @@ document.querySelectorAll('input[name=np]').forEach(radio => radio.addEventListe
 buildSeats();
 function assignBots(seatList, used){                       // nombre automático y marca de bot para cada asiento
   const names = {}, bots = {};
-  seatList.forEach(index => { const botName = nombreAuto(used); used.push(botName); names[index] = '🤖 ' + botName; bots[index] = true; });
+  seatList.forEach(index => { const botName = nombreAuto(used); used.push(botName); names[index] = Bot.PREFIJO + botName; bots[index] = true; });
   return {names, bots};
 }
 byId('bCrear').addEventListener('click', async () => {
@@ -1309,7 +1427,7 @@ function enter(){
   byId('room').textContent = 'Sala ' + state.code;
   state.unsub = onValue(ref(database,`rooms/${state.code}`), snapshot => {
     if(snapshot.val() === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
-    state.room = normRoom(snapshot.val()); state.game = Partida.desdeEstado(state.room.game || null);
+    state.room = normRoom(snapshot.val()); state.jugadores = Jugador.lista(state.room); state.game = Partida.desdeEstado(state.room.game || null);
     byId('room').textContent = state.room.name ? `${state.room.name} (${state.code})` : 'Sala ' + state.code;
     if(state.room.players[0] && Date.now() - state.room.players[0] >= HORA) purge(state.code);
     if(!state.game && state.mySeat === 0 && seats(state.room) >= state.room.playerCount) return save(Partida.nueva(state.room.playerCount, state.room.mode));   // el que no reparte empieza (mano = jugador 1)
@@ -1335,87 +1453,22 @@ function resolve(){
   if(state.game && state.game.bazaCompleta) save(state.game.resolverBaza());
 }
 
-/* ---- Bots (state.room.bots = asientos controlados por el bot; los ejecuta el anfitrión) ---- */
-const isBot = seat => !!(state.room && state.room.bots && state.room.bots[seat]);
-/* Final exacto (2 jugadores, mazo agotado): con las cartas jugadas memorizadas se deduce la mano del rival
-   y se resuelve el resto de la mano por búsqueda completa (minimax). Ignora cantes futuros. */
-function botEndgame(seat){
-  const partida = state.game;
-  if(partida.jugadores !== 2 || partida.cartasEnMazo) return null;
-  const mine = partida.cartasDe(seat), mesa = partida.mesa, leadEntry = mesa[0] || null, leadCardOnTable = leadEntry && leadEntry.card, trump = partida.triunfo;
-  const known = new Set([...mine, ...partida.cartasJugadas, ...mesa.map(entry => entry.card)]);
-  const rivalCards = Carta.todas().filter(card => !known.has(card));
-  if(rivalCards.length !== mine.length - mesa.length) return null;          // memoria incompleta: usar la heurística
-  const rivalCardsWithLead = leadEntry ? [...rivalCards, leadCardOnTable] : rivalCards, memo = new Map();
-  const playTrick = (botHand,opponentHand,lead,leadCard,replyCard) => {                                     // valor (bot − rival) tras jugar la baza a,b
-    const leaderHand = lead === 0 ? botHand : opponentHand, otherHand = lead === 0 ? opponentHand : botHand;
-    const winnerSide = ReglasGuinote.superaA(replyCard, leadCard, trump) ? 1 - lead : lead, trickPoints = leadCard.puntos + replyCard.puntos + (leaderHand.length === 1 ? ReglasGuinote.DIEZ_DE_ULTIMAS : 0);
-    const newLeaderHand = leaderHand.filter(card => card !== leadCard), newOtherHand = otherHand.filter(card => card !== replyCard);
-    return (winnerSide === 0 ? trickPoints : -trickPoints) + (lead === 0 ? solve(newLeaderHand,newOtherHand,winnerSide) : solve(newOtherHand,newLeaderHand,winnerSide));
-  };
-  function solve(botHand,opponentHand,lead){
-    if(!botHand.length) return 0;
-    const key = [...botHand].sort().join() + '/' + [...opponentHand].sort().join() + lead;
-    if(memo.has(key)) return memo.get(key);
-    const leaderHand = lead === 0 ? botHand : opponentHand, otherHand = lead === 0 ? opponentHand : botHand;
-    let best = lead === 0 ? -1e9 : 1e9;
-    for(const leadCard of leaderHand){
-      let inner = lead === 0 ? 1e9 : -1e9;
-      for(const replyCard of ReglasGuinote.cartasLegales(otherHand, [{card:leadCard}], 0, trump, null)){ const value = playTrick(botHand,opponentHand,lead,leadCard,replyCard); inner = lead === 0 ? Math.min(inner,value) : Math.max(inner,value); }
-      best = lead === 0 ? Math.max(best,inner) : Math.min(best,inner);
-    }
-    memo.set(key,best); return best;
-  }
-  const spendCost = card => card.puntos*2 + (card.palo === trump ? 14 : 0) + card.fuerza/5;     // desempate: gastar lo menos valioso
-  let bestCard = null, bestValue = -1e9;
-  for(const card of partida.cartasLegales(seat).sort((cardA,cardB) => spendCost(cardA) - spendCost(cardB))){
-    const value = leadEntry ? playTrick(mine, rivalCardsWithLead, 1, leadCardOnTable, card)
-                 : Math.min(...ReglasGuinote.cartasLegales(rivalCards, [{card}], 0, trump, null).map(replyCard => playTrick(mine, rivalCards, 0, card, replyCard)));
-    if(value > bestValue){ bestValue = value; bestCard = card; }
-  }
-  return bestCard;
-}
-function botChoose(seat){
-  const partida = state.game, mesa = partida.mesa;
-  if(partida.jugadores === 2 && !partida.cartasEnMazo){ try{ const chosenCard = botEndgame(seat); if(chosenCard) return chosenCard; }catch(error){ console.error(error); } }
-  const handCards = partida.cartasDe(seat), allowed = partida.cartasLegales(seat), trump = partida.triunfo, sung = partida.cantados;
-  const noTrump = cards => { const nonTrump = cards.filter(card => card.palo !== trump); return nonTrump.length ? nonTrump : cards; };
-  // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+caballo cantable
-  const cost = card => card.puntos*2 + (card.palo === trump ? 14 : 0) + card.fuerza/5 +
-    (card.parejaDeCante && handCards.includes(card.parejaDeCante) && !sung.has(card.palo) ? 6 : 0);
-  const cheapest = cards => cards.reduce((currentBest,card) => cost(card) < cost(currentBest) ? card : currentBest);
-  if(mesa.length === 0){
-    if(partida.paloForzado || partida.cartasEnMazo) return cheapest(allowed);                // salir con lo más barato
-    return noTrump(allowed).reduce((currentBest,card) => card.fuerza > currentBest.fuerza ? card : currentBest);      // arrastre: la carta más fuerte
-  }
-  const currentWinner = ReglasGuinote.ganadoraDeBaza(mesa, trump), bestCard = currentWinner.card, tablePoints = ReglasGuinote.puntosDeBaza(mesa);
-  if(partida.jugadores === 4 && teamOf(currentWinner.seat) === teamOf(seat)){                            // la pareja va ganando la baza
-    if(mesa.length < 3 || partida.cartasEnMazo === 0) return cheapest(allowed);
-    return noTrump(allowed).reduce((currentBest,card) => card.puntos > currentBest.puntos || (card.puntos === currentBest.puntos && cost(card) < cost(currentBest)) ? card : currentBest);
-  }
-  const winningCards = allowed.filter(card => ReglasGuinote.superaA(card, bestCard, trump));
-  if(partida.cartasEnMazo === 0) return winningCards.length ? cheapest(winningCards) : cheapest(allowed);   // en el arrastre ok ya cumple las obligaciones
-  if(winningCards.length){
-    const cheapestWinner = cheapest(winningCards), isRuff = cheapestWinner.palo === trump && bestCard.palo !== trump;
-    if(!isRuff || tablePoints >= 10 || (tablePoints >= 3 && cheapestWinner.puntos === 0)) return cheapestWinner;          // no gastar triunfos por bazas sin valor
-  }
-  return cheapest(allowed);
-}
-function botStep(seat){
-  const partida = state.game;
-  if(partida.mesa.length === 0 && !partida.paloForzado){
-    if(partida.puedeCambiarSiete(seat)) return cambiar(seat);
-    const singableSuits = partida.cantesPosibles(seat);
-    if(singableSuits.length) return cantar(seat, singableSuits.includes(partida.triunfo) ? partida.triunfo : singableSuits[0]);
-  }
-  play(seat, botChoose(seat));
+/* ---- Bots (los asientos de bot los marca state.room.bots; sus decisiones, la clase Bot; los ejecuta el anfitrión) ---- */
+const isBot = seat => !!state.jugadores[seat]?.esBot;
+function ejecutar(seat, accion){                           // aplica una acción de Bot.elegirJugada
+  if(accion.tipo === 'cambiar') cambiar(seat);
+  else if(accion.tipo === 'cantar') cantar(seat, accion.palo);
+  else play(seat, accion.carta);
 }
 const botHost = () => state.local || state.mySeat === 0;
-function botMove(){ if(state.game && !state.game.manoTerminada && isBot(state.game.turno) && !state.game.bazaCompleta) botStep(state.game.turno); }
+function botMove(){
+  const partida = state.game, bot = partida && state.jugadores[partida.turno];
+  if(partida && !partida.manoTerminada && !partida.bazaCompleta && bot?.esBot) ejecutar(bot.asiento, bot.elegirJugada(partida));
+}
 function botTick(){
   if(!state.game || state.game.manoTerminada || !botHost() || !isBot(state.game.turno) || state.game.bazaCompleta || state.botBusy) return;
   state.botBusy = true;
-  state.botTimer = setTimeout(() => { state.botBusy = false; botMove(); }, AJUSTES.botMinMs + Math.random()*AJUSTES.botExtraMs);
+  state.botTimer = setTimeout(() => { state.botBusy = false; botMove(); }, state.jugadores[state.game.turno].retardo());
 }
 function afterState(){
   render();
@@ -1430,6 +1483,7 @@ function jugarBot(playerCount = 2, botSeats = [1]){
   const players = {}, {names: botNames, bots} = assignBots(botSeats, [ownName]);
   range(playerCount).forEach(index => players[index] = Date.now());
   state.room = {playerCount, mode, name: playerCount === 2 ? 'Contra el bot' : 'Con bots', firstTeamColor: firstColor, players, names: {0:ownName, ...botNames}, bots};
+  state.jugadores = Jugador.lista(state.room);
   state.game = Partida.nueva(playerCount, mode);
   byId('lobby').hidden = true; byId('game').hidden = false; byId('bNueva').hidden = false;
   byId('room').textContent = state.room.name;
