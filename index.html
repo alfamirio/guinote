@@ -2,10 +2,7 @@
 <html lang="es">
   <head>
     <meta charset="utf-8" />
-    <meta
-      name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Juego de cartas</title>
     <style>
       /* Hoja de estilos compartida. Los estilos del tapete de guiñote (cartas, manos, #manoSuperior/#manoPropia/.side, #deck, #play, #piles/.pile,
@@ -94,11 +91,7 @@
         height: 100%;
         display: flex;
         overflow: auto;
-        background: radial-gradient(
-          circle at 50% 40%,
-          var(--paño),
-          var(--paño2)
-        );
+        background: radial-gradient(circle at 50% 40%, var(--paño), var(--paño2));
       }
       #lobby .box {
         text-align: center;
@@ -317,12 +310,7 @@
         display: flex;
         flex-direction: column;
         border: clamp(6px, 1.4vw, 14px) solid var(--madera);
-        background: radial-gradient(
-          ellipse at 50% 45%,
-          var(--paño-claro) 0%,
-          var(--paño) 45%,
-          var(--paño2) 100%
-        );
+        background: radial-gradient(ellipse at 50% 45%, var(--paño-claro) 0%, var(--paño) 45%, var(--paño2) 100%);
         box-shadow: inset 0 0 60px var(--sombra-fuerte);
       }
       #top {
@@ -1175,11 +1163,7 @@
           --ancho-panel: clamp(12.5rem, 21vw, 18rem);
           --ancho-carta: clamp(
             56px,
-            min(
-              12.5vw,
-              calc((100vh - 190px) / 4.9),
-              calc((100vw - var(--ancho-panel) - 2.6rem) / 6.95)
-            ),
+            min(12.5vw, calc((100vh - 190px) / 4.9), calc((100vw - var(--ancho-panel) - 2.6rem) / 6.95)),
             152px
           );
         } /* nunca más ancho que la mesa */
@@ -1225,11 +1209,7 @@
         body.cuatroJugadores {
           --ancho-carta: clamp(
             52px,
-            min(
-              11vw,
-              calc((100vh - 170px) / 5.8),
-              calc((100vw - var(--ancho-panel) - 3.6rem) / 8.3)
-            ),
+            min(11vw, calc((100vh - 170px) / 5.8), calc((100vw - var(--ancho-panel) - 3.6rem) / 8.3)),
             150px
           );
         } /* 4 jugadores: manos laterales + baza + mazo caben en la mesa */
@@ -1353,13 +1333,7 @@
   </head>
   <body>
     <div id="lobby">
-      <button
-        class="btn alt small"
-        id="bAyuda"
-        type="button"
-        aria-haspopup="dialog"
-        aria-label="Ayuda"
-      >
+      <button class="btn alt small" id="bAyuda" type="button" aria-haspopup="dialog" aria-label="Ayuda">
         ?<span class="textoAyuda"> Ayuda</span>
       </button>
       <div class="box">
@@ -1369,15 +1343,13 @@
           id="campoNombre"
           placeholder="Tu nombre (opcional)"
           autocomplete="off"
-          aria-label="Tu nombre (opcional)"
-        />
+          aria-label="Tu nombre (opcional)" />
         <input
           id="campoClave"
           type="password"
           placeholder="Contraseña"
           autocomplete="off"
-          aria-label="Contraseña de la sala"
-        />
+          aria-label="Contraseña de la sala" />
         <div class="cols">
           <section class="col">
             <h3>Crear sala</h3>
@@ -1385,18 +1357,14 @@
             <div class="modes" id="equipoCrearBox" hidden></div>
             <div id="seatsBox"></div>
             <div class="modes" id="modeBox"></div>
-            <button class="btn" id="bCrear" style="width: 100%">
-              Jugar contra el bot
-            </button>
+            <button class="btn" id="bCrear" style="width: 100%">Jugar contra el bot</button>
           </section>
           <section class="col">
             <h3>Unirse a una sala</h3>
             <div id="rooms"><em>Buscando salas…</em></div>
             <div class="modes three" id="equipoUnirseBox"></div>
             <input id="campoCodigo" placeholder="CÓDIGO" autocomplete="off" />
-            <button class="btn alt" id="bUnir" style="width: 100%">
-              Unirse con código
-            </button>
+            <button class="btn alt" id="bUnir" style="width: 100%">Unirse con código</button>
           </section>
         </div>
         <div id="mensajeError"></div>
@@ -1417,23 +1385,11 @@
         </div>
         <div id="topDerecha">
           <span class="chip" id="score"></span>
-          <button class="btn alt small" id="bNueva" hidden>
-            Nueva partida
-          </button>
+          <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
         </div>
-        <button
-          class="btn alt small"
-          id="bMenu"
-          type="button"
-          aria-label="Menú"
-          aria-haspopup="true"
-        >
-          ☰
-        </button>
+        <button class="btn alt small" id="bMenu" type="button" aria-label="Menú" aria-haspopup="true">☰</button>
         <div id="menu">
-          <button class="btn alt small" id="bAyudaMenu" type="button">
-            ? Ayuda
-          </button>
+          <button class="btn alt small" id="bAyudaMenu" type="button">? Ayuda</button>
         </div>
       </div>
       <aside id="panel"></aside>
@@ -1445,15 +1401,13 @@
 
       <h3>Salas</h3>
       <p>
-        Crea una sala (con contraseña opcional) y elige el modo, o únete a una
-        de la lista o con su código de 4 letras. Las salas se eliminan solas a
-        la hora de crearse. El botón <b>Nueva partida</b> de la mesa te devuelve
-        a esta pantalla.
+        Crea una sala (con contraseña opcional) y elige el modo, o únete a una de la lista o con su código de 4 letras.
+        Las salas se eliminan solas a la hora de crearse. El botón <b>Nueva partida</b> de la mesa te devuelve a esta
+        pantalla.
       </p>
       <p>
-        Antes de crear o unirte puedes escribir un <b>nombre</b> (opcional). Si
-        lo dejas vacío, se te asigna uno automático de animal, como «Zorro
-        veloz».
+        Antes de crear o unirte puedes escribir un <b>nombre</b> (opcional). Si lo dejas vacío, se te asigna uno
+        automático de animal, como «Zorro veloz».
       </p>
 
       <p style="text-align: center; margin-bottom: 0">
@@ -1563,36 +1517,20 @@
       function html(literales, ...valores) {
         return new Html(
           literales.reduce(
-            (texto, literal, indice) =>
-              texto +
-              literal +
-              (indice < valores.length ? aHtml(valores[indice]) : ""),
+            (texto, literal, indice) => texto + literal + (indice < valores.length ? aHtml(valores[indice]) : ""),
             "",
           ),
         );
       }
       const pintar = (elemento, contenido) => {
-        elemento.innerHTML = String(
-          contenido instanceof Html ? contenido : html`${contenido}`,
-        );
+        elemento.innerHTML = String(contenido instanceof Html ? contenido : html`${contenido}`);
       };
 
       /* Imágenes de la baraja española (cartas/<palo>_<número>.webp y reverso). Las usa cualquier juego que juegue con ella. */
       const EXT_CARTA = "webp";
-      const imagenReverso = (
-        className = "",
-        atributos = html``,
-        ext = EXT_CARTA,
-      ) =>
-        html`<img
-          class="card ${className}"
-          ${atributos}
-          src="cartas/reverso.${ext}"
-          draggable="false"
-          alt=""
-        />`;
-      const imagenesReverso = (cartasMano) =>
-        html`${cartasMano.map(() => imagenReverso())}`;
+      const imagenReverso = (className = "", atributos = html``, ext = EXT_CARTA) =>
+        html`<img class="card ${className}" ${atributos} src="cartas/reverso.${ext}" draggable="false" alt="" />`;
+      const imagenesReverso = (cartasMano) => html`${cartasMano.map(() => imagenReverso())}`;
 
       /* ============ CLASES GENÉRICAS ============ */
       /* Carta, Baraja, Jugador y Bot: sin DOM, sin Firebase, sin estado global y sin reglas de ningún juego. */
@@ -1622,8 +1560,7 @@
 
         /** No se usa directamente: Carta.crear(palo, numero) o Carta.de(id). */
         constructor(palo, numero, token) {
-          if (token !== TOKEN)
-            throw new TypeError("Usa Carta.crear(palo, numero) o Carta.de(id)");
+          if (token !== TOKEN) throw new TypeError("Usa Carta.crear(palo, numero) o Carta.de(id)");
           this.palo = palo;
           this.numero = numero;
           this.id = Carta.idDe(palo, numero);
@@ -1640,10 +1577,7 @@
           const id = Carta.idDe(palo, numero);
           let carta = Carta.#cache.get(id);
           if (!carta) {
-            if (
-              !Carta.PALOS.includes(palo) ||
-              !Carta.NUMEROS.includes(numero)
-            ) {
+            if (!Carta.PALOS.includes(palo) || !Carta.NUMEROS.includes(numero)) {
               throw new RangeError(`Carta inexistente: ${palo} ${numero}`);
             }
             carta = new Carta(palo, numero, TOKEN);
@@ -1663,9 +1597,7 @@
 
         /** Las 40 cartas, ordenadas por palo y número (array nuevo en cada llamada). */
         static todas() {
-          Carta.#todas ??= Carta.PALOS.flatMap((palo) =>
-            Carta.NUMEROS.map((numero) => Carta.crear(palo, numero)),
-          );
+          Carta.#todas ??= Carta.PALOS.flatMap((palo) => Carta.NUMEROS.map((numero) => Carta.crear(palo, numero)));
           return [...Carta.#todas];
         }
 
@@ -1771,9 +1703,7 @@
           return Array.from({ length: sala.numJugadores }, (_, asiento) => {
             if (!sala.asientos?.[asiento]) return null;
             const nombre = sala.nombres?.[asiento];
-            return sala.bots?.[asiento]
-              ? new sala.juego.Bot(asiento, nombre)
-              : new Jugador(asiento, nombre);
+            return sala.bots?.[asiento] ? new sala.juego.Bot(asiento, nombre) : new Jugador(asiento, nombre);
           });
         }
       }
@@ -1842,9 +1772,7 @@
 
         static #ORDEN_FUERZA = Object.freeze([2, 4, 5, 6, 7, 10, 11, 12, 3, 1]); // de menor a mayor
         static #FUERZA = Object.freeze(
-          Object.fromEntries(
-            this.#ORDEN_FUERZA.map((numero, fuerza) => [numero, fuerza]),
-          ),
+          Object.fromEntries(this.#ORDEN_FUERZA.map((numero, fuerza) => [numero, fuerza])),
         );
         static #PUNTOS = Object.freeze({ 1: 11, 3: 10, 12: 4, 11: 3, 10: 2 });
 
@@ -1866,11 +1794,7 @@
         /** Rey ↔ caballo del mismo palo (la pareja del cante); null para el resto de cartas. */
         static parejaDeCante(carta) {
           const { palo, numero } = Carta.de(carta);
-          return numero === 12
-            ? Carta.crear(palo, 11)
-            : numero === 11
-              ? Carta.crear(palo, 12)
-              : null;
+          return numero === 12 ? Carta.crear(palo, 11) : numero === 11 ? Carta.crear(palo, 12) : null;
         }
 
         /** Equipo de un asiento: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada jugador es un equipo). */
@@ -1882,27 +1806,21 @@
         static superaA(carta, rival, triunfo) {
           const a = Carta.de(carta),
             b = Carta.de(rival);
-          return a.palo === b.palo
-            ? ReglasGuinote.fuerza(a) > ReglasGuinote.fuerza(b)
-            : a.palo === triunfo;
+          return a.palo === b.palo ? ReglasGuinote.fuerza(a) > ReglasGuinote.fuerza(b) : a.palo === triunfo;
         }
 
         /** Entrada de la mesa que va ganando la baza. */
         static ganadoraDeBaza(mesa, triunfo) {
           let mejor = mesa[0];
           for (const entrada of mesa.slice(1)) {
-            if (ReglasGuinote.superaA(entrada.carta, mejor.carta, triunfo))
-              mejor = entrada;
+            if (ReglasGuinote.superaA(entrada.carta, mejor.carta, triunfo)) mejor = entrada;
           }
           return mejor;
         }
 
         /** Puntos de las cartas de una baza. */
         static puntosDeBaza(mesa) {
-          return mesa.reduce(
-            (total, entrada) => total + ReglasGuinote.puntos(entrada.carta),
-            0,
-          );
+          return mesa.reduce((total, entrada) => total + ReglasGuinote.puntos(entrada.carta), 0);
         }
 
         /**
@@ -1911,43 +1829,28 @@
          *  - Respuesta con mazo: cualquiera.
          *  - Respuesta en el arrastre (sin mazo): asistir al palo de salida, superar si se puede, o fallar con triunfo.
          */
-        static cartasLegales(
-          mano,
-          mesa,
-          cartasEnMazo,
-          triunfo,
-          paloForzado = null,
-        ) {
+        static cartasLegales(mano, mesa, cartasEnMazo, triunfo, paloForzado = null) {
           const cartas = mano.map((carta) => Carta.de(carta));
           if (!mesa.length) {
             return paloForzado
-              ? cartas.filter(
-                  (c) =>
-                    c.palo === paloForzado && ReglasGuinote.esReyOCaballo(c),
-                )
+              ? cartas.filter((c) => c.palo === paloForzado && ReglasGuinote.esReyOCaballo(c))
               : cartas;
           }
           if (cartasEnMazo) return cartas;
 
           const paloSalida = Carta.de(mesa[0].carta).palo;
-          const ganadora = Carta.de(
-            ReglasGuinote.ganadoraDeBaza(mesa, triunfo).carta,
-          );
+          const ganadora = Carta.de(ReglasGuinote.ganadoraDeBaza(mesa, triunfo).carta);
           const asistir = (palo) => {
             const delPalo = cartas.filter((c) => c.palo === palo);
             if (!delPalo.length) return null;
-            return ganadora.palo === palo
-              ? ReglasGuinote.#superar(delPalo, ganadora)
-              : delPalo;
+            return ganadora.palo === palo ? ReglasGuinote.#superar(delPalo, ganadora) : delPalo;
           };
           return asistir(paloSalida) || asistir(triunfo) || cartas;
         }
 
         /** Las cartas que superan a `ganadora`, o todas si ninguna la supera. */
         static #superar(cartas, ganadora) {
-          const mayores = cartas.filter(
-            (c) => ReglasGuinote.fuerza(c) > ReglasGuinote.fuerza(ganadora),
-          );
+          const mayores = cartas.filter((c) => ReglasGuinote.fuerza(c) > ReglasGuinote.fuerza(ganadora));
           return mayores.length ? mayores : cartas;
         }
 
@@ -1957,17 +1860,13 @@
           const yaCantados = new Set(cantados);
           return Carta.PALOS.filter(
             (palo) =>
-              !yaCantados.has(palo) &&
-              cartas.includes(Carta.crear(palo, 11)) &&
-              cartas.includes(Carta.crear(palo, 12)),
+              !yaCantados.has(palo) && cartas.includes(Carta.crear(palo, 11)) && cartas.includes(Carta.crear(palo, 12)),
           );
         }
 
         /** Puntos de cantar en `palo`. */
         static valorCante(palo, triunfo) {
-          return palo === triunfo
-            ? ReglasGuinote.CANTE_TRIUNFO
-            : ReglasGuinote.CANTE;
+          return palo === triunfo ? ReglasGuinote.CANTE_TRIUNFO : ReglasGuinote.CANTE;
         }
 
         /** El 7 del palo indicado (el que se cambia por la carta de triunfo). */
@@ -2042,8 +1941,7 @@
         /** Puntos que muestra el marcador: acumulado + mano en curso (al cerrar la mano el total ya la incluye). */
         puntosAcumulados(equipo) {
           return this.esNormal
-            ? this.#totales[equipo] +
-                (this.manoCerrada ? 0 : this.#puntos[equipo])
+            ? this.#totales[equipo] + (this.manoCerrada ? 0 : this.#puntos[equipo])
             : this.#puntos[equipo];
         }
 
@@ -2062,12 +1960,9 @@
           this.#puntos[equipoUltimaBaza] += ReglasGuinote.DIEZ_DE_ULTIMAS;
           this.manoCerrada = true;
           if (this.esNormal) {
-            this.#totales = this.#totales.map(
-              (total, equipo) => total + this.#puntos[equipo],
-            );
+            this.#totales = this.#totales.map((total, equipo) => total + this.#puntos[equipo]);
             const [a, b] = this.#totales;
-            this.partidaTerminada =
-              Math.max(a, b) >= ReglasGuinote.META && a !== b; // empatados a META o más: otra mano
+            this.partidaTerminada = Math.max(a, b) >= ReglasGuinote.META && a !== b; // empatados a META o más: otra mano
           } else {
             this.partidaTerminada = true;
           }
@@ -2163,9 +2058,7 @@
           this.#triunfo = triunfo;
           this.#cartaTriunfo = Carta.de(cartaTriunfo);
           this.#mazo = mazo;
-          this.#manos = manos.map((mano) =>
-            mano.map((carta) => Carta.de(carta)),
-          );
+          this.#manos = manos.map((mano) => mano.map((carta) => Carta.de(carta)));
           this.#mesa = mesa.map(({ asiento, carta }) => ({
             asiento,
             carta: Carta.de(carta),
@@ -2190,15 +2083,9 @@
         static nueva(
           jugadores,
           modo = "normal",
-          {
-            baraja = Baraja.barajada(),
-            jugadorMano = 1,
-            marcador = new MarcadorGuinote({ modo }),
-          } = {},
+          { baraja = Baraja.barajada(), jugadorMano = 1, marcador = new MarcadorGuinote({ modo }) } = {},
         ) {
-          const manos = Array.from({ length: jugadores }, () =>
-            baraja.repartir(ReglasGuinote.CARTAS_MANO),
-          );
+          const manos = Array.from({ length: jugadores }, () => baraja.repartir(ReglasGuinote.CARTAS_MANO));
           const cartaTriunfo = baraja.cartaDelFondo;
           return new PartidaGuinote({
             jugadores,
@@ -2226,10 +2113,7 @@
             triunfo: estado.triunfo,
             cartaTriunfo: estado.cartaTriunfo,
             mazo: new Baraja(estado.mazo || []),
-            manos: Array.from(
-              { length: jugadores },
-              (_, asiento) => estado["mano" + asiento] || [],
-            ),
+            manos: Array.from({ length: jugadores }, (_, asiento) => estado["mano" + asiento] || []),
             mesa: (estado.mesa || []).map(({ asiento, carta }) => ({
               asiento,
               carta,
@@ -2405,9 +2289,7 @@
         }
 
         esTurnoDe(asiento) {
-          return (
-            !this.manoTerminada && this.#turno === asiento && !this.bazaCompleta
-          );
+          return !this.manoTerminada && this.#turno === asiento && !this.bazaCompleta;
         }
 
         /** Cartas que el asiento podría jugar según las reglas (no comprueba el turno: para eso, esTurnoDe o puedeJugar). */
@@ -2422,19 +2304,13 @@
         }
 
         puedeJugar(asiento, carta) {
-          return (
-            this.esTurnoDe(asiento) &&
-            this.cartasLegales(asiento).includes(Carta.de(carta))
-          );
+          return this.esTurnoDe(asiento) && this.cartasLegales(asiento).includes(Carta.de(carta));
         }
 
         /** Palos que el asiento puede cantar ahora: solo al salir, tras haber ganado una baza y sin cante previo en esta salida. */
         cantesPosibles(asiento) {
-          if (!this.#puedeAccionEspecial(asiento) || this.#paloForzado)
-            return [];
-          return ReglasGuinote.cantesPosibles(this.#manos[asiento], [
-            ...this.#cantados,
-          ]);
+          if (!this.#puedeAccionEspecial(asiento) || this.#paloForzado) return [];
+          return ReglasGuinote.cantesPosibles(this.#manos[asiento], [...this.#cantados]);
         }
 
         puedeCantar(asiento, palo) {
@@ -2466,33 +2342,21 @@
 
         jugar(asiento, carta) {
           const jugada = Carta.de(carta);
-          if (!this.puedeJugar(asiento, jugada))
-            throw new Error(
-              `Jugada no válida: asiento ${asiento}, ${jugada.id}`,
-            );
+          if (!this.puedeJugar(asiento, jugada)) throw new Error(`Jugada no válida: asiento ${asiento}, ${jugada.id}`);
           const siguiente = this.clonar();
-          siguiente.#manos[asiento] = siguiente.#manos[asiento].filter(
-            (c) => c !== jugada,
-          );
+          siguiente.#manos[asiento] = siguiente.#manos[asiento].filter((c) => c !== jugada);
           siguiente.#mesa.push({ asiento, carta: jugada });
-          siguiente.#turno =
-            this.#mesa.length + 1 < this.#jugadores
-              ? (asiento + 1) % this.#jugadores
-              : -1;
+          siguiente.#turno = this.#mesa.length + 1 < this.#jugadores ? (asiento + 1) % this.#jugadores : -1;
           siguiente.#paloForzado = null;
           siguiente.#ultimoEvento = null;
           return siguiente;
         }
 
         cantar(asiento, palo) {
-          if (!this.puedeCantar(asiento, palo))
-            throw new Error(`Cante no válido: asiento ${asiento}, ${palo}`);
+          if (!this.puedeCantar(asiento, palo)) throw new Error(`Cante no válido: asiento ${asiento}, ${palo}`);
           const puntos = ReglasGuinote.valorCante(palo, this.#triunfo);
           const siguiente = this.clonar();
-          siguiente.#marcador.registrarCante(
-            PartidaGuinote.equipoDe(asiento),
-            puntos,
-          );
+          siguiente.#marcador.registrarCante(PartidaGuinote.equipoDe(asiento), puntos);
           siguiente.#cantados.add(palo);
           siguiente.#paloForzado = palo;
           siguiente.#ultimoEvento = { tipo: "cante", asiento, palo, puntos };
@@ -2500,15 +2364,12 @@
         }
 
         cambiarSiete(asiento) {
-          if (!this.puedeCambiarSiete(asiento))
-            throw new Error(`Cambio del 7 no válido: asiento ${asiento}`);
+          if (!this.puedeCambiarSiete(asiento)) throw new Error(`Cambio del 7 no válido: asiento ${asiento}`);
           const siete = ReglasGuinote.sieteDe(this.#triunfo);
           const siguiente = this.clonar();
           const anterior = siguiente.#mazo.reemplazarFondo(siete);
           siguiente.#cartaTriunfo = siete;
-          siguiente.#manos[asiento] = siguiente.#manos[asiento].map((c) =>
-            c === siete ? anterior : c,
-          );
+          siguiente.#manos[asiento] = siguiente.#manos[asiento].map((c) => (c === siete ? anterior : c));
           siguiente.#ultimoEvento = { tipo: "cambio", asiento };
           return siguiente;
         }
@@ -2516,16 +2377,11 @@
         /** Recoge la baza completa: puntúa al ganador, roba (el ganador primero) y, si era la última, cierra la mano. */
         resolverBaza() {
           if (!this.bazaCompleta) throw new Error("La baza no está completa");
-          const ganador = ReglasGuinote.ganadoraDeBaza(
-            this.#mesa,
-            this.#triunfo,
-          ).asiento;
+          const ganador = ReglasGuinote.ganadoraDeBaza(this.#mesa, this.#triunfo).asiento;
           const equipo = PartidaGuinote.equipoDe(ganador);
           const puntos = ReglasGuinote.puntosDeBaza(this.#mesa);
           const siguiente = this.clonar();
-          siguiente.#jugadas.push(
-            ...this.#mesa.map((entrada) => entrada.carta),
-          );
+          siguiente.#jugadas.push(...this.#mesa.map((entrada) => entrada.carta));
           siguiente.#mesa = [];
           siguiente.#turno = ganador;
           siguiente.#paloForzado = null;
@@ -2533,9 +2389,7 @@
           siguiente.#ultimoEvento = { tipo: "baza", asiento: ganador, puntos };
           if (siguiente.#mazo.restantes) {
             for (let i = 0; i < this.#jugadores; i++)
-              siguiente.#manos[(ganador + i) % this.#jugadores].push(
-                siguiente.#mazo.robar(),
-              );
+              siguiente.#manos[(ganador + i) % this.#jugadores].push(siguiente.#mazo.robar());
           }
           if (siguiente.#manos.every((mano) => !mano.length)) {
             siguiente.#marcador.cerrarMano(equipo);
@@ -2586,9 +2440,7 @@
             if (palos.length)
               return {
                 tipo: "cantar",
-                palo: palos.includes(partida.triunfo)
-                  ? partida.triunfo
-                  : palos[0],
+                palo: palos.includes(partida.triunfo) ? partida.triunfo : palos[0],
               };
           }
           return { tipo: "jugar", carta: this.#elegirCarta(partida) };
@@ -2598,10 +2450,7 @@
           const { puntos, fuerza } = ReglasGuinote;
           const asiento = this.asiento,
             mesa = partida.mesa;
-          if (
-            partida.jugadores === ReglasGuinote.JUGADORES_DUELO &&
-            !partida.cartasEnMazo
-          ) {
+          if (partida.jugadores === ReglasGuinote.JUGADORES_DUELO && !partida.cartasEnMazo) {
             try {
               const cartaElegida = this.#finalExacto(partida);
               if (cartaElegida) return cartaElegida;
@@ -2622,20 +2471,15 @@
             const pareja = ReglasGuinote.parejaDeCante(carta);
             return (
               BotGuinote.#costeBase(carta, triunfo) +
-              (pareja &&
-              cartasMano.includes(pareja) &&
-              !palosCantados.has(carta.palo)
+              (pareja && cartasMano.includes(pareja) && !palosCantados.has(carta.palo)
                 ? BotGuinote.RECARGO_ROMPER_CANTE
                 : 0)
             );
           };
           const masBarata = (cartas) =>
-            cartas.reduce((mejorActual, carta) =>
-              coste(carta) < coste(mejorActual) ? carta : mejorActual,
-            );
+            cartas.reduce((mejorActual, carta) => (coste(carta) < coste(mejorActual) ? carta : mejorActual));
           if (mesa.length === 0) {
-            if (partida.paloForzado || partida.cartasEnMazo)
-              return masBarata(permitidas); // salir con lo más barato
+            if (partida.paloForzado || partida.cartasEnMazo) return masBarata(permitidas); // salir con lo más barato
             return sinTriunfos(permitidas).reduce((mejorActual, carta) =>
               fuerza(carta) > fuerza(mejorActual) ? carta : mejorActual,
             ); // arrastre: la carta más fuerte
@@ -2645,38 +2489,28 @@
             puntosMesa = ReglasGuinote.puntosDeBaza(mesa);
           if (
             partida.jugadores === ReglasGuinote.JUGADORES_PAREJAS &&
-            ReglasGuinote.equipoDe(ganadoraActual.asiento) ===
-              ReglasGuinote.equipoDe(asiento)
+            ReglasGuinote.equipoDe(ganadoraActual.asiento) === ReglasGuinote.equipoDe(asiento)
           ) {
             // la pareja va ganando la baza
             const soyUltimoEnJugar = mesa.length === partida.jugadores - 1;
-            if (!soyUltimoEnJugar || partida.cartasEnMazo === 0)
-              return masBarata(permitidas);
+            if (!soyUltimoEnJugar || partida.cartasEnMazo === 0) return masBarata(permitidas);
             return sinTriunfos(permitidas).reduce((mejorActual, carta) =>
               puntos(carta) > puntos(mejorActual) ||
-              (puntos(carta) === puntos(mejorActual) &&
-                coste(carta) < coste(mejorActual))
+              (puntos(carta) === puntos(mejorActual) && coste(carta) < coste(mejorActual))
                 ? carta
                 : mejorActual,
             );
           }
-          const cartasGanadoras = permitidas.filter((carta) =>
-            ReglasGuinote.superaA(carta, mejorCarta, triunfo),
-          );
+          const cartasGanadoras = permitidas.filter((carta) => ReglasGuinote.superaA(carta, mejorCarta, triunfo));
           if (partida.cartasEnMazo === 0)
-            return cartasGanadoras.length
-              ? masBarata(cartasGanadoras)
-              : masBarata(permitidas); // en el arrastre ok ya cumple las obligaciones
+            return cartasGanadoras.length ? masBarata(cartasGanadoras) : masBarata(permitidas); // en el arrastre ok ya cumple las obligaciones
           if (cartasGanadoras.length) {
             const ganadoraMasBarata = masBarata(cartasGanadoras),
-              fallaConTriunfo =
-                ganadoraMasBarata.palo === triunfo &&
-                mejorCarta.palo !== triunfo;
+              fallaConTriunfo = ganadoraMasBarata.palo === triunfo && mejorCarta.palo !== triunfo;
             if (
               !fallaConTriunfo ||
               puntosMesa >= BotGuinote.BAZA_VALIOSA ||
-              (puntosMesa >= BotGuinote.BAZA_MEDIA &&
-                puntos(ganadoraMasBarata) === 0)
+              (puntosMesa >= BotGuinote.BAZA_MEDIA && puntos(ganadoraMasBarata) === 0)
             )
               return ganadoraMasBarata; // no gastar triunfos por bazas sin valor
           }
@@ -2686,56 +2520,28 @@
         #finalExacto(partida) {
           const { puntos } = ReglasGuinote;
           const asiento = this.asiento;
-          if (
-            partida.jugadores !== ReglasGuinote.JUGADORES_DUELO ||
-            partida.cartasEnMazo
-          )
-            return null;
+          if (partida.jugadores !== ReglasGuinote.JUGADORES_DUELO || partida.cartasEnMazo) return null;
           const propias = partida.cartasDe(asiento),
             mesa = partida.mesa,
             entradaSalida = mesa[0] || null,
             cartaSalidaEnMesa = entradaSalida && entradaSalida.carta,
             triunfo = partida.triunfo;
-          const conocidas = new Set([
-            ...propias,
-            ...partida.cartasJugadas,
-            ...mesa.map((entrada) => entrada.carta),
-          ]);
-          const cartasRival = Carta.todas().filter(
-            (carta) => !conocidas.has(carta),
-          );
+          const conocidas = new Set([...propias, ...partida.cartasJugadas, ...mesa.map((entrada) => entrada.carta)]);
+          const cartasRival = Carta.todas().filter((carta) => !conocidas.has(carta));
           if (cartasRival.length !== propias.length - mesa.length) return null; // memoria incompleta: usar la heurística
-          const cartasRivalConSalida = entradaSalida
-              ? [...cartasRival, cartaSalidaEnMesa]
-              : cartasRival,
+          const cartasRivalConSalida = entradaSalida ? [...cartasRival, cartaSalidaEnMesa] : cartasRival,
             memoria = new Map();
-          const jugarBaza = (
-            manoBot,
-            manoRival,
-            salida,
-            cartaSalida,
-            cartaRespuesta,
-          ) => {
+          const jugarBaza = (manoBot, manoRival, salida, cartaSalida, cartaRespuesta) => {
             // valor (bot − rival) tras jugar la baza a,b
             const manoSaliente = salida === 0 ? manoBot : manoRival,
               manoOtra = salida === 0 ? manoRival : manoBot;
-            const ladoGanador = ReglasGuinote.superaA(
-                cartaRespuesta,
-                cartaSalida,
-                triunfo,
-              )
-                ? 1 - salida
-                : salida,
+            const ladoGanador = ReglasGuinote.superaA(cartaRespuesta, cartaSalida, triunfo) ? 1 - salida : salida,
               puntosBaza =
                 puntos(cartaSalida) +
                 puntos(cartaRespuesta) +
                 (manoSaliente.length === 1 ? ReglasGuinote.DIEZ_DE_ULTIMAS : 0);
-            const nuevaManoSaliente = manoSaliente.filter(
-                (carta) => carta !== cartaSalida,
-              ),
-              nuevaManoOtra = manoOtra.filter(
-                (carta) => carta !== cartaRespuesta,
-              );
+            const nuevaManoSaliente = manoSaliente.filter((carta) => carta !== cartaSalida),
+              nuevaManoOtra = manoOtra.filter((carta) => carta !== cartaRespuesta);
             return (
               (ladoGanador === 0 ? puntosBaza : -puntosBaza) +
               (salida === 0
@@ -2745,23 +2551,13 @@
           };
           function valorMinimax(manoBot, manoRival, salida) {
             if (!manoBot.length) return 0;
-            const key =
-              [...manoBot].sort().join() +
-              "/" +
-              [...manoRival].sort().join() +
-              salida;
+            const key = [...manoBot].sort().join() + "/" + [...manoRival].sort().join() + salida;
             if (memoria.has(key)) return memoria.get(key);
             const manoSaliente = salida === 0 ? manoBot : manoRival,
               manoOtra = salida === 0 ? manoRival : manoBot;
-            let mejorValor =
-              salida === 0
-                ? -BotGuinote.VALOR_EXTREMO
-                : BotGuinote.VALOR_EXTREMO;
+            let mejorValor = salida === 0 ? -BotGuinote.VALOR_EXTREMO : BotGuinote.VALOR_EXTREMO;
             for (const cartaSalida of manoSaliente) {
-              let valorInterno =
-                salida === 0
-                  ? BotGuinote.VALOR_EXTREMO
-                  : -BotGuinote.VALOR_EXTREMO;
+              let valorInterno = salida === 0 ? BotGuinote.VALOR_EXTREMO : -BotGuinote.VALOR_EXTREMO;
               for (const cartaRespuesta of ReglasGuinote.cartasLegales(
                 manoOtra,
                 [{ carta: cartaSalida }],
@@ -2769,22 +2565,10 @@
                 triunfo,
                 null,
               )) {
-                const value = jugarBaza(
-                  manoBot,
-                  manoRival,
-                  salida,
-                  cartaSalida,
-                  cartaRespuesta,
-                );
-                valorInterno =
-                  salida === 0
-                    ? Math.min(valorInterno, value)
-                    : Math.max(valorInterno, value);
+                const value = jugarBaza(manoBot, manoRival, salida, cartaSalida, cartaRespuesta);
+                valorInterno = salida === 0 ? Math.min(valorInterno, value) : Math.max(valorInterno, value);
               }
-              mejorValor =
-                salida === 0
-                  ? Math.max(mejorValor, valorInterno)
-                  : Math.min(mejorValor, valorInterno);
+              mejorValor = salida === 0 ? Math.max(mejorValor, valorInterno) : Math.min(mejorValor, valorInterno);
             }
             memoria.set(key, mejorValor);
             return mejorValor;
@@ -2794,25 +2578,11 @@
             mejorValor = -BotGuinote.VALOR_EXTREMO;
           for (const carta of partida
             .cartasLegales(asiento)
-            .sort(
-              (cartaA, cartaB) => costeGasto(cartaA) - costeGasto(cartaB),
-            )) {
+            .sort((cartaA, cartaB) => costeGasto(cartaA) - costeGasto(cartaB))) {
             const value = entradaSalida
-              ? jugarBaza(
-                  propias,
-                  cartasRivalConSalida,
-                  1,
-                  cartaSalidaEnMesa,
-                  carta,
-                )
+              ? jugarBaza(propias, cartasRivalConSalida, 1, cartaSalidaEnMesa, carta)
               : Math.min(
-                  ...ReglasGuinote.cartasLegales(
-                    cartasRival,
-                    [{ carta }],
-                    0,
-                    triunfo,
-                    null,
-                  ).map((cartaRespuesta) =>
+                  ...ReglasGuinote.cartasLegales(cartasRival, [{ carta }], 0, triunfo, null).map((cartaRespuesta) =>
                     jugarBaza(propias, cartasRival, 0, carta, cartaRespuesta),
                   ),
                 );
@@ -2876,9 +2646,7 @@
           pintar(mesa.el.mesa, VistaGuinote.MARCADO);
           this.el = {
             ...mesa.el,
-            ...Object.fromEntries(
-              VistaGuinote.IDS.map((id) => [id, porId(id)]),
-            ),
+            ...Object.fromEntries(VistaGuinote.IDS.map((id) => [id, porId(id)])),
           };
           this.reiniciarAnimaciones();
           this.conectarEventos();
@@ -2896,8 +2664,7 @@
           const sesion = this.sesion;
           this.el.manoPropia.addEventListener("click", (evento) => {
             const carta = evento.target.dataset && evento.target.dataset.card;
-            if (carta)
-              sesion.aplicar(sesion.miAsiento, { tipo: "jugar", carta });
+            if (carta) sesion.aplicar(sesion.miAsiento, { tipo: "jugar", carta });
           });
           this.el.acciones.addEventListener("click", (evento) => {
             if (evento.target.dataset.cante)
@@ -2905,8 +2672,7 @@
                 tipo: "cantar",
                 palo: evento.target.dataset.cante,
               });
-            if (evento.target.id === "bCambiarSiete")
-              sesion.aplicar(sesion.miAsiento, { tipo: "cambiar" });
+            if (evento.target.id === "bCambiarSiete") sesion.aplicar(sesion.miAsiento, { tipo: "cambiar" });
           });
         }
 
@@ -2918,19 +2684,14 @@
         cara(carta, className, atributos = html``, ext = EXT_CARTA) {
           return this.esTriunfo(carta)
             ? html`<div class="card ${className} triunfo" ${atributos}>
-                <img
-                  src="cartas/${carta}.${ext}"
-                  draggable="false"
-                  alt="${carta}"
-                />
+                <img src="cartas/${carta}.${ext}" draggable="false" alt="${carta}" />
               </div>`
             : html`<img
                 class="card ${className}"
                 ${atributos}
                 src="cartas/${carta}.${ext}"
                 draggable="false"
-                alt="${carta}"
-              />`;
+                alt="${carta}" />`;
         }
         imagenCarta(carta, className = "") {
           return this.cara(carta, className, html`data-card="${carta}"`);
@@ -2942,8 +2703,7 @@
             esPareja =
               sesion.partida.jugadores === ReglasGuinote.JUGADORES_PAREJAS &&
               asiento !== sesion.miAsiento &&
-              ReglasGuinote.equipoDe(asiento) ===
-                ReglasGuinote.equipoDe(sesion.miAsiento);
+              ReglasGuinote.equipoDe(asiento) === ReglasGuinote.equipoDe(sesion.miAsiento);
           return sesion.nombreDe(asiento) + (esPareja ? " (tu pareja)" : "");
         }
 
@@ -2951,9 +2711,7 @@
           if (!evento) return "";
           const esMia = evento.asiento === this.sesion.miAsiento,
             quien = (verboPropio, verboAjeno) =>
-              esMia
-                ? verboPropio
-                : `${this.nombreConPareja(evento.asiento)} ${verboAjeno}`;
+              esMia ? verboPropio : `${this.nombreConPareja(evento.asiento)} ${verboAjeno}`;
           switch (evento.tipo) {
             case "baza":
               return (
@@ -2971,10 +2729,7 @@
 
         /* Contorno del color del equipo del asiento en el elemento indicado */
         colorearEquipo(idElemento, asiento) {
-          this.el[idElemento].setAttribute(
-            "data-color-equipo",
-            this.mesa.color(ReglasGuinote.equipoDe(asiento)),
-          );
+          this.el[idElemento].setAttribute("data-color-equipo", this.mesa.color(ReglasGuinote.equipoDe(asiento)));
         }
 
         dibujarManos(contexto) {
@@ -2992,18 +2747,9 @@
             manoIzquierda: cuatro ? ANTERIOR : null,
           }; // null = lado sin jugador
           for (const [id, distancia] of Object.entries(lados)) {
-            const asiento =
-              distancia === null ? null : asientoRelativo(distancia);
-            pintar(
-              this.el[id],
-              asiento === null
-                ? ""
-                : imagenesReverso(this.sesion.partida.cartasDe(asiento)),
-            );
-            this.el[id].classList.toggle(
-              "activa",
-              cuatro && asiento === asientoActual,
-            );
+            const asiento = distancia === null ? null : asientoRelativo(distancia);
+            pintar(this.el[id], asiento === null ? "" : imagenesReverso(this.sesion.partida.cartasDe(asiento)));
+            this.el[id].classList.toggle("activa", cuatro && asiento === asientoActual);
             if (asiento !== null) this.colorearEquipo(id, asiento);
           }
         }
@@ -3012,8 +2758,7 @@
         dibujarManoPropia({ esMiTurno }) {
           const { partida, miAsiento } = this.sesion;
           this.colorearEquipo("manoPropia", miAsiento);
-          const ordenPalo = (carta) =>
-            carta.palo === partida.triunfo ? -1 : Carta.PALOS.indexOf(carta.palo);
+          const ordenPalo = (carta) => (carta.palo === partida.triunfo ? -1 : Carta.PALOS.indexOf(carta.palo));
           const propias = partida
             .cartasDe(miAsiento)
             .sort(
@@ -3043,37 +2788,25 @@
         /* Botones de cante y de cambio del 7 */
         dibujarAcciones() {
           const { partida, miAsiento } = this.sesion;
-          const botones = partida.cantesPosibles(miAsiento).map(
-            (nombrePalo) =>
-              html`<button class="btn" data-cante="${nombrePalo}">
-                Cantar las
-                ${ReglasGuinote.valorCante(nombrePalo, partida.triunfo)} en
-                ${nombrePalo}
-              </button>`,
-          );
-          if (partida.puedeCambiarSiete(miAsiento))
-            botones.push(
-              html`<button class="btn alt" id="bCambiarSiete">
-                Cambiar el 7 de triunfo
-              </button>`,
+          const botones = partida
+            .cantesPosibles(miAsiento)
+            .map(
+              (nombrePalo) =>
+                html`<button class="btn" data-cante="${nombrePalo}">
+                  Cantar las ${ReglasGuinote.valorCante(nombrePalo, partida.triunfo)} en ${nombrePalo}
+                </button>`,
             );
+          if (partida.puedeCambiarSiete(miAsiento))
+            botones.push(html`<button class="btn alt" id="bCambiarSiete">Cambiar el 7 de triunfo</button>`);
           pintar(this.el.acciones, botones);
         }
 
         dibujarMesa({ numJugadores, cuatro, equipo, equipoRival }) {
           // Mazo con el triunfo girado debajo
           const numCartasMazo = this.sesion.partida.cartasEnMazo;
-          const reversos = Math.max(
-            0,
-            Math.min(numCartasMazo - 1, VistaGuinote.REVERSOS_VISIBLES_MAZO),
-          ); // el triunfo es una de las cartas del mazo
+          const reversos = Math.max(0, Math.min(numCartasMazo - 1, VistaGuinote.REVERSOS_VISIBLES_MAZO)); // el triunfo es una de las cartas del mazo
           pintar(this.el.deck, [
-            numCartasMazo
-              ? this.imagenCarta(
-                  this.sesion.partida.cartaTriunfo,
-                  "cartaGirada",
-                )
-              : "",
+            numCartasMazo ? this.imagenCarta(this.sesion.partida.cartaTriunfo, "cartaGirada") : "",
             Array.from({ length: reversos }, () => imagenReverso("reverso")),
           ]);
           // Cartas en la mesa (en 4: cada una en su lado, según el asiento relativo)
@@ -3083,9 +2816,7 @@
             this.sesion.partida.mesa.map((entrada) => {
               const nuevo = !this.mesaPrevia.includes(entrada.carta.id),
                 className = cuatro
-                  ? "posicion" +
-                    ((entrada.asiento - this.sesion.miAsiento + numJugadores) %
-                      numJugadores)
+                  ? "posicion" + ((entrada.asiento - this.sesion.miAsiento + numJugadores) % numJugadores)
                   : entrada.asiento === this.sesion.miAsiento
                     ? "mine"
                     : "theirs";
@@ -3097,9 +2828,7 @@
               );
             }),
           );
-          this.mesaPrevia = this.sesion.partida.mesa
-            .map((entrada) => entrada.carta.id)
-            .join();
+          this.mesaPrevia = this.sesion.partida.mesa.map((entrada) => entrada.carta.id).join();
           // Montones de bazas (por equipo)
           const monton = (cantidad) =>
             cantidad
@@ -3107,22 +2836,10 @@
                     >${cantidad} baza${cantidad > 1 ? "s" : ""}</span
                   >`
               : "";
-          this.el.montonPropio.setAttribute(
-            "data-color-equipo",
-            this.mesa.color(equipo),
-          );
-          this.el.montonRival.setAttribute(
-            "data-color-equipo",
-            this.mesa.color(equipoRival),
-          );
-          pintar(
-            this.el.montonRival,
-            monton(this.sesion.partida.marcador.bazasDe(equipoRival)),
-          );
-          pintar(
-            this.el.montonPropio,
-            monton(this.sesion.partida.marcador.bazasDe(equipo)),
-          );
+          this.el.montonPropio.setAttribute("data-color-equipo", this.mesa.color(equipo));
+          this.el.montonRival.setAttribute("data-color-equipo", this.mesa.color(equipoRival));
+          pintar(this.el.montonRival, monton(this.sesion.partida.marcador.bazasDe(equipoRival)));
+          pintar(this.el.montonPropio, monton(this.sesion.partida.marcador.bazasDe(equipo)));
         }
 
         dibujarMarcador({ equipo, equipoRival }) {
@@ -3130,10 +2847,8 @@
             marcador = partida.marcador;
           pintar(
             this.el.deckInfo,
-            html`<span class="estrellaTriunfo">★</span> Triunfo:
-              ${partida.triunfo} · ${partida.cartasEnMazo}<span
-                class="enElMazo"
-              >
+            html`<span class="estrellaTriunfo">★</span> Triunfo: ${partida.triunfo} · ${partida.cartasEnMazo}<span
+                class="enElMazo">
                 en el mazo</span
               >`,
           );
@@ -3142,13 +2857,9 @@
             this.el.score,
             html`${marcador.esNormal ? `M ${marcador.numeroMano} · ` : ""}<i
                 class="dot"
-                data-color-equipo="${this.mesa.color(equipo)}"
-              ></i>
+                data-color-equipo="${this.mesa.color(equipo)}"></i>
               <b>${marcador.puntosAcumulados(equipo)}</b> –
-              <i
-                class="dot"
-                data-color-equipo="${this.mesa.color(equipoRival)}"
-              ></i>
+              <i class="dot" data-color-equipo="${this.mesa.color(equipoRival)}"></i>
               <b>${marcador.puntosAcumulados(equipoRival)}</b>`,
           );
           this.el.score.title = marcador.esNormal
@@ -3159,8 +2870,7 @@
         dibujarEstado({ equipo, esMiTurno }) {
           const partida = this.sesion.partida,
             propietarioEvento =
-              partida.ultimoEvento &&
-              ReglasGuinote.equipoDe(partida.ultimoEvento.asiento) === equipo
+              partida.ultimoEvento && ReglasGuinote.equipoDe(partida.ultimoEvento.asiento) === equipo
                 ? "mine"
                 : "rival";
           let estado,
@@ -3200,27 +2910,16 @@
         textoFin({ cuatro, equipo, equipoRival }) {
           const { partida } = this.sesion,
             { marcador } = partida;
-          const segunModo = (dosJugadores, cuatroJugadores) =>
-              cuatro ? cuatroJugadores : dosJugadores,
+          const segunModo = (dosJugadores, cuatroJugadores) => (cuatro ? cuatroJugadores : dosJugadores),
             etiqueta = (equipoDeLinea, nombreEnDuelo) =>
-              cuatro
-                ? `Equipo ${this.mesa.color(equipoDeLinea)}`
-                : nombreEnDuelo,
+              cuatro ? `Equipo ${this.mesa.color(equipoDeLinea)}` : nombreEnDuelo,
             linea = (valorDe) =>
               `${etiqueta(equipo, "Tú")} ${valorDe(equipo)} — ${etiqueta(equipoRival, "Rival")} ${valorDe(equipoRival)}`,
-            puntosMano = linea((equipoDeLinea) =>
-              marcador.puntosDe(equipoDeLinea),
-            ),
-            totales = linea((equipoDeLinea) =>
-              marcador.totalDe(equipoDeLinea),
-            );
+            puntosMano = linea((equipoDeLinea) => marcador.puntosDe(equipoDeLinea)),
+            totales = linea((equipoDeLinea) => marcador.totalDe(equipoDeLinea));
           const ganadorDeMano = marcador.ganadorMano(), // equipo con más puntos en la mano (null = empate)
             segunGanadorDeMano = (gana, empata, pierde) =>
-              ganadorDeMano === equipo
-                ? gana
-                : ganadorDeMano === null
-                  ? empata
-                  : pierde;
+              ganadorDeMano === equipo ? gana : ganadorDeMano === null ? empata : pierde;
           if (!marcador.esNormal)
             return {
               titulo: segunGanadorDeMano(
@@ -3235,14 +2934,8 @@
             return {
               titulo:
                 marcador.ganadorPartida() === equipo
-                  ? segunModo(
-                      "¡Has ganado la partida!",
-                      "¡Habéis ganado la partida!",
-                    )
-                  : segunModo(
-                      "Has perdido la partida",
-                      "Habéis perdido la partida",
-                    ),
+                  ? segunModo("¡Has ganado la partida!", "¡Habéis ganado la partida!")
+                  : segunModo("Has perdido la partida", "Habéis perdido la partida"),
               detalle: `Última mano: ${puntosMano}\nMarcador final: ${totales}`,
               boton: "Nueva partida",
             };
@@ -3267,8 +2960,7 @@
             equipo,
             equipoRival: 1 - equipo,
             esMiTurno: partida.esTurnoDe(this.sesion.miAsiento),
-            asientoRelativo: (desplazamiento) =>
-              (this.sesion.miAsiento + desplazamiento) % numJugadores,
+            asientoRelativo: (desplazamiento) => (this.sesion.miAsiento + desplazamiento) % numJugadores,
             asientoActual: partida.asientoActivo,
           }; // asientoActual: de quién es el turno (para resaltar)
           document.body.classList.toggle("cuatroJugadores", contexto.cuatro);
@@ -3283,15 +2975,11 @@
       const AYUDA_GUINOTE = html`
         <h3>Objetivo</h3>
         <p>
-          Conseguir más puntos que el rival ganando bazas (rondas de dos
-          cartas), cantando y llevándote la última baza.
+          Conseguir más puntos que el rival ganando bazas (rondas de dos cartas), cantando y llevándote la última baza.
         </p>
 
         <h3>Las cartas</h3>
-        <p>
-          Baraja española de 40 cartas (sin 8 ni 9). De mayor a menor fuerza y
-          su valor en puntos:
-        </p>
+        <p>Baraja española de 40 cartas (sin 8 ni 9). De mayor a menor fuerza y su valor en puntos:</p>
         <table>
           <tr>
             <th>Carta</th>
@@ -3319,46 +3007,38 @@
 
         <h3>Reparto y triunfo</h3>
         <p>
-          Cada jugador recibe 6 cartas. La carta que queda girada bajo el mazo
-          marca el <b>palo de triunfo</b>: cualquier triunfo gana a una carta de
-          otro palo.
+          Cada jugador recibe 6 cartas. La carta que queda girada bajo el mazo marca el <b>palo de triunfo</b>:
+          cualquier triunfo gana a una carta de otro palo.
         </p>
 
         <h3>Una baza</h3>
         <p>
-          Quien sale juega una carta y el otro responde. Gana la carta más alta
-          del palo de salida, salvo que el rival juegue un triunfo. El ganador
-          se lleva los puntos de las dos cartas, <b>roba primero</b> y sale en
-          la siguiente baza. Para jugar una carta, pulsa sobre ella.
+          Quien sale juega una carta y el otro responde. Gana la carta más alta del palo de salida, salvo que el rival
+          juegue un triunfo. El ganador se lleva los puntos de las dos cartas, <b>roba primero</b> y sale en la
+          siguiente baza. Para jugar una carta, pulsa sobre ella.
         </p>
 
         <h3>Mientras quedan cartas en el mazo</h3>
-        <p>
-          Puedes jugar cualquier carta, sin obligación de asistir al palo ni de
-          superar la carta del rival.
-        </p>
+        <p>Puedes jugar cualquier carta, sin obligación de asistir al palo ni de superar la carta del rival.</p>
 
         <h3>El arrastre (mazo agotado)</h3>
         <p>
-          Cuando ya no hay mazo, tienes que: <b>1)</b> asistir al palo de
-          salida; <b>2)</b> superar la carta del rival si puedes; <b>3)</b> si
-          no tienes ese palo, fallar con un triunfo si lo tienes. Las cartas que
-          no puedes jugar se ven atenuadas.
+          Cuando ya no hay mazo, tienes que: <b>1)</b> asistir al palo de salida; <b>2)</b> superar la carta del rival
+          si puedes; <b>3)</b> si no tienes ese palo, fallar con un triunfo si lo tienes. Las cartas que no puedes jugar
+          se ven atenuadas.
         </p>
 
         <h3>Cantes</h3>
         <p>
-          Si ya has ganado alguna baza y te toca salir, puedes <b>cantar</b> si
-          tienes el <b>rey y el caballo</b> del mismo palo: <b>20 puntos</b>, o
-          <b>40</b> si es el palo de triunfo. Después debes salir con el rey o
-          el caballo de ese palo. Cada palo solo se canta una vez.
+          Si ya has ganado alguna baza y te toca salir, puedes <b>cantar</b> si tienes el <b>rey y el caballo</b> del
+          mismo palo: <b>20 puntos</b>, o <b>40</b> si es el palo de triunfo. Después debes salir con el rey o el
+          caballo de ese palo. Cada palo solo se canta una vez.
         </p>
 
         <h3>Cambiar el 7</h3>
         <p>
           Si has ganado alguna baza, te toca salir y tienes el
-          <b>7 de triunfo</b>, puedes cambiarlo por la carta girada del mazo
-          (mientras queden al menos 2 cartas en él).
+          <b>7 de triunfo</b>, puedes cambiarlo por la carta girada del mazo (mientras queden al menos 2 cartas en él).
         </p>
 
         <h3>Diez de últimas</h3>
@@ -3366,33 +3046,28 @@
 
         <h3>Modos de partida</h3>
         <p>
-          <b>Normal:</b> varias manos hasta llegar a <b>101 puntos</b>. Los
-          puntos de cada mano se suman a un marcador acumulado que ven los dos
-          jugadores; el marcador se actualiza en vivo, sumando los puntos de la
-          mano en curso. Gana quien llegue a 101 o más al acabar una mano.<br />
+          <b>Normal:</b> varias manos hasta llegar a <b>101 puntos</b>. Los puntos de cada mano se suman a un marcador
+          acumulado que ven los dos jugadores; el marcador se actualiza en vivo, sumando los puntos de la mano en curso.
+          Gana quien llegue a 101 o más al acabar una mano.<br />
           <b>Rápida:</b> una sola mano; gana quien tenga más puntos al final.
         </p>
 
         <h3>Partidas de 4 (por parejas)</h3>
         <p>
-          Se juega con las mismas reglas, en dos equipos: <b>azul</b> contra
-          <b>rojo</b>, dos jugadores por equipo (tu pareja se sienta enfrente).
-          Quien crea la sala elige el color de su equipo; quien se une elige
-          equipo (o "cualquiera") y cada equipo tiene 2 plazas. Cada uno recibe
-          6 cartas y cada baza es de 4 cartas; se juega en sentido antihorario.
-          Los puntos, las bazas y los cantes son <b>del equipo</b>: puedes
-          cantar o cambiar el 7 si tu equipo ya ha ganado alguna baza. En el
-          arrastre hay que superar la carta ganadora aunque sea de tu pareja. No
-          hay señas.
+          Se juega con las mismas reglas, en dos equipos: <b>azul</b> contra <b>rojo</b>, dos jugadores por equipo (tu
+          pareja se sienta enfrente). Quien crea la sala elige el color de su equipo; quien se une elige equipo (o
+          "cualquiera") y cada equipo tiene 2 plazas. Cada uno recibe 6 cartas y cada baza es de 4 cartas; se juega en
+          sentido antihorario. Los puntos, las bazas y los cantes son <b>del equipo</b>: puedes cantar o cambiar el 7 si
+          tu equipo ya ha ganado alguna baza. En el arrastre hay que superar la carta ganadora aunque sea de tu pareja.
+          No hay señas.
         </p>
 
         <h3>Jugar contra bots</h3>
         <p>
-          Al crear la sala elige <b>2</b> o <b>4 jugadores</b> y, para cada
-          asiento, si lo ocupa un <b>bot</b> (por defecto) o un <b>humano</b>.
-          Si todos son bots, la partida es solo tuya: no crea sala ni usa la
-          base de datos. Si hay asientos humanos, se crea la sala y los bots
-          ocupan sus sitios; en 4 jugadores el bot de tu pareja juega contigo.
+          Al crear la sala elige <b>2</b> o <b>4 jugadores</b> y, para cada asiento, si lo ocupa un <b>bot</b> (por
+          defecto) o un <b>humano</b>. Si todos son bots, la partida es solo tuya: no crea sala ni usa la base de datos.
+          Si hay asientos humanos, se crea la sala y los bots ocupan sus sitios; en 4 jugadores el bot de tu pareja
+          juega contigo.
         </p>
       `;
 
@@ -3444,42 +3119,25 @@
           ]),
           de: (asiento) => ReglasGuinote.equipoDe(asiento),
           asientos: (equipo, numJugadores) =>
-            [equipo, equipo + ReglasGuinote.DISTANCIA.PAREJA].filter(
-              (asiento) => asiento < numJugadores,
-            ),
+            [equipo, equipo + ReglasGuinote.DISTANCIA.PAREJA].filter((asiento) => asiento < numJugadores),
           colorDe: (equipo, colorEquipo0) => {
-            const primero = COLORES_GUINOTE.includes(colorEquipo0)
-              ? colorEquipo0
-              : COLORES_GUINOTE[0];
-            return equipo === 0
-              ? primero
-              : primero === "azul"
-                ? "rojo"
-                : "azul";
+            const primero = COLORES_GUINOTE.includes(colorEquipo0) ? colorEquipo0 : COLORES_GUINOTE[0];
+            return equipo === 0 ? primero : primero === "azul" ? "rojo" : "azul";
           },
-          seEligeColor: (numJugadores) =>
-            numJugadores === ReglasGuinote.JUGADORES_PAREJAS,
+          seEligeColor: (numJugadores) => numJugadores === ReglasGuinote.JUGADORES_PAREJAS,
         }),
 
-        descripcionModo: (modo) =>
-          modo === "rapida" ? "Rápida" : "Normal · " + ReglasGuinote.META,
+        descripcionModo: (modo) => (modo === "rapida" ? "Rápida" : "Normal · " + ReglasGuinote.META),
         etiquetaAsiento: (numJugadores, asiento) =>
-          numJugadores === ReglasGuinote.JUGADORES_PAREJAS &&
-          asiento === ReglasGuinote.DISTANCIA.PAREJA
+          numJugadores === ReglasGuinote.JUGADORES_PAREJAS && asiento === ReglasGuinote.DISTANCIA.PAREJA
             ? "tu pareja"
             : "rival",
         nombreAsiento: (numJugadores, asiento) =>
-          numJugadores === ReglasGuinote.JUGADORES_PAREJAS
-            ? `Jugador ${asiento + 1}`
-            : "Rival",
+          numJugadores === ReglasGuinote.JUGADORES_PAREJAS ? `Jugador ${asiento + 1}` : "Rival",
         nombreSalaLocal: (numJugadores) =>
-          numJugadores === ReglasGuinote.JUGADORES_DUELO
-            ? "Contra el bot"
-            : "Con bots",
+          numJugadores === ReglasGuinote.JUGADORES_DUELO ? "Contra el bot" : "Con bots",
         textoCrearLocal: (numJugadores) =>
-          numJugadores === ReglasGuinote.JUGADORES_DUELO
-            ? "Jugar contra el bot"
-            : "Jugar con bots",
+          numJugadores === ReglasGuinote.JUGADORES_DUELO ? "Jugar contra el bot" : "Jugar con bots",
         mensajeEspera({ sala, asiento, codigo }) {
           if (sala.numJugadores !== ReglasGuinote.JUGADORES_PAREJAS)
             return {
@@ -3493,8 +3151,7 @@
           };
         },
 
-        nuevaPartida: (numJugadores, modo) =>
-          PartidaGuinote.nueva(numJugadores, modo),
+        nuevaPartida: (numJugadores, modo) => PartidaGuinote.nueva(numJugadores, modo),
         partidaDesdeEstado: (estado) => PartidaGuinote.desdeEstado(estado),
         Bot: BotGuinote,
         crearVista: (mesa) => new VistaGuinote(mesa),
@@ -3542,9 +3199,7 @@
           this.numJugadores = numJugadores;
           this.modo = modo;
           this.nombre = nombre;
-          this.colorPrimerEquipo = juego.equipos.colores.includes(
-            colorPrimerEquipo,
-          )
+          this.colorPrimerEquipo = juego.equipos.colores.includes(colorPrimerEquipo)
             ? colorPrimerEquipo
             : juego.equipos.colores[0]; // color del equipo 0
           this.asientos = Sala.#sinHuecos(asientos); // asiento → hora a la que se sentó
@@ -3558,11 +3213,7 @@
         /** Copia congelada sin los asientos vacíos: Firebase devuelve un array con huecos null cuando las claves son 0, 1, 2… */
         static #sinHuecos(porAsiento) {
           return Object.freeze(
-            Object.fromEntries(
-              Object.entries(porAsiento || {}).filter(
-                ([, valor]) => valor != null,
-              ),
-            ),
+            Object.fromEntries(Object.entries(porAsiento || {}).filter(([, valor]) => valor != null)),
           );
         }
 
@@ -3584,9 +3235,7 @@
               "SHA-256",
               new TextEncoder().encode(prefijo + ":" + codigo + ":" + clave),
             );
-            return [...new Uint8Array(digest)]
-              .map((byte) => byte.toString(16).padStart(2, "0"))
-              .join("");
+            return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
           } catch (error) {
             return "p:" + btoa(unescape(encodeURIComponent(clave)));
           } // contexto no seguro (http)
@@ -3595,8 +3244,7 @@
         /** Asientos ocupados entre los `numJugadores` primeros. */
         static sentadosEn(asientos, numJugadores) {
           let total = 0;
-          for (let asiento = 0; asiento < numJugadores; asiento++)
-            if (asientos?.[asiento]) total++;
+          for (let asiento = 0; asiento < numJugadores; asiento++) if (asientos?.[asiento]) total++;
           return total;
         }
 
@@ -3609,11 +3257,7 @@
 
         /** La máscara con el asiento marcado como libre (null se deja como está). */
         static mascaraSin(mascara, asiento) {
-          return mascara === null
-            ? mascara
-            : mascara.slice(0, asiento) +
-                Sala.LIBRE +
-                mascara.slice(asiento + 1);
+          return mascara === null ? mascara : mascara.slice(0, asiento) + Sala.LIBRE + mascara.slice(asiento + 1);
         }
 
         /** Ocupa el primer asiento libre de `candidatos`: { asiento, asientos } con los asientos ya actualizados, o null si no hay ninguno libre. */
@@ -3714,9 +3358,7 @@
             nombre: this.nombre,
             numJugadores: this.numJugadores,
             colorPrimerEquipo: this.colorPrimerEquipo,
-            asientosOcupados: this.eligeEquipo
-              ? Sala.mascara(this.asientos, this.numJugadores)
-              : null,
+            asientosOcupados: this.eligeEquipo ? Sala.mascara(this.asientos, this.numJugadores) : null,
           };
         }
 
@@ -3752,9 +3394,8 @@
         }
 
         sentadosEnEquipo(equipo) {
-          return this.juego.equipos
-            .asientos(equipo, this.numJugadores)
-            .filter((asiento) => this.ocupado(asiento)).length;
+          return this.juego.equipos.asientos(equipo, this.numJugadores).filter((asiento) => this.ocupado(asiento))
+            .length;
         }
 
         /** Asientos entre los que elegir al unirse: todos, o los del equipo del color indicado (si el juego elige equipo). */
@@ -3763,10 +3404,7 @@
             const equipo = color === this.colorPrimerEquipo ? 0 : 1;
             return this.juego.equipos.asientos(equipo, this.numJugadores);
           }
-          return Array.from(
-            { length: this.numJugadores },
-            (_, asiento) => asiento,
-          );
+          return Array.from({ length: this.numJugadores }, (_, asiento) => asiento);
         }
 
         /** ¿Ha pasado la duración máxima desde que se creó la sala? */
@@ -3805,9 +3443,7 @@
 
       /** Partida de la mano siguiente si `partida` ha terminado su mano `numeroMano`; null si no toca (ya la pidió otro jugador). */
       const avanzarMano = (partida, numeroMano) =>
-        partida?.manoTerminada && partida.numeroMano === numeroMano
-          ? partida.siguienteMano()
-          : null;
+        partida?.manoTerminada && partida.numeroMano === numeroMano ? partida.siguienteMano() : null;
 
       /** Partida contra bots: la sala vive en memoria y no hay base de datos. */
       class AlmacenLocal {
@@ -3835,9 +3471,7 @@
 
         siguienteMano(codigo, numeroMano) {
           const siguiente = avanzarMano(this.#sala.partida, numeroMano);
-          return siguiente
-            ? this.guardarPartida(codigo, siguiente)
-            : Promise.resolve();
+          return siguiente ? this.guardarPartida(codigo, siguiente) : Promise.resolve();
         }
 
         /** Nada que borrar: una partida local no caduca. */
@@ -3863,9 +3497,7 @@
         /* ---------- Contrato de la partida ---------- */
 
         suscribir(codigo, alCambiar) {
-          return onValue(this.#ref(`salas/${codigo}`), (instantanea) =>
-            alCambiar(Sala.desdeDatos(instantanea.val())),
-          );
+          return onValue(this.#ref(`salas/${codigo}`), (instantanea) => alCambiar(Sala.desdeDatos(instantanea.val())));
         }
 
         guardarPartida(codigo, partida) {
@@ -3873,23 +3505,17 @@
         }
 
         siguienteMano(codigo, numeroMano) {
-          return runTransaction(
-            this.#ref(`salas/${codigo}/partida`),
-            (estado) => {
-              if (estado === null) return estado;
-              const siguiente = avanzarMano(
-                this.#juego.partidaDesdeEstado(estado),
-                numeroMano,
-              );
-              return siguiente?.aEstado(); // undefined: ya lo ha pedido otro jugador, se cancela
-            },
-          );
+          return runTransaction(this.#ref(`salas/${codigo}/partida`), (estado) => {
+            if (estado === null) return estado;
+            const siguiente = avanzarMano(this.#juego.partidaDesdeEstado(estado), numeroMano);
+            return siguiente?.aEstado(); // undefined: ya lo ha pedido otro jugador, se cancela
+          });
         }
 
         purgar(codigo) {
           return Promise.all(
-            [this.#ref(`salas/${codigo}`), this.#ref(`lobby/${codigo}`)].map(
-              (referencia) => remove(referencia).catch(() => {}),
+            [this.#ref(`salas/${codigo}`), this.#ref(`lobby/${codigo}`)].map((referencia) =>
+              remove(referencia).catch(() => {}),
             ),
           );
         }
@@ -3906,15 +3532,10 @@
             (instantanea) => {
               const entradas = Object.entries(instantanea.val() || {}),
                 ahora = Date.now();
-              const caducada = ([, entrada]) =>
-                ahora - entrada.creadaEn >= Sala.DURACION_MS;
-              entradas
-                .filter(caducada)
-                .forEach(([codigo]) => this.purgar(codigo));
+              const caducada = ([, entrada]) => ahora - entrada.creadaEn >= Sala.DURACION_MS;
+              entradas.filter(caducada).forEach(([codigo]) => this.purgar(codigo));
               alCambiar(
-                entradas
-                  .filter((entrada) => !caducada(entrada))
-                  .sort((a, b) => b[1].creadaEn - a[1].creadaEn),
+                entradas.filter((entrada) => !caducada(entrada)).sort((a, b) => b[1].creadaEn - a[1].creadaEn),
                 ahora,
               );
             },
@@ -3933,18 +3554,13 @@
 
         async crearSala(codigo, sala) {
           await set(this.#ref(`salas/${codigo}`), sala.aDatos());
-          await set(
-            this.#ref(`lobby/${codigo}`),
-            sala.aEntradaLobby(Date.now()),
-          );
+          await set(this.#ref(`lobby/${codigo}`), sala.aEntradaLobby(Date.now()));
         }
 
         /** La sala con ese código, o null si no existe. */
         async leerSala(codigo) {
           const instantanea = await get(this.#ref(`salas/${codigo}`));
-          return instantanea.exists()
-            ? Sala.desdeDatos(instantanea.val())
-            : null;
+          return instantanea.exists() ? Sala.desdeDatos(instantanea.val()) : null;
         }
 
         /**
@@ -3953,34 +3569,18 @@
          */
         async unirse(codigo, sala, candidatos, generarNombre) {
           let asiento = -1;
-          const transaccion = await runTransaction(
-            this.#ref(`salas/${codigo}/asientos`),
-            (actuales) => {
-              // primer asiento libre
-              const resultado = Sala.ocuparAsiento(
-                actuales,
-                candidatos,
-                Date.now(),
-              );
-              asiento = resultado ? resultado.asiento : -1;
-              return resultado?.asientos; // undefined: no hay asiento, se cancela
-            },
-          );
+          const transaccion = await runTransaction(this.#ref(`salas/${codigo}/asientos`), (actuales) => {
+            // primer asiento libre
+            const resultado = Sala.ocuparAsiento(actuales, candidatos, Date.now());
+            asiento = resultado ? resultado.asiento : -1;
+            return resultado?.asientos; // undefined: no hay asiento, se cancela
+          });
           if (!transaccion.committed || asiento < 0) return -1;
           const asientos = transaccion.snapshot.val();
-          await set(
-            this.#ref(`salas/${codigo}/nombres/${asiento}`),
-            generarNombre(),
-          );
-          await set(
-            this.#ref(`lobby/${codigo}/sentados`),
-            Sala.sentadosEn(asientos, sala.numJugadores),
-          );
+          await set(this.#ref(`salas/${codigo}/nombres/${asiento}`), generarNombre());
+          await set(this.#ref(`lobby/${codigo}/sentados`), Sala.sentadosEn(asientos, sala.numJugadores));
           if (sala.eligeEquipo)
-            await set(
-              this.#ref(`lobby/${codigo}/asientosOcupados`),
-              Sala.mascara(asientos, sala.numJugadores),
-            );
+            await set(this.#ref(`lobby/${codigo}/asientosOcupados`), Sala.mascara(asientos, sala.numJugadores));
           return asiento;
         }
 
@@ -3995,9 +3595,8 @@
                 actual === null ? actual : Math.max(1, actual - 1),
               ),
               remove(this.#ref(`salas/${codigo}/nombres/${asiento}`)),
-              runTransaction(
-                this.#ref(`lobby/${codigo}/asientosOcupados`),
-                (mascara) => Sala.mascaraSin(mascara, asiento),
+              runTransaction(this.#ref(`lobby/${codigo}/asientosOcupados`), (mascara) =>
+                Sala.mascaraSin(mascara, asiento),
               ),
             ].map((operacion) => operacion.catch(() => {})),
           );
@@ -4011,9 +3610,7 @@
       /* Bandera global: true = lee config.dat (JSON codificado en base64);
    false = lee firebase-config.json en texto plano. */
       const CONFIG_EN_BASE64 = true;
-      const ARCHIVO_CONFIG = CONFIG_EN_BASE64
-        ? "config.dat"
-        : "firebase-config.json";
+      const ARCHIVO_CONFIG = CONFIG_EN_BASE64 ? "config.dat" : "firebase-config.json";
 
       let baseDeDatos;
       try {
@@ -4021,15 +3618,9 @@
         if (!respuesta.ok) throw new Error("HTTP " + respuesta.status);
         let config;
         if (CONFIG_EN_BASE64) {
-          const cadenaBinaria = atob(
-            (await respuesta.text()).replace(/\s+/g, ""),
-          );
+          const cadenaBinaria = atob((await respuesta.text()).replace(/\s+/g, ""));
           config = JSON.parse(
-            new TextDecoder().decode(
-              Uint8Array.from(cadenaBinaria, (caracter) =>
-                caracter.charCodeAt(0),
-              ),
-            ),
+            new TextDecoder().decode(Uint8Array.from(cadenaBinaria, (caracter) => caracter.charCodeAt(0))),
           );
         } else {
           config = await respuesta.json();
@@ -4042,9 +3633,7 @@
         document.getElementById("bUnir").disabled = true;
       }
 
-      const almacenFirebase = baseDeDatos
-        ? new AlmacenFirebase(baseDeDatos, JUEGO)
-        : null; // null si no se pudo cargar la configuración
+      const almacenFirebase = baseDeDatos ? new AlmacenFirebase(baseDeDatos, JUEGO) : null; // null si no se pudo cargar la configuración
 
       /* ============ AJUSTES DE LA APLICACIÓN ============ */
       /* Las reglas del juego viven en la sección de cada juego (para el guiñote, ReglasGuinote); aquí solo lo que no es regla. */
@@ -4057,11 +3646,9 @@
         anchoMaxMovilPx: 640, // ancho hasta el que se usa el diseño móvil; debe coincidir con los @media de la hoja de estilos
       };
       const MS_POR_MINUTO = 60 * 1000;
-      const capitalizar = (palabra) =>
-        palabra[0].toUpperCase() + palabra.slice(1);
+      const capitalizar = (palabra) => palabra[0].toUpperCase() + palabra.slice(1);
       const rango = (cantidad) => [...Array(cantidad).keys()];
-      const ERROR_FIREBASE =
-        "No se pudo conectar con Firebase. Revisa la configuración.";
+      const ERROR_FIREBASE = "No se pudo conectar con Firebase. Revisa la configuración.";
 
       /* ============ SESIÓN ============ */
       /* Estado de la sesión actual: sala, asiento y partida. reiniciar() restaura los valores iniciales (al salir o al
@@ -4100,10 +3687,7 @@
           return !!this.jugadores[asiento]?.esBot;
         }
         nombreDe(asiento) {
-          return (
-            this.jugadores[asiento]?.nombre ||
-            this.juego.nombreAsiento(this.sala.numJugadores, asiento)
-          );
+          return this.jugadores[asiento]?.nombre || this.juego.nombreAsiento(this.sala.numJugadores, asiento);
         }
         get ejecutaBots() {
           return this.local || this.miAsiento === 0;
@@ -4114,24 +3698,16 @@
      Aquí solo se comprueba que la acción es válida y se guarda el resultado. `accion` es { tipo, … }, la misma
      forma que devuelve Bot.elegirJugada. */
         aplicar(asiento, accion) {
-          if (this.partida?.puedeAplicar(asiento, accion))
-            this.guardar(this.partida.aplicar(asiento, accion));
+          if (this.partida?.puedeAplicar(asiento, accion)) this.guardar(this.partida.aplicar(asiento, accion));
         }
 
         /* Solo el anfitrión (asiento 0) resuelve el paso pendiente (en guiñote, recoger la baza completa) */
         resolver() {
           this.resolviendo = false;
-          if (this.partida?.resolucionPendiente)
-            this.guardar(this.partida.resolver());
+          if (this.partida?.resolucionPendiente) this.guardar(this.partida.resolver());
         }
         programarResolucion(ms) {
-          if (
-            !this.partida ||
-            this.miAsiento !== 0 ||
-            !this.partida.resolucionPendiente ||
-            this.resolviendo
-          )
-            return;
+          if (!this.partida || this.miAsiento !== 0 || !this.partida.resolucionPendiente || this.resolviendo) return;
           this.resolviendo = true;
           this.temporizadorResolucion = setTimeout(() => this.resolver(), ms);
         }
@@ -4143,13 +3719,7 @@
           if (bot?.esBot) this.aplicar(bot.asiento, bot.elegirJugada(partida));
         }
         programarBot() {
-          if (
-            !this.partida ||
-            !this.ejecutaBots ||
-            !this.esBot(this.partida.asientoActivo) ||
-            this.botOcupado
-          )
-            return;
+          if (!this.partida || !this.ejecutaBots || !this.esBot(this.partida.asientoActivo) || this.botOcupado) return;
           this.botOcupado = true;
           this.temporizadorBot = setTimeout(() => {
             this.botOcupado = false;
@@ -4266,18 +3836,12 @@
       function nombreAuto(usados) {
         for (let indice = 0; indice < AJUSTES.intentosNombreAuto; indice++) {
           const [animal, genero] = elegirAlAzar(ANIMALES),
-            nombre =
-              capitalizar(animal) +
-              " " +
-              elegirAlAzar(ADJETIVOS)[genero === "m" ? 0 : 1];
+            nombre = capitalizar(animal) + " " + elegirAlAzar(ADJETIVOS)[genero === "m" ? 0 : 1];
           if (!usados.includes(nombre)) return nombre;
         }
-        return (
-          capitalizar(elegirAlAzar(ANIMALES)[0]) + " " + numeroDeDosCifras()
-        );
+        return capitalizar(elegirAlAzar(ANIMALES)[0]) + " " + numeroDeDosCifras();
       }
-      const nombreSala = () =>
-        `${elegirAlAzar(CIUDADES)} ${elegirAlAzar(TIEMPOS)}`;
+      const nombreSala = () => `${elegirAlAzar(CIUDADES)} ${elegirAlAzar(TIEMPOS)}`;
       /* ============ LOBBY ============ */
       /* Pantalla de inicio: formulario de creación, lista de salas y unirse por código. No conoce el flujo de la partida:
    avisa con alEntrar() (sala online lista) o alJugarLocal(config) (todos los asientos son bots). Guarda el estado
@@ -4312,25 +3876,17 @@
           this.el.campoNombre.maxLength = AJUSTES.longMaxNombre;
           this.el.campoCodigo.maxLength = Sala.LONG_CODIGO;
           try {
-            this.el.campoNombre.value =
-              localStorage.getItem(this.claveNombre) || "";
+            this.el.campoNombre.value = localStorage.getItem(this.claveNombre) || "";
           } catch (error) {}
           this.construirFormulario();
           document
             .querySelectorAll("input[name=numJugadores]")
-            .forEach((radio) =>
-              radio.addEventListener("change", () => this.construirAsientos()),
-            );
+            .forEach((radio) => radio.addEventListener("change", () => this.construirAsientos()));
           this.el.bCrear.addEventListener("click", () => this.crear());
           this.el.bUnir.addEventListener("click", () =>
-            this.unirse(
-              this.el.campoCodigo.value,
-              this.elegido("equipoUnirse"),
-            ),
+            this.unirse(this.el.campoCodigo.value, this.elegido("equipoUnirse")),
           );
-          this.el.rooms.addEventListener("click", (evento) =>
-            this.alPulsarSala(evento),
-          );
+          this.el.rooms.addEventListener("click", (evento) => this.alPulsarSala(evento));
           this.construirAsientos();
         }
 
@@ -4352,16 +3908,13 @@
 
         /* ---- Formulario ---- */
         elegido(nombre) {
-          return (document.querySelector(`input[name=${nombre}]:checked`) || {})
-            .value;
+          return (document.querySelector(`input[name=${nombre}]:checked`) || {}).value;
         }
         get numJugadores() {
           return +this.elegido("numJugadores");
         }
         botsElegidos(numJugadores = this.numJugadores) {
-          return rango(numJugadores - 1).map(
-            (indice) => this.elegido(`seat${indice + 1}`) !== "humano",
-          );
+          return rango(numJugadores - 1).map((indice) => this.elegido(`seat${indice + 1}`) !== "humano");
         } // asientos 1..numJugadores-1: true = bot
         miNombre(usados) {
           // el escrito (único en la sala) o uno automático
@@ -4372,18 +3925,8 @@
           if (!nombreJugador) return nombreAuto(usados);
           const base = nombreJugador;
           let sufijo = 2;
-          while (
-            usados.some(
-              (usado) => usado.toLowerCase() === nombreJugador.toLowerCase(),
-            )
-          )
-            nombreJugador =
-              base.slice(
-                0,
-                AJUSTES.longMaxNombre - AJUSTES.reservaSufijoNombre,
-              ) +
-              " " +
-              sufijo++;
+          while (usados.some((usado) => usado.toLowerCase() === nombreJugador.toLowerCase()))
+            nombreJugador = base.slice(0, AJUSTES.longMaxNombre - AJUSTES.reservaSufijoNombre) + " " + sufijo++;
           return nombreJugador;
         }
 
@@ -4394,72 +3937,37 @@
             opciones.map(
               (opcion, indice) =>
                 html`<label
-                  ><input
-                    type="radio"
-                    name="${nombre}"
-                    value="${opcion.valor}"
-                    ${indice === 0 ? "checked" : ""}
-                  /><span
+                  ><input type="radio" name="${nombre}" value="${opcion.valor}" ${indice === 0 ? "checked" : ""} /><span
                     >${opcion.titulo}<small>${opcion.detalle}</small></span
                   ></label
                 >`,
             );
-          pintar(
-            this.el.numJugadoresBox,
-            radios("numJugadores", opcionesJugadores),
-          );
+          pintar(this.el.numJugadoresBox, radios("numJugadores", opcionesJugadores));
           pintar(this.el.modeBox, radios("mode", modos));
-          pintar(
-            this.el.equipoCrearBox,
-            radios("equipoCrear", equipos.opcionesCrear),
-          );
-          pintar(
-            this.el.equipoUnirseBox,
-            radios("equipoUnirse", equipos.opcionesUnirse),
-          );
+          pintar(this.el.equipoCrearBox, radios("equipoCrear", equipos.opcionesCrear));
+          pintar(this.el.equipoUnirseBox, radios("equipoUnirse", equipos.opcionesUnirse));
         }
 
         construirAsientos() {
           const numJugadores = this.numJugadores;
-          const etiquetaAsiento = (indice) =>
-            this.juego.etiquetaAsiento(numJugadores, indice);
+          const etiquetaAsiento = (indice) => this.juego.etiquetaAsiento(numJugadores, indice);
           pintar(
             this.el.seatsBox,
             rango(numJugadores - 1).map((desplazamiento) => {
               const indice = desplazamiento + 1;
               return html`<div class="seatrow">
-                <div class="etiquetaAsiento">
-                  Jugador ${indice + 1}<small>${etiquetaAsiento(indice)}</small>
-                </div>
+                <div class="etiquetaAsiento">Jugador ${indice + 1}<small>${etiquetaAsiento(indice)}</small></div>
                 <div class="modes">
-                  <label
-                    ><input
-                      type="radio"
-                      name="seat${indice}"
-                      value="bot"
-                      checked
-                    /><span>🤖 Bot</span></label
-                  >
-                  <label
-                    ><input
-                      type="radio"
-                      name="seat${indice}"
-                      value="humano"
-                    /><span>👤 Humano</span></label
-                  >
+                  <label><input type="radio" name="seat${indice}" value="bot" checked /><span>🤖 Bot</span></label>
+                  <label><input type="radio" name="seat${indice}" value="humano" /><span>👤 Humano</span></label>
                 </div>
               </div>`;
             }),
           );
           this.el.seatsBox
             .querySelectorAll("input")
-            .forEach((campo) =>
-              campo.addEventListener("change", () =>
-                this.actualizarBotonCrear(),
-              ),
-            );
-          this.el.equipoCrearBox.hidden =
-            !this.juego.equipos.seEligeColor(numJugadores);
+            .forEach((campo) => campo.addEventListener("change", () => this.actualizarBotonCrear()));
+          this.el.equipoCrearBox.hidden = !this.juego.equipos.seEligeColor(numJugadores);
           this.actualizarBotonCrear();
         }
 
@@ -4468,18 +3976,14 @@
             habilitada = !todosBots || this.hayLock,
             campoClave = this.el.campoClave;
           campoClave.disabled = !habilitada;
-          campoClave.placeholder = habilitada
-            ? "Contraseña"
-            : "Contraseña (no necesaria)";
+          campoClave.placeholder = habilitada ? "Contraseña" : "Contraseña (no necesaria)";
         }
 
         actualizarBotonCrear() {
           const numJugadores = this.numJugadores,
             todosBots = this.botsElegidos(numJugadores).every(Boolean);
           this.actualizarClave();
-          this.el.bCrear.textContent = todosBots
-            ? this.juego.textoCrearLocal(numJugadores)
-            : "Crear sala";
+          this.el.bCrear.textContent = todosBots ? this.juego.textoCrearLocal(numJugadores) : "Crear sala";
         }
 
         /* ---- Lista de salas ---- */
@@ -4487,9 +3991,7 @@
           if (this.unLobby || !this.almacen) return;
           this.unLobby = this.almacen.suscribirLobby(
             (lista, ahora) => {
-              this.hayLock = lista.some(
-                ([, entradaLobby]) => entradaLobby.conClave,
-              );
+              this.hayLock = lista.some(([, entradaLobby]) => entradaLobby.conClave);
               if (this.el.seatsBox.children.length) this.actualizarClave();
               pintar(
                 this.el.rooms,
@@ -4500,77 +4002,48 @@
                           numJugadores = this.juego.opcionesJugadores[0].valor,
                           sentados = 1,
                           nombre = "Sala",
-                          asientosOcupados = Sala.mascara(
-                            { 0: true },
-                            numJugadores,
-                          ),
+                          asientosOcupados = Sala.mascara({ 0: true }, numJugadores),
                           colorPrimerEquipo = equipos.colores[0],
                         } = entradaLobby,
                         llena = sentados >= numJugadores,
-                        minutos = Math.max(
-                          1,
-                          Math.round(
-                            (ahora - entradaLobby.creadaEn) / MS_POR_MINUTO,
-                          ),
-                        );
+                        minutos = Math.max(1, Math.round((ahora - entradaLobby.creadaEn) / MS_POR_MINUTO));
                       const info = html`<span
                         ><b>${nombre}</b><i>(${codigo})</i
                         ><small
-                          >${numJugadores} jugadores
-                          (${sentados}/${numJugadores}) ·
+                          >${numJugadores} jugadores (${sentados}/${numJugadores}) ·
                           ${this.juego.descripcionModo(entradaLobby.modo)} ·
-                          ${entradaLobby.conClave ? "🔒 con contraseña" : "abierta"}
-                          · hace ${minutos} min</small
+                          ${entradaLobby.conClave ? "🔒 con contraseña" : "abierta"} · hace ${minutos} min</small
                         ></span
                       >`;
                       if (equipos.seEligeColor(numJugadores)) {
                         const libres = (indiceEquipo) =>
                           equipos
                             .asientos(indiceEquipo, numJugadores)
-                            .filter(
-                              (indice) =>
-                                asientosOcupados[indice] !== Sala.OCUPADO,
-                            ).length;
+                            .filter((indice) => asientosOcupados[indice] !== Sala.OCUPADO).length;
                         const htmlBotonEquipo = (indiceEquipo) => {
-                          const colorBoton = equipos.colorDe(
-                              indiceEquipo,
-                              colorPrimerEquipo,
-                            ),
+                          const colorBoton = equipos.colorDe(indiceEquipo, colorPrimerEquipo),
                             asientosLibres = libres(indiceEquipo);
                           return html`<button
                             type="button"
                             class="botonEquipo equipo-${colorBoton}"
                             data-team="${colorBoton}"
-                            ${asientosLibres ? "" : "disabled"}
-                          >
+                            ${asientosLibres ? "" : "disabled"}>
                             ${capitalizar(colorBoton)} ·
                             ${asientosLibres ? asientosLibres + (asientosLibres > 1 ? " libres" : " libre") : "completo"}
                           </button>`;
                         };
-                        return html`<div
-                          class="room salaConEquipos"
-                          data-code="${codigo}"
-                        >
-                          ${info}<span class="botonesEquipo"
-                            >${htmlBotonEquipo(0)}${htmlBotonEquipo(1)}</span
-                          >
+                        return html`<div class="room salaConEquipos" data-code="${codigo}">
+                          ${info}<span class="botonesEquipo">${htmlBotonEquipo(0)}${htmlBotonEquipo(1)}</span>
                         </div>`;
                       }
-                      return html`<button
-                        class="room"
-                        data-code="${codigo}"
-                        ${llena ? "disabled" : ""}
-                      >
+                      return html`<button class="room" data-code="${codigo}" ${llena ? "disabled" : ""}>
                         ${info}<span>${llena ? "En juego" : "Unirse"}</span>
                       </button>`;
                     })
                   : html`<em>No hay salas ahora mismo. Crea una.</em>`,
               );
             },
-            () =>
-              this.error(
-                "No se pudo leer la lista de salas (revisa las reglas de la base de datos).",
-              ),
+            () => this.error("No se pudo leer la lista de salas (revisa las reglas de la base de datos)."),
           );
         }
         dejarDeVigilar() {
@@ -4614,19 +4087,14 @@
             asientosBot = rango(numJugadores - 1)
               .filter((indice) => bots[indice])
               .map((indice) => indice + 1);
-          if (asientosBot.length === numJugadores - 1)
-            return this.jugarLocal(numJugadores, asientosBot); // todos bots: partida local, sin base de datos
+          if (asientosBot.length === numJugadores - 1) return this.jugarLocal(numJugadores, asientosBot); // todos bots: partida local, sin base de datos
           try {
             this.error("");
             this.sesion.codigo = await this.almacen.codigoLibre();
             this.sesion.miAsiento = 0;
             const modo = this.elegido("mode"),
               colorEquipo = this.colorElegido(numJugadores);
-            const hashClave = await Sala.hashDe(
-                this.el.campoClave.value,
-                this.sesion.codigo,
-                this.juego.id,
-              ),
+            const hashClave = await Sala.hashDe(this.el.campoClave.value, this.sesion.codigo, this.juego.id),
               nombre = nombreSala(),
               nombrePropio = this.miNombre([]);
             await this.almacen.crearSala(
@@ -4654,9 +4122,7 @@
             this.error("");
             this.sesion.codigo = (codigo || "").trim().toUpperCase();
             if (this.sesion.codigo.length !== Sala.LONG_CODIGO)
-              return this.error(
-                `Escribe el código de ${Sala.LONG_CODIGO} letras.`,
-              );
+              return this.error(`Escribe el código de ${Sala.LONG_CODIGO} letras.`);
             const sala = await this.almacen.leerSala(this.sesion.codigo);
             if (!sala) return this.error("Esa sala no existe.");
             if (sala.completa) return this.error("La sala ya está completa.");
@@ -4668,22 +4134,13 @@
                   `La sala ${this.sesion.codigo} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`,
                 );
               }
-              if (
-                (await Sala.hashDe(
-                  claveIntroducida,
-                  this.sesion.codigo,
-                  this.juego.id,
-                )) !== sala.hashClave
-              ) {
+              if ((await Sala.hashDe(claveIntroducida, this.sesion.codigo, this.juego.id)) !== sala.hashClave) {
                 this.el.campoClave.focus();
                 return this.error("Contraseña incorrecta.");
               }
             }
-            const asiento = await this.almacen.unirse(
-              this.sesion.codigo,
-              sala,
-              sala.asientosCandidatos(color),
-              () => this.miNombre(Object.values(sala.nombres).filter(Boolean)),
+            const asiento = await this.almacen.unirse(this.sesion.codigo, sala, sala.asientosCandidatos(color), () =>
+              this.miNombre(Object.values(sala.nombres).filter(Boolean)),
             );
             if (asiento < 0)
               return this.error(
@@ -4737,22 +4194,13 @@
           this.vista.limpiar();
         }
 
-        mostrarMensaje(
-          textoEstado,
-          claseEstado = "",
-          textoEvento = "",
-          claseEvento = "",
-          pista = "",
-        ) {
+        mostrarMensaje(textoEstado, claseEstado = "", textoEvento = "", claseEvento = "", pista = "") {
           this.el.estado.textContent = textoEstado;
           this.el.estado.className = "estado " + claseEstado;
           const elementoEvento = this.el.ultimoEvento,
             cambiado = elementoEvento.textContent !== textoEvento;
           elementoEvento.textContent = textoEvento;
-          elementoEvento.className =
-            "ultimoEvento " +
-            claseEvento +
-            (cambiado && textoEvento ? " destacado" : "");
+          elementoEvento.className = "ultimoEvento " + claseEvento + (cambiado && textoEvento ? " destacado" : "");
           this.el.hint.textContent = pista;
         }
 
@@ -4774,8 +4222,7 @@
                   html`<span
                     class="nombreJugador${indice === miAsiento ? " activo" : ""}"
                     data-color-equipo="${this.color(this.equipoDe(indice))}"
-                    ><i class="dot"></i
-                    >${this.sesion.nombreDe(indice)}${indice === miAsiento ? " (tú)" : ""}</span
+                    ><i class="dot"></i>${this.sesion.nombreDe(indice)}${indice === miAsiento ? " (tú)" : ""}</span
                   >`,
               ),
           );
@@ -4787,8 +4234,7 @@
           pintar(
             this.el.names,
             rango(numJugadores).map((desplazamiento) => {
-              const asiento =
-                (this.sesion.miAsiento + desplazamiento) % numJugadores;
+              const asiento = (this.sesion.miAsiento + desplazamiento) % numJugadores;
               return html`<span
                 class="nombreJugador${asientoActual === asiento ? " activo" : ""}"
                 data-color-equipo="${this.color(this.equipoDe(asiento))}"
@@ -4839,9 +4285,7 @@
 
         /* Reconectar a la sala guardada o mostrar el lobby */
         arrancar() {
-          const guardada = JSON.parse(
-            sessionStorage.getItem(this.juego.id) || "null",
-          );
+          const guardada = JSON.parse(sessionStorage.getItem(this.juego.id) || "null");
           if (guardada && this.almacenFirebase) {
             this.sesion.codigo = guardada.codigo;
             this.sesion.miAsiento = guardada.asiento;
@@ -4855,8 +4299,7 @@
           sesion.almacen = this.almacenFirebase;
           clearInterval(sesion.temporizadorPurga);
           sesion.temporizadorPurga = setInterval(() => {
-            if (sesion.sala?.caducada(Date.now()))
-              sesion.almacen.purgar(sesion.codigo);
+            if (sesion.sala?.caducada(Date.now())) sesion.almacen.purgar(sesion.codigo);
           }, AJUSTES.purgaCadaMs);
           sessionStorage.setItem(
             this.juego.id,
@@ -4869,18 +4312,14 @@
           porId("game").hidden = false;
           porId("bNueva").hidden = false;
           porId("room").textContent = "Sala " + sesion.codigo;
-          sesion.cancelarSuscripcion = sesion.almacen.suscribir(
-            sesion.codigo,
-            (sala) => this.alCambiarSala(sala),
-          );
+          sesion.cancelarSuscripcion = sesion.almacen.suscribir(sesion.codigo, (sala) => this.alCambiarSala(sala));
         }
 
         salir() {
           const { sesion } = this;
           if (sesion.cancelarSuscripcion) sesion.cancelarSuscripcion();
           clearInterval(sesion.temporizadorPurga);
-          if (sesion.codigo && !sesion.partida)
-            sesion.almacen.abandonar(sesion.codigo, sesion.miAsiento); // la partida no ha empezado: el anfitrión cierra la sala y un invitado libera su asiento
+          if (sesion.codigo && !sesion.partida) sesion.almacen.abandonar(sesion.codigo, sesion.miAsiento); // la partida no ha empezado: el anfitrión cierra la sala y un invitado libera su asiento
           sesion.reiniciar();
           this.mesa.reiniciarAnimaciones();
           sesion.cancelarSuscripcion = null;
@@ -4897,9 +4336,7 @@
           const { sesion } = this;
           if (sala === null) {
             this.salir();
-            this.lobby.error(
-              "La sala ya no existe (las salas se eliminan a la hora de crearse).",
-            );
+            this.lobby.error("La sala ya no existe (las salas se eliminan a la hora de crearse).");
             return;
           }
           sesion.sala = sala;
@@ -4912,9 +4349,7 @@
             : "Sala " + sesion.codigo;
           if (sala.caducada(Date.now())) sesion.almacen.purgar(sesion.codigo);
           if (!sesion.partida && sesion.miAsiento === 0 && sala.completa)
-            return sesion.guardar(
-              this.juego.nuevaPartida(sala.numJugadores, sala.modo),
-            ); // el que no reparte empieza (mano = jugador 1)
+            return sesion.guardar(this.juego.nuevaPartida(sala.numJugadores, sala.modo)); // el que no reparte empieza (mano = jugador 1)
           this.despuesDelEstado();
         }
 
@@ -4924,13 +4359,7 @@
           this.sesion.programarBot();
         }
 
-        jugarContraBots({
-          numJugadores,
-          asientosBot,
-          modo,
-          colorEquipo: colorPrimero,
-          nombrePropio,
-        }) {
+        jugarContraBots({ numJugadores, asientosBot, modo, colorEquipo: colorPrimero, nombrePropio }) {
           const { sesion } = this;
           clearInterval(sesion.temporizadorPurga);
           sesion.reiniciar({ local: true, miAsiento: 0 });
@@ -4949,10 +4378,7 @@
           this.lobby.ocultar();
           porId("game").hidden = false;
           porId("bNueva").hidden = false;
-          sesion.cancelarSuscripcion = sesion.almacen.suscribir(
-            undefined,
-            (sala) => this.alCambiarSala(sala),
-          ); // avisa enseguida con la sala inicial
+          sesion.cancelarSuscripcion = sesion.almacen.suscribir(undefined, (sala) => this.alCambiarSala(sala)); // avisa enseguida con la sala inicial
         }
 
         /* ---- HUD móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa ---- */
@@ -4965,23 +4391,12 @@
             menu.append(porId("bNueva"));
             porId("topDerecha").prepend(porId("score"));
             topIzquierda.append(porId("deckInfo"));
-            mesaEl.insertBefore(
-              porId("names"),
-              porId(this.mesa.vista.anclaNombres),
-            );
-            mesaEl.insertBefore(
-              porId("msg"),
-              porId(this.mesa.vista.anclaEstado),
-            );
+            mesaEl.insertBefore(porId("names"), porId(this.mesa.vista.anclaNombres));
+            mesaEl.insertBefore(porId("msg"), porId(this.mesa.vista.anclaEstado));
           } else {
             topIzquierda.prepend(porId("room"));
             porId("topDerecha").append(porId("bNueva"));
-            porId("panel").append(
-              porId("msg"),
-              porId("names"),
-              porId("score"),
-              porId("deckInfo"),
-            );
+            porId("panel").append(porId("msg"), porId("names"), porId("score"), porId("deckInfo"));
             menu.classList.remove("open");
           }
         }
@@ -4993,40 +4408,31 @@
           [porId("bAyuda"), porId("bAyudaMenu")].forEach((boton) =>
             boton.addEventListener("click", () => porId("ayuda").showModal()),
           );
-          porId("bAyudaCerrar").addEventListener("click", () =>
-            porId("ayuda").close(),
-          );
+          porId("bAyudaCerrar").addEventListener("click", () => porId("ayuda").close());
           porId("bMenu").addEventListener("click", (evento) => {
             evento.stopPropagation();
             porId("menu").classList.toggle("open");
           });
           porId("menu").addEventListener("click", (evento) => {
-            if (evento.target.closest("button"))
-              porId("menu").classList.remove("open");
+            if (evento.target.closest("button")) porId("menu").classList.remove("open");
           });
           document.addEventListener("click", (evento) => {
-            if (!porId("menu").contains(evento.target))
-              porId("menu").classList.remove("open");
+            if (!porId("menu").contains(evento.target)) porId("menu").classList.remove("open");
           });
           porId("ayuda").addEventListener("click", (evento) => {
-            if (evento.target === evento.currentTarget)
-              evento.currentTarget.close();
+            if (evento.target === evento.currentTarget) evento.currentTarget.close();
           });
 
           porId("bSiguienteMano").addEventListener("click", () => {
             const numeroMano = sesion.partida.numeroMano;
             this.mesa.reiniciarAnimaciones();
-            sesion.almacen
-              .siguienteMano(sesion.codigo, numeroMano)
-              .catch(console.error);
+            sesion.almacen.siguienteMano(sesion.codigo, numeroMano).catch(console.error);
           });
           porId("bNueva").addEventListener("click", () => {
             if (
               sesion.partida &&
               !sesion.partida.manoTerminada &&
-              !confirm(
-                "¿Volver a la pantalla de inicio? Abandonarás la partida actual.",
-              )
+              !confirm("¿Volver a la pantalla de inicio? Abandonarás la partida actual.")
             )
               return;
             this.salir();
