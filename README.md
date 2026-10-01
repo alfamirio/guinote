@@ -42,14 +42,14 @@ Si recargas la página, vuelves automáticamente a tu sala.
 
 **Baraja y valores**
 
-| Carta | Fuerza | Puntos |
-|-------|--------|--------|
-| As | 1.ª | 11 |
-| Tres | 2.ª | 10 |
-| Rey | 3.ª | 4 |
-| Caballo | 4.ª | 3 |
-| Sota | 5.ª | 2 |
-| 7, 6, 5, 4, 2 | 6.ª a 10.ª | 0 |
+| Carta         | Fuerza     | Puntos |
+| ------------- | ---------- | ------ |
+| As            | 1.ª        | 11     |
+| Tres          | 2.ª        | 10     |
+| Rey           | 3.ª        | 4      |
+| Caballo       | 4.ª        | 3      |
+| Sota          | 5.ª        | 2      |
+| 7, 6, 5, 4, 2 | 6.ª a 10.ª | 0      |
 
 **Desarrollo**
 
@@ -61,4 +61,3 @@ Si recargas la página, vuelves automáticamente a tu sala.
 - **Cambiar el 7:** quien tiene una baza ganada y sale puede cambiar el 7 de triunfo por la carta vista, mientras queden al menos 2 cartas en el mazo.
 - **Diez de últimas:** quien gane la última baza suma 10 puntos.
 - Solo ves tus propios puntos durante la partida. Al terminar se muestran los dos y gana quien tenga más.
-
