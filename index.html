@@ -452,7 +452,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getDatabase, ref, set, get, remove, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 /* ============ CLASES DEL DOMINIO ============ */
-/* Carta, Baraja y ReglasGuinote: sin DOM, sin Firebase y sin estado global. */
+/* Carta, Baraja, ReglasGuinote, Marcador y Partida: sin DOM, sin Firebase y sin estado global. */
 
 /**
  * Una carta de la baraja española de 40 cartas (sin 8 ni 9).
@@ -584,6 +584,16 @@ class Baraja {
 
   get triunfo() { return this.cartaTriunfo?.palo; }
 
+  /** Cambia la carta de abajo (la del triunfo) por `carta` y devuelve la que había. */
+  reemplazarTriunfo(carta) {
+    const anterior = this.#cartas.at(-1);
+    this.#cartas[this.#cartas.length - 1] = Carta.de(carta);
+    return anterior;
+  }
+
+  /** Mazo independiente con las mismas cartas en el mismo orden. */
+  clonar() { return new Baraja(this.#cartas); }
+
   /** Copia de las cartas que quedan, de arriba a abajo. */
   cartas() { return [...this.#cartas]; }
 
@@ -686,6 +696,330 @@ class ReglasGuinote {
   }
 }
 
+/**
+ * Puntuación de una partida, por equipos (0 y 1; en 2 jugadores, cada jugador es un equipo).
+ *
+ * Una partida se compone de manos. En modo 'normal' los puntos de cada mano se acumulan
+ * hasta llegar a META (101), y el empate a META o más obliga a otra mano. En modo 'rapida'
+ * la partida es una sola mano.
+ *
+ * Es un objeto mutable, pero solo lo modifica Partida sobre sus propias copias; quien lo
+ * consulta desde fuera (vistas, bots) debe tratarlo como de solo lectura.
+ */
+class Marcador {
+  #puntos;      // puntos de la mano en curso, por equipo
+  #totales;     // puntos acumulados de las manos ya cerradas
+  #bazas;       // bazas ganadas en la mano en curso
+  #ganoBaza;    // ¿el equipo ya ha ganado alguna baza? (condición para cantar y cambiar el 7)
+
+  constructor({ modo = 'normal', puntosMano = [0, 0], totales = [0, 0], bazas = [0, 0],
+                haGanadoBaza = [false, false], numeroMano = 1, manoCerrada = false, partidaTerminada = false } = {}) {
+    this.modo = modo;
+    this.numeroMano = numeroMano;
+    this.manoCerrada = manoCerrada;
+    this.partidaTerminada = partidaTerminada;
+    this.#puntos = [...puntosMano];
+    this.#totales = [...totales];
+    this.#bazas = [...bazas];
+    this.#ganoBaza = [...haGanadoBaza];
+  }
+
+  get esNormal() { return this.modo === 'normal'; }
+
+  puntosDe(equipo) { return this.#puntos[equipo]; }
+  totalDe(equipo) { return this.#totales[equipo]; }
+  bazasDe(equipo) { return this.#bazas[equipo]; }
+  haGanadoBaza(equipo) { return this.#ganoBaza[equipo]; }
+
+  /** Puntos que muestra el marcador: acumulado + mano en curso (al cerrar la mano el total ya la incluye). */
+  puntosAcumulados(equipo) {
+    return this.esNormal ? this.#totales[equipo] + (this.manoCerrada ? 0 : this.#puntos[equipo]) : this.#puntos[equipo];
+  }
+
+  registrarCante(equipo, puntos) {
+    this.#puntos[equipo] += puntos;
+  }
+
+  registrarBaza(equipo, puntos) {
+    this.#puntos[equipo] += puntos;
+    this.#ganoBaza[equipo] = true;
+    this.#bazas[equipo]++;
+  }
+
+  /** Cierra la mano: diez de últimas, acumulación y comprobación de fin de partida. */
+  cerrarMano(equipoUltimaBaza) {
+    this.#puntos[equipoUltimaBaza] += ReglasGuinote.DIEZ_DE_ULTIMAS;
+    this.manoCerrada = true;
+    if (this.esNormal) {
+      this.#totales = this.#totales.map((total, equipo) => total + this.#puntos[equipo]);
+      const [a, b] = this.#totales;
+      this.partidaTerminada = Math.max(a, b) >= ReglasGuinote.META && a !== b;   // empatados a META o más: otra mano
+    } else {
+      this.partidaTerminada = true;
+    }
+  }
+
+  /** Equipo con más puntos en la mano, o null si empatan. */
+  ganadorMano() {
+    const [a, b] = this.#puntos;
+    return a === b ? null : a > b ? 0 : 1;
+  }
+
+  /** Ganador de la partida una vez terminada (null si no ha terminado o, en modo rápida, si empatan). */
+  ganadorPartida() {
+    if (!this.partidaTerminada) return null;
+    if (!this.esNormal) return this.ganadorMano();
+    const [a, b] = this.#totales;
+    return a === b ? null : a > b ? 0 : 1;
+  }
+
+  /** Marcador de la mano siguiente: conserva los totales, o empieza de cero si la partida ha terminado. */
+  siguienteMano() {
+    return this.partidaTerminada
+      ? new Marcador({ modo: this.modo })
+      : new Marcador({ modo: this.modo, totales: this.#totales, numeroMano: this.numeroMano + 1 });
+  }
+
+  clonar() { return new Marcador(this.exportar()); }
+
+  /** Datos simples (con los mismos nombres que acepta el constructor). */
+  exportar() {
+    return {
+      modo: this.modo, numeroMano: this.numeroMano, manoCerrada: this.manoCerrada, partidaTerminada: this.partidaTerminada,
+      puntosMano: [...this.#puntos], totales: [...this.#totales], bazas: [...this.#bazas], haGanadoBaza: [...this.#ganoBaza],
+    };
+  }
+}
+
+/**
+ * Estado completo de una mano de guiñote y las acciones que lo hacen avanzar.
+ *
+ * - Cada acción (jugar, cantar, cambiarSiete, resolverBaza, siguienteMano) devuelve una Partida
+ *   NUEVA y deja la original intacta; si la acción no es válida lanza un Error. Para evitar
+ *   excepciones, consulta antes puedeJugar / puedeCantar / puedeCambiarSiete / bazaCompleta.
+ * - Es independiente del DOM y de Firebase. Con aEstado() / Partida.desdeEstado() se convierte
+ *   desde y hacia el objeto simple que se guarda en la base de datos (ids de carta, hand0..hand3,
+ *   sung como texto…), con el mismo formato de siempre.
+ * - Asientos: 0..jugadores-1. Equipos: asientos pares contra impares (en 2 jugadores, uno cada uno).
+ * - Las cartas de la mesa son entradas { seat, card } con card: Carta (el formato que usa ReglasGuinote).
+ */
+class Partida {
+  #jugadores;
+  #triunfo;
+  #cartaTriunfo;     // la carta girada; sigue siendo la del triunfo aunque el mazo se agote
+  #mazo;             // Baraja: la carta del fondo es la del triunfo mientras queden cartas
+  #manos;            // array por asiento de Carta[]
+  #mesa;             // [{ seat, card }] en orden de juego
+  #turno;            // asiento al que le toca, o -1 con la baza completa esperando a recogerse
+  #jugadorMano;      // quien sale primero en esta mano
+  #cantados;         // Set de palos ya cantados
+  #paloForzado;      // tras un cante: palo con el que hay que salir (rey o caballo)
+  #ultimoEvento;     // { type: 'baza' | 'cante' | 'cambio', seat, … } para mostrar en pantalla
+  #jugadas;          // Carta[] de las bazas ya recogidas (memoria para el bot)
+  #marcador;
+
+  constructor({ jugadores, triunfo, cartaTriunfo, mazo, manos, mesa, turno, jugadorMano,
+                cantados, paloForzado, ultimoEvento, jugadas, marcador }) {
+    this.#jugadores = jugadores;
+    this.#triunfo = triunfo;
+    this.#cartaTriunfo = Carta.de(cartaTriunfo);
+    this.#mazo = mazo;
+    this.#manos = manos.map(mano => mano.map(carta => Carta.de(carta)));
+    this.#mesa = mesa.map(({ seat, card }) => ({ seat, card: Carta.de(card) }));
+    this.#turno = turno;
+    this.#jugadorMano = jugadorMano;
+    this.#cantados = new Set(cantados);
+    this.#paloForzado = paloForzado ?? null;
+    this.#ultimoEvento = ultimoEvento ? { ...ultimoEvento } : null;
+    this.#jugadas = jugadas.map(carta => Carta.de(carta));
+    this.#marcador = marcador;
+  }
+
+  /* ---------- Creación y conversión ---------- */
+
+  /** Equipo de un asiento: asientos 0 y 2 contra 1 y 3. */
+  static equipoDe(asiento) { return asiento % 2; }
+
+  /** Reparte una mano nueva. Por defecto sale el asiento 1 (reparte el 0) y el marcador empieza de cero. */
+  static nueva(jugadores, modo = 'normal', { baraja = Baraja.barajada(), jugadorMano = 1, marcador = new Marcador({ modo }) } = {}) {
+    const manos = Array.from({ length: jugadores }, () => baraja.repartir(ReglasGuinote.CARTAS_MANO));
+    const cartaTriunfo = baraja.cartaTriunfo;
+    return new Partida({
+      jugadores, triunfo: cartaTriunfo.palo, cartaTriunfo, mazo: baraja, manos, mesa: [], turno: jugadorMano, jugadorMano,
+      cantados: [], paloForzado: null, ultimoEvento: null, jugadas: [], marcador,
+    });
+  }
+
+  /** Reconstruye una partida desde el objeto guardado en Firebase (que descarta arrays vacíos y nulls). */
+  static desdeEstado(estado) {
+    if (!estado) return null;
+    const jugadores = estado.playerCount ?? 2;
+    return new Partida({
+      jugadores,
+      triunfo: estado.trump,
+      cartaTriunfo: estado.trumpCard,
+      mazo: new Baraja(estado.deck || []),
+      manos: Array.from({ length: jugadores }, (_, asiento) => estado['hand' + asiento] || []),
+      mesa: estado.table || [],
+      turno: estado.turn,
+      jugadorMano: estado.mano,
+      cantados: (estado.sung || '').split(',').filter(Boolean),
+      paloForzado: estado.forced,
+      ultimoEvento: estado.lastEvent,
+      jugadas: estado.played || [],
+      marcador: new Marcador({
+        modo: estado.mode, puntosMano: estado.handPoints, totales: estado.totalPoints, bazas: estado.tricksTaken,
+        haGanadoBaza: estado.hasWonTrick, numeroMano: estado.handNumber, manoCerrada: !!estado.handOver, partidaTerminada: !!estado.matchOver,
+      }),
+    });
+  }
+
+  /** Objeto simple para guardar en Firebase. */
+  aEstado() {
+    const m = this.#marcador.exportar();
+    const estado = {
+      deck: this.#mazo.ids(), playerCount: this.#jugadores, trumpCard: this.#cartaTriunfo.id, trump: this.#triunfo,
+      table: this.#mesa.map(({ seat, card }) => ({ seat, card: card.id })), turn: this.#turno, mano: this.#jugadorMano,
+      handPoints: m.puntosMano, hasWonTrick: m.haGanadoBaza, tricksTaken: m.bazas, played: this.#jugadas.map(carta => carta.id),
+      sung: [...this.#cantados].map(palo => palo + ',').join(''), forced: this.#paloForzado, lastEvent: this.#ultimoEvento ? { ...this.#ultimoEvento } : null,
+      handOver: m.manoCerrada, matchOver: m.partidaTerminada, mode: m.modo, totalPoints: m.totales, handNumber: m.numeroMano,
+    };
+    this.#manos.forEach((mano, asiento) => { estado['hand' + asiento] = mano.map(carta => carta.id); });
+    return estado;
+  }
+
+  /** Copia independiente (cartas y marcador incluidos). */
+  clonar() {
+    return new Partida({
+      jugadores: this.#jugadores, triunfo: this.#triunfo, cartaTriunfo: this.#cartaTriunfo, mazo: this.#mazo.clonar(),
+      manos: this.#manos, mesa: this.#mesa, turno: this.#turno, jugadorMano: this.#jugadorMano, cantados: this.#cantados,
+      paloForzado: this.#paloForzado, ultimoEvento: this.#ultimoEvento, jugadas: this.#jugadas, marcador: this.#marcador.clonar(),
+    });
+  }
+
+  /* ---------- Consultas ---------- */
+
+  get jugadores() { return this.#jugadores; }
+  get triunfo() { return this.#triunfo; }
+  get cartaTriunfo() { return this.#cartaTriunfo; }
+  get cartasEnMazo() { return this.#mazo.restantes; }
+  get turno() { return this.#turno; }
+  get jugadorMano() { return this.#jugadorMano; }
+  get paloForzado() { return this.#paloForzado; }
+  get ultimoEvento() { return this.#ultimoEvento; }
+  get marcador() { return this.#marcador; }
+  /** Cartas sobre la mesa en la baza actual (no modificar). */
+  get mesa() { return this.#mesa; }
+  get cantados() { return new Set(this.#cantados); }
+  /** Cartas de las bazas ya recogidas. */
+  get cartasJugadas() { return [...this.#jugadas]; }
+  get bazaCompleta() { return this.#mesa.length === this.#jugadores; }
+  get manoTerminada() { return this.#marcador.manoCerrada; }
+  get partidaTerminada() { return this.#marcador.partidaTerminada; }
+
+  /** Cartas en la mano de un asiento (copia: se puede ordenar sin afectar a la partida). */
+  cartasDe(asiento) { return [...this.#manos[asiento]]; }
+
+  esTurnoDe(asiento) {
+    return !this.manoTerminada && this.#turno === asiento && !this.bazaCompleta;
+  }
+
+  /** Cartas que el asiento podría jugar según las reglas (no comprueba el turno: para eso, esTurnoDe o puedeJugar). */
+  cartasLegales(asiento) {
+    return ReglasGuinote.cartasLegales(this.#manos[asiento], this.#mesa, this.#mazo.restantes, this.#triunfo, this.#paloForzado);
+  }
+
+  puedeJugar(asiento, carta) {
+    return this.esTurnoDe(asiento) && this.cartasLegales(asiento).includes(Carta.de(carta));
+  }
+
+  /** Palos que el asiento puede cantar ahora: solo al salir, tras haber ganado una baza y sin cante previo en esta salida. */
+  cantesPosibles(asiento) {
+    if (!this.#puedeAccionEspecial(asiento) || this.#paloForzado) return [];
+    return ReglasGuinote.cantesPosibles(this.#manos[asiento], [...this.#cantados]);
+  }
+
+  puedeCantar(asiento, palo) { return this.cantesPosibles(asiento).includes(palo); }
+
+  puedeCambiarSiete(asiento) {
+    return this.#puedeAccionEspecial(asiento)
+      && ReglasGuinote.puedeCambiarSiete(this.#manos[asiento], this.#triunfo, this.#cartaTriunfo, this.#mazo.restantes);
+  }
+
+  /** Cantar y cambiar el 7 solo se pueden hacer en tu turno, al salir y con una baza ganada por tu equipo. */
+  #puedeAccionEspecial(asiento) {
+    return this.esTurnoDe(asiento) && !this.#mesa.length && this.#marcador.haGanadoBaza(Partida.equipoDe(asiento));
+  }
+
+  /* ---------- Acciones (devuelven una Partida nueva) ---------- */
+
+  jugar(asiento, carta) {
+    const jugada = Carta.de(carta);
+    if (!this.puedeJugar(asiento, jugada)) throw new Error(`Jugada no válida: asiento ${asiento}, ${jugada.id}`);
+    const siguiente = this.clonar();
+    siguiente.#manos[asiento] = siguiente.#manos[asiento].filter(c => c !== jugada);
+    siguiente.#mesa.push({ seat: asiento, card: jugada });
+    siguiente.#turno = this.#mesa.length + 1 < this.#jugadores ? (asiento + 1) % this.#jugadores : -1;
+    siguiente.#paloForzado = null;
+    siguiente.#ultimoEvento = null;
+    return siguiente;
+  }
+
+  cantar(asiento, palo) {
+    if (!this.puedeCantar(asiento, palo)) throw new Error(`Cante no válido: asiento ${asiento}, ${palo}`);
+    const puntos = ReglasGuinote.valorCante(palo, this.#triunfo);
+    const siguiente = this.clonar();
+    siguiente.#marcador.registrarCante(Partida.equipoDe(asiento), puntos);
+    siguiente.#cantados.add(palo);
+    siguiente.#paloForzado = palo;
+    siguiente.#ultimoEvento = { type: 'cante', seat: asiento, suit: palo, points: puntos };
+    return siguiente;
+  }
+
+  cambiarSiete(asiento) {
+    if (!this.puedeCambiarSiete(asiento)) throw new Error(`Cambio del 7 no válido: asiento ${asiento}`);
+    const siete = ReglasGuinote.sieteDe(this.#triunfo);
+    const siguiente = this.clonar();
+    const anterior = siguiente.#mazo.reemplazarTriunfo(siete);
+    siguiente.#cartaTriunfo = siete;
+    siguiente.#manos[asiento] = siguiente.#manos[asiento].map(c => c === siete ? anterior : c);
+    siguiente.#ultimoEvento = { type: 'cambio', seat: asiento };
+    return siguiente;
+  }
+
+  /** Recoge la baza completa: puntúa al ganador, roba (el ganador primero) y, si era la última, cierra la mano. */
+  resolverBaza() {
+    if (!this.bazaCompleta) throw new Error('La baza no está completa');
+    const ganador = ReglasGuinote.ganadoraDeBaza(this.#mesa, this.#triunfo).seat;
+    const equipo = Partida.equipoDe(ganador);
+    const puntos = ReglasGuinote.puntosDeBaza(this.#mesa);
+    const siguiente = this.clonar();
+    siguiente.#jugadas.push(...this.#mesa.map(entrada => entrada.card));
+    siguiente.#mesa = [];
+    siguiente.#turno = ganador;
+    siguiente.#paloForzado = null;
+    siguiente.#marcador.registrarBaza(equipo, puntos);
+    siguiente.#ultimoEvento = { type: 'baza', seat: ganador, points: puntos };
+    if (siguiente.#mazo.restantes) {
+      for (let i = 0; i < this.#jugadores; i++) siguiente.#manos[(ganador + i) % this.#jugadores].push(siguiente.#mazo.robar());
+    }
+    if (siguiente.#manos.every(mano => !mano.length)) {
+      siguiente.#marcador.cerrarMano(equipo);
+      siguiente.#ultimoEvento.lastTrickBonus = true;
+    }
+    return siguiente;
+  }
+
+  /** Reparte la mano siguiente: sale el siguiente jugador y el marcador continúa (o se reinicia si la partida acabó). */
+  siguienteMano() {
+    if (!this.manoTerminada) throw new Error('La mano no ha terminado');
+    return Partida.nueva(this.#jugadores, this.#marcador.modo, {
+      jugadorMano: (this.#jugadorMano + 1) % this.#jugadores,
+      marcador: this.#marcador.siguienteMano(),
+    });
+  }
+}
+
 /* Bandera global: true = lee config.dat (JSON codificado en base64);
    false = lee firebase-config.json en texto plano. */
 const CONFIG_EN_BASE64 = true;
@@ -718,12 +1052,9 @@ const AJUSTES = {
   botMinMs: 500, botExtraMs: 400,   // pausa del bot antes de jugar
   resolverMs: 1500,       // pausa con la baza completa antes de recogerla
 };
-/* En el estado de la partida (y en Firebase) las cartas son ids ('oros_01'): hand() devuelve ids y cartasDe() devuelve Cartas. */
-const hand = (seat,game=state.game) => game['hand'+seat] || [];
-const cartasDe = (seat,game=state.game) => hand(seat,game).map(id => Carta.de(id));
 const colorOf = (teamIndex, firstColor = state.room.firstTeamColor) => teamIndex === 0 ? firstColor : (firstColor === 'azul' ? 'rojo' : 'azul');   // color del equipo t
 const capitalize = word => word[0].toUpperCase() + word.slice(1);
-const teamOf = seat => seat % 2;                                   // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
+const teamOf = Partida.equipoDe;                                 // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
 const range = count => [...Array(count).keys()];
 const nameOf = seat => state.room.names[seat] || (state.room.playerCount === 4 ? `Jugador ${seat + 1}` : 'Rival');
 const seats = room => range(room.playerCount).filter(index => room.players[index]).length;
@@ -732,19 +1063,6 @@ const checked = name => (document.querySelector(`input[name=${name}]:checked`) |
 const FB_ERR = 'No se pudo conectar con Firebase. Revisa la configuración.';
 /* Valores por defecto: se aplican una sola vez, al leer de Firebase (que descarta arrays vacíos) */
 const normRoom = room => ({playerCount:2, mode:'normal', firstTeamColor:'azul', players:{}, names:{}, ...room});
-const normGame = game => game && ({table:[], deck:[], sung:'', totalPoints:[0,0], played:[], tricksTaken:[0,0], handNumber:1, playerCount:2, ...game});
-
-function newGame(mano, mode='normal', totals=[0,0], handNumber=1, playerCount=2){
-  const baraja = Baraja.barajada();
-  const hands = {}; for(let index = 0; index < playerCount; index++) hands['hand'+index] = baraja.repartir(ReglasGuinote.CARTAS_MANO).map(carta => carta.id);
-  const trumpCard = baraja.cartaTriunfo;
-  return {deck: baraja.ids(), ...hands, playerCount, trumpCard: trumpCard.id, trump: trumpCard.palo, table:[], turn:mano, mano,
-          handPoints:[0,0], hasWonTrick:[false,false], tricksTaken:[0,0], played:[], sung:'', forced:null, lastEvent:null, handOver:false, matchOver:false, mode, totalPoints:[...totals], handNumber};
-}
-const nextGame = game => {                                  // game ya normalizado
-  const nextMano = (game.mano + 1) % game.playerCount;
-  return game.matchOver ? newGame(nextMano, game.mode, [0,0], 1, game.playerCount) : newGame(nextMano, game.mode, game.totalPoints, game.handNumber + 1, game.playerCount);
-};
 
 /* ============ ESTADO ============ */
 /* Estado de la sesión actual: sala, asiento y partida. newSession() da los valores iniciales;
@@ -775,8 +1093,8 @@ function resetSession(){
 }
 const byId = elementId => document.getElementById(elementId);
 const gameRef = () => ref(database, `rooms/${state.code}/game`);
-const save = game => state.local ? localSave(game) : set(gameRef(), game);
-function localSave(game){ state.game = game; setTimeout(afterState, 0); return Promise.resolve(); }   // partida contra el bot: sin base de datos
+const save = partida => state.local ? localSave(partida) : set(gameRef(), partida.aEstado());     // Firebase guarda el objeto simple (aEstado)
+function localSave(partida){ state.game = partida; setTimeout(afterState, 0); return Promise.resolve(); }   // partida contra el bot: sin base de datos
 
 /* ---- Lobby ---- */
 const randomRoomCode = () => Array.from({length:AJUSTES.longCodigo}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random()*24|0]).join('');
@@ -949,17 +1267,17 @@ byId('rooms').addEventListener('click', event => {
 });
 
 byId('bRe').addEventListener('click', () => {
-  const handNumber = state.game.handNumber; state.seen = new Set(); state.prevTable = '';
-  if(state.local) return state.game.handOver ? localSave(nextGame(state.game)) : undefined;
+  const handNumber = state.game.marcador.numeroMano; state.seen = new Set(); state.prevTable = '';
+  if(state.local) return state.game.manoTerminada ? localSave(state.game.siguienteMano()) : undefined;
   runTransaction(gameRef(), storedGame => {
     if(storedGame === null) return storedGame;
-    const currentGame = normGame(storedGame);
-    if(!currentGame.handOver || currentGame.handNumber !== handNumber) return;                  // ya lo ha pulsado el otro jugador
-    return nextGame(currentGame);
+    const currentGame = Partida.desdeEstado(storedGame);
+    if(!currentGame.manoTerminada || currentGame.marcador.numeroMano !== handNumber) return;   // ya lo ha pulsado el otro jugador
+    return currentGame.siguienteMano().aEstado();
   }).catch(console.error);
 });
 byId('bNueva').addEventListener('click', () => {
-  if(state.game && !state.game.handOver && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
+  if(state.game && !state.game.manoTerminada && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
   salir();
 });
 function salir(){
@@ -991,10 +1309,10 @@ function enter(){
   byId('room').textContent = 'Sala ' + state.code;
   state.unsub = onValue(ref(database,`rooms/${state.code}`), snapshot => {
     if(snapshot.val() === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
-    state.room = normRoom(snapshot.val()); state.game = normGame(state.room.game || null);
+    state.room = normRoom(snapshot.val()); state.game = Partida.desdeEstado(state.room.game || null);
     byId('room').textContent = state.room.name ? `${state.room.name} (${state.code})` : 'Sala ' + state.code;
     if(state.room.players[0] && Date.now() - state.room.players[0] >= HORA) purge(state.code);
-    if(!state.game && state.mySeat === 0 && seats(state.room) >= state.room.playerCount) return save(newGame(1, state.room.mode, [0,0], 1, state.room.playerCount));   // el que no reparte empieza (mano = jugador 1)
+    if(!state.game && state.mySeat === 0 && seats(state.room) >= state.room.playerCount) return save(Partida.nueva(state.room.playerCount, state.room.mode));   // el que no reparte empieza (mano = jugador 1)
     afterState();
   });
 }
@@ -1002,59 +1320,19 @@ const saved = JSON.parse(sessionStorage.getItem('guinote') || 'null');
 if(saved && database){ state.code = saved.code; state.mySeat = saved.seat; enter(); }
 else watchLobby();
 
-/* ---- Lógica de turnos ---- */
-const myTurn = seat => state.game && !state.game.handOver && state.game.turn === seat && state.game.table.length < state.game.playerCount;
-
-/* Las reglas (quién gana la baza, qué cartas son legales, cantes, cambio del 7…) están en ReglasGuinote;
-   aquí solo se conectan con el estado de la partida. */
-const legalNow = seat => ReglasGuinote.cartasLegales(hand(seat), state.game.table, state.game.deck.length, state.game.trump, state.game.forced);   // Cartas
-const legal = (seat, card) => legalNow(seat).includes(Carta.de(card));
-
+/* ---- Acciones del jugador ---- */
+/* Las reglas están en ReglasGuinote y el estado de la mano y sus transiciones en Partida (inmutable: cada acción
+   devuelve una Partida nueva). Aquí solo se comprueba que la acción es válida y se guarda el resultado. */
 function play(seat, card){                                      // card: Carta o id
-  const played = Carta.de(card);
-  if(!myTurn(seat) || !legal(seat, played)) return;
-  const game = {...state.game, table:[...state.game.table, {seat, card: played.id}], forced:null, lastEvent:null};
-  game['hand'+seat] = hand(seat).filter(handCard => handCard !== played.id);
-  game.turn = state.game.table.length + 1 < state.game.playerCount ? (seat + 1) % state.game.playerCount : -1;
-  save(game);
+  if(state.game && state.game.puedeJugar(seat, card)) save(state.game.jugar(seat, card));
 }
-
-function cantes(seat){
-  if(!myTurn(seat) || state.game.table.length || !state.game.hasWonTrick[teamOf(seat)] || state.game.forced) return [];
-  return ReglasGuinote.cantesPosibles(hand(seat), state.game.sung.split(','));
-}
-function cantar(seat, suitName){
-  const singPoints = ReglasGuinote.valorCante(suitName, state.game.trump), game = {...state.game, handPoints:[...state.game.handPoints], forced:suitName, sung:state.game.sung + suitName + ',', lastEvent:{type:'cante', seat, suit: suitName, points: singPoints}};
-  game.handPoints[teamOf(seat)] += singPoints; save(game);
-}
-function canCambiar(seat){
-  return myTurn(seat) && !state.game.table.length && state.game.hasWonTrick[teamOf(seat)] &&
-         ReglasGuinote.puedeCambiarSiete(hand(seat), state.game.trump, state.game.trumpCard, state.game.deck.length);
-}
-function cambiar(seat){
-  const sevenOfTrump = ReglasGuinote.sieteDe(state.game.trump).id, deck = [...state.game.deck]; deck[deck.length-1] = sevenOfTrump;
-  const game = {...state.game, deck, trumpCard:sevenOfTrump, lastEvent:{type:'cambio', seat}};
-  game['hand'+seat] = hand(seat).map(card => card === sevenOfTrump ? state.game.trumpCard : card); save(game);
-}
+function cantar(seat, suitName){ if(state.game && state.game.puedeCantar(seat, suitName)) save(state.game.cantar(seat, suitName)); }
+function cambiar(seat){ if(state.game && state.game.puedeCambiarSiete(seat)) save(state.game.cambiarSiete(seat)); }
 
 /* Solo el anfitrión (jugador 0) resuelve la baza */
 function resolve(){
   state.resolving = false;
-  if(!state.game || state.game.table.length !== state.game.playerCount) return;
-  const playerCount = state.game.playerCount, winnerSeat = ReglasGuinote.ganadoraDeBaza(state.game.table, state.game.trump).seat, winningTeam = teamOf(winnerSeat);
-  const deck = [...state.game.deck], trickPoints = ReglasGuinote.puntosDeBaza(state.game.table);
-  const game = {...state.game, table:[], deck, turn:winnerSeat, handPoints:[...state.game.handPoints], hasWonTrick:[...state.game.hasWonTrick], tricksTaken:[...state.game.tricksTaken], forced:null, played:[...state.game.played, ...state.game.table.map(entry => entry.card)], lastEvent:{type:'baza', seat:winnerSeat, points: trickPoints}};
-  game.handPoints[winningTeam] += trickPoints; game.hasWonTrick[winningTeam] = true; game.tricksTaken[winningTeam]++;
-  if(deck.length) for(let index = 0; index < playerCount; index++){ const seatIndex = (winnerSeat + index) % playerCount; game['hand'+seatIndex] = [...hand(seatIndex), deck.shift()]; }   // roba primero el ganador
-  game.deck = deck;
-  if(range(playerCount).every(seatIndex => !hand(seatIndex,game).length)){
-    game.handPoints[winningTeam] += ReglasGuinote.DIEZ_DE_ULTIMAS; game.handOver = true; game.lastEvent.lastTrickBonus = true;
-    if(state.game.mode === 'normal'){
-      const totals = [...state.game.totalPoints]; totals[0] += game.handPoints[0]; totals[1] += game.handPoints[1]; game.totalPoints = totals;
-      game.matchOver = Math.max(totals[0], totals[1]) >= ReglasGuinote.META && totals[0] !== totals[1];       // si empatan a 101 o más, otra mano
-    }else game.matchOver = true;
-  }
-  save(game);
+  if(state.game && state.game.bazaCompleta) save(state.game.resolverBaza());
 }
 
 /* ---- Bots (state.room.bots = asientos controlados por el bot; los ejecuta el anfitrión) ---- */
@@ -1062,11 +1340,12 @@ const isBot = seat => !!(state.room && state.room.bots && state.room.bots[seat])
 /* Final exacto (2 jugadores, mazo agotado): con las cartas jugadas memorizadas se deduce la mano del rival
    y se resuelve el resto de la mano por búsqueda completa (minimax). Ignora cantes futuros. */
 function botEndgame(seat){
-  if(state.game.playerCount !== 2 || state.game.deck.length) return null;
-  const mine = cartasDe(seat), leadEntry = state.game.table[0] || null, leadCardOnTable = leadEntry && Carta.de(leadEntry.card), trump = state.game.trump;
-  const known = new Set([...mine, ...state.game.played.map(id => Carta.de(id)), ...state.game.table.map(entry => Carta.de(entry.card))]);
+  const partida = state.game;
+  if(partida.jugadores !== 2 || partida.cartasEnMazo) return null;
+  const mine = partida.cartasDe(seat), mesa = partida.mesa, leadEntry = mesa[0] || null, leadCardOnTable = leadEntry && leadEntry.card, trump = partida.triunfo;
+  const known = new Set([...mine, ...partida.cartasJugadas, ...mesa.map(entry => entry.card)]);
   const rivalCards = Carta.todas().filter(card => !known.has(card));
-  if(rivalCards.length !== mine.length - state.game.table.length) return null;          // memoria incompleta: usar la heurística
+  if(rivalCards.length !== mine.length - mesa.length) return null;          // memoria incompleta: usar la heurística
   const rivalCardsWithLead = leadEntry ? [...rivalCards, leadCardOnTable] : rivalCards, memo = new Map();
   const playTrick = (botHand,opponentHand,lead,leadCard,replyCard) => {                                     // valor (bot − rival) tras jugar la baza a,b
     const leaderHand = lead === 0 ? botHand : opponentHand, otherHand = lead === 0 ? opponentHand : botHand;
@@ -1089,7 +1368,7 @@ function botEndgame(seat){
   }
   const spendCost = card => card.puntos*2 + (card.palo === trump ? 14 : 0) + card.fuerza/5;     // desempate: gastar lo menos valioso
   let bestCard = null, bestValue = -1e9;
-  for(const card of [...legalNow(seat)].sort((cardA,cardB) => spendCost(cardA) - spendCost(cardB))){
+  for(const card of partida.cartasLegales(seat).sort((cardA,cardB) => spendCost(cardA) - spendCost(cardB))){
     const value = leadEntry ? playTrick(mine, rivalCardsWithLead, 1, leadCardOnTable, card)
                  : Math.min(...ReglasGuinote.cartasLegales(rivalCards, [{card}], 0, trump, null).map(replyCard => playTrick(mine, rivalCards, 0, card, replyCard)));
     if(value > bestValue){ bestValue = value; bestCard = card; }
@@ -1097,24 +1376,25 @@ function botEndgame(seat){
   return bestCard;
 }
 function botChoose(seat){
-  if(state.game.playerCount === 2 && !state.game.deck.length){ try{ const chosenCard = botEndgame(seat); if(chosenCard) return chosenCard; }catch(error){ console.error(error); } }
-  const handCards = cartasDe(seat), allowed = legalNow(seat), trump = state.game.trump, sung = state.game.sung.split(',');
+  const partida = state.game, mesa = partida.mesa;
+  if(partida.jugadores === 2 && !partida.cartasEnMazo){ try{ const chosenCard = botEndgame(seat); if(chosenCard) return chosenCard; }catch(error){ console.error(error); } }
+  const handCards = partida.cartasDe(seat), allowed = partida.cartasLegales(seat), trump = partida.triunfo, sung = partida.cantados;
   const noTrump = cards => { const nonTrump = cards.filter(card => card.palo !== trump); return nonTrump.length ? nonTrump : cards; };
   // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+caballo cantable
   const cost = card => card.puntos*2 + (card.palo === trump ? 14 : 0) + card.fuerza/5 +
-    (card.parejaDeCante && handCards.includes(card.parejaDeCante) && !sung.includes(card.palo) ? 6 : 0);
+    (card.parejaDeCante && handCards.includes(card.parejaDeCante) && !sung.has(card.palo) ? 6 : 0);
   const cheapest = cards => cards.reduce((currentBest,card) => cost(card) < cost(currentBest) ? card : currentBest);
-  if(state.game.table.length === 0){
-    if(state.game.forced || state.game.deck.length) return cheapest(allowed);                // salir con lo más barato
+  if(mesa.length === 0){
+    if(partida.paloForzado || partida.cartasEnMazo) return cheapest(allowed);                // salir con lo más barato
     return noTrump(allowed).reduce((currentBest,card) => card.fuerza > currentBest.fuerza ? card : currentBest);      // arrastre: la carta más fuerte
   }
-  const currentWinner = ReglasGuinote.ganadoraDeBaza(state.game.table, trump), bestCard = Carta.de(currentWinner.card), tablePoints = ReglasGuinote.puntosDeBaza(state.game.table);
-  if(state.game.playerCount === 4 && teamOf(currentWinner.seat) === teamOf(seat)){                            // la pareja va ganando la baza
-    if(state.game.table.length < 3 || state.game.deck.length === 0) return cheapest(allowed);
+  const currentWinner = ReglasGuinote.ganadoraDeBaza(mesa, trump), bestCard = currentWinner.card, tablePoints = ReglasGuinote.puntosDeBaza(mesa);
+  if(partida.jugadores === 4 && teamOf(currentWinner.seat) === teamOf(seat)){                            // la pareja va ganando la baza
+    if(mesa.length < 3 || partida.cartasEnMazo === 0) return cheapest(allowed);
     return noTrump(allowed).reduce((currentBest,card) => card.puntos > currentBest.puntos || (card.puntos === currentBest.puntos && cost(card) < cost(currentBest)) ? card : currentBest);
   }
   const winningCards = allowed.filter(card => ReglasGuinote.superaA(card, bestCard, trump));
-  if(state.game.deck.length === 0) return winningCards.length ? cheapest(winningCards) : cheapest(allowed);   // en el arrastre ok ya cumple las obligaciones
+  if(partida.cartasEnMazo === 0) return winningCards.length ? cheapest(winningCards) : cheapest(allowed);   // en el arrastre ok ya cumple las obligaciones
   if(winningCards.length){
     const cheapestWinner = cheapest(winningCards), isRuff = cheapestWinner.palo === trump && bestCard.palo !== trump;
     if(!isRuff || tablePoints >= 10 || (tablePoints >= 3 && cheapestWinner.puntos === 0)) return cheapestWinner;          // no gastar triunfos por bazas sin valor
@@ -1122,23 +1402,24 @@ function botChoose(seat){
   return cheapest(allowed);
 }
 function botStep(seat){
-  if(state.game.table.length === 0 && !state.game.forced){
-    if(canCambiar(seat)) return cambiar(seat);
-    const singableSuits = cantes(seat);
-    if(singableSuits.length) return cantar(seat, singableSuits.includes(state.game.trump) ? state.game.trump : singableSuits[0]);
+  const partida = state.game;
+  if(partida.mesa.length === 0 && !partida.paloForzado){
+    if(partida.puedeCambiarSiete(seat)) return cambiar(seat);
+    const singableSuits = partida.cantesPosibles(seat);
+    if(singableSuits.length) return cantar(seat, singableSuits.includes(partida.triunfo) ? partida.triunfo : singableSuits[0]);
   }
   play(seat, botChoose(seat));
 }
 const botHost = () => state.local || state.mySeat === 0;
-function botMove(){ if(state.game && !state.game.handOver && isBot(state.game.turn) && state.game.table.length < state.game.playerCount) botStep(state.game.turn); }
+function botMove(){ if(state.game && !state.game.manoTerminada && isBot(state.game.turno) && !state.game.bazaCompleta) botStep(state.game.turno); }
 function botTick(){
-  if(!state.game || state.game.handOver || !botHost() || !isBot(state.game.turn) || state.game.table.length >= state.game.playerCount || state.botBusy) return;
+  if(!state.game || state.game.manoTerminada || !botHost() || !isBot(state.game.turno) || state.game.bazaCompleta || state.botBusy) return;
   state.botBusy = true;
   state.botTimer = setTimeout(() => { state.botBusy = false; botMove(); }, AJUSTES.botMinMs + Math.random()*AJUSTES.botExtraMs);
 }
 function afterState(){
   render();
-  if(state.game && state.mySeat === 0 && state.game.table.length === state.game.playerCount && !state.resolving){ state.resolving = true; state.resolveTimer = setTimeout(resolve, AJUSTES.resolverMs); }
+  if(state.game && state.mySeat === 0 && state.game.bazaCompleta && !state.resolving){ state.resolving = true; state.resolveTimer = setTimeout(resolve, AJUSTES.resolverMs); }
   botTick();
 }
 function jugarBot(playerCount = 2, botSeats = [1]){
@@ -1149,14 +1430,14 @@ function jugarBot(playerCount = 2, botSeats = [1]){
   const players = {}, {names: botNames, bots} = assignBots(botSeats, [ownName]);
   range(playerCount).forEach(index => players[index] = Date.now());
   state.room = {playerCount, mode, name: playerCount === 2 ? 'Contra el bot' : 'Con bots', firstTeamColor: firstColor, players, names: {0:ownName, ...botNames}, bots};
-  state.game = newGame(1, mode, [0,0], 1, playerCount);
+  state.game = Partida.nueva(playerCount, mode);
   byId('lobby').hidden = true; byId('game').hidden = false; byId('bNueva').hidden = false;
   byId('room').textContent = state.room.name;
   afterState();
 }
 
 /* ============ RENDER ============ */
-const isTf = card => state.game && Carta.de(card).palo === state.game.trump;
+const isTf = card => state.game && Carta.de(card).palo === state.game.triunfo;
 // Carta boca arriba; las de triunfo van en un <div> para poder llevar marco y estrella
 const face = (card, className, attrs='', ext=CARD_EXT) => isTf(card)
   ? `<div class="card ${className} tf" ${attrs}><img src="cartas/${card}.${ext}" draggable="false" alt="${card}"></div>`
@@ -1172,7 +1453,7 @@ function setMsg(statusText, statusClass = '', eventText = '', eventClass = '', h
 }
 function evText(gameEvent){
   if(!gameEvent) return '';
-  const isMine = gameEvent.seat === state.mySeat, displayName = nameOf(gameEvent.seat) + (state.game.playerCount === 4 && !isMine && teamOf(gameEvent.seat) === teamOf(state.mySeat) ? ' (tu pareja)' : '');
+  const isMine = gameEvent.seat === state.mySeat, displayName = nameOf(gameEvent.seat) + (state.game.jugadores === 4 && !isMine && teamOf(gameEvent.seat) === teamOf(state.mySeat) ? ' (tu pareja)' : '');
   if(gameEvent.type === 'baza') return `${isMine ? 'Te llevas' : displayName + ' se lleva'} la baza (${gameEvent.points} puntos)` + (gameEvent.lastTrickBonus ? ' y las diez de últimas' : '');
   if(gameEvent.type === 'cante') return `${isMine ? 'Cantas' : displayName + ' canta'} las ${gameEvent.points} en ${gameEvent.suit}`;
   if(gameEvent.type === 'cambio') return `${isMine ? 'Cambias' : displayName + ' cambia'} el siete de triunfo`;
@@ -1201,15 +1482,15 @@ function renderHands({four, isMyTurn, relativeSeat, currentSeat}){
   setTeamColor('me', state.mySeat); setTeamColor('opp', four ? relativeSeat(2) : relativeSeat(1));
   if(four){ setTeamColor('oR', relativeSeat(1)); setTeamColor('oL', relativeSeat(3)); }
   // Rivales y pareja (en 4: pareja arriba, rivales a derecha e izquierda)
-  if(four){ byId('opp').innerHTML = backs(hand(relativeSeat(2))); byId('oR').innerHTML = backs(hand(relativeSeat(1))); byId('oL').innerHTML = backs(hand(relativeSeat(3))); }
-  else{ byId('opp').innerHTML = backs(hand(1 - state.mySeat)); byId('oR').innerHTML = byId('oL').innerHTML = ''; }
+  if(four){ byId('opp').innerHTML = backs(state.game.cartasDe(relativeSeat(2))); byId('oR').innerHTML = backs(state.game.cartasDe(relativeSeat(1))); byId('oL').innerHTML = backs(state.game.cartasDe(relativeSeat(3))); }
+  else{ byId('opp').innerHTML = backs(state.game.cartasDe(1 - state.mySeat)); byId('oR').innerHTML = byId('oL').innerHTML = ''; }
   byId('opp').classList.toggle('act', four && currentSeat === relativeSeat(2));
   byId('oR').classList.toggle('act', four && currentSeat === relativeSeat(1));
   byId('oL').classList.toggle('act', four && currentSeat === relativeSeat(3));
   // Mano propia, ordenada por palo y fuerza (el triunfo siempre a la izquierda)
-  const suitOrder = card => card.palo === state.game.trump ? -1 : Carta.PALOS.indexOf(card.palo);
-  const mine = cartasDe(state.mySeat).sort((first,second) => suitOrder(first) - suitOrder(second) || second.fuerza - first.fuerza);
-  const playable = isMyTurn ? legalNow(state.mySeat) : [];
+  const suitOrder = card => card.palo === state.game.triunfo ? -1 : Carta.PALOS.indexOf(card.palo);
+  const mine = state.game.cartasDe(state.mySeat).sort((first,second) => suitOrder(first) - suitOrder(second) || second.fuerza - first.fuerza);
+  const playable = isMyTurn ? state.game.cartasLegales(state.mySeat) : [];
   let dealtCount = 0;
   byId('me').className = 'hand' + (isMyTurn ? ' turno' : '');
   byId('me').innerHTML = mine.map(card => {
@@ -1218,63 +1499,65 @@ function renderHands({four, isMyTurn, relativeSeat, currentSeat}){
   }).join('');
   state.seen = new Set(mine);
   // Acciones (cantes y cambio del 7)
-  const actionButtons = cantes(state.mySeat).map(suitName => `<button class="btn" data-cante="${suitName}">Cantar las ${ReglasGuinote.valorCante(suitName, state.game.trump)} en ${suitName}</button>`);
-  if(canCambiar(state.mySeat)) actionButtons.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
+  const actionButtons = state.game.cantesPosibles(state.mySeat).map(suitName => `<button class="btn" data-cante="${suitName}">Cantar las ${ReglasGuinote.valorCante(suitName, state.game.triunfo)} en ${suitName}</button>`);
+  if(state.game.puedeCambiarSiete(state.mySeat)) actionButtons.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
   byId('acts').innerHTML = actionButtons.join('');
 }
 
 function renderTable({playerCount, four, team, otherTeam}){
   // Mazo con el triunfo girado debajo
-  const deckCount = state.game.deck.length;
-  byId('deck').innerHTML = (deckCount ? cardImg(state.game.trumpCard,'tr') : '') + (deckCount > 1 ? back('bk') + (deckCount > 2 ? back('bk') : '') : '');
+  const deckCount = state.game.cartasEnMazo;
+  byId('deck').innerHTML = (deckCount ? cardImg(state.game.cartaTriunfo,'tr') : '') + (deckCount > 1 ? back('bk') + (deckCount > 2 ? back('bk') : '') : '');
   // Cartas en la mesa (en 4: cada una en su lado, según el asiento relativo)
   byId('play').className = four ? 'p4' : '';
-  byId('play').innerHTML = state.game.table.map(entry => {
-    const nuevo = !state.prevTable.includes(entry.card), className = four ? 's' + ((entry.seat - state.mySeat + playerCount) % playerCount) : (entry.seat === state.mySeat ? 'mine' : 'theirs');
+  byId('play').innerHTML = state.game.mesa.map(entry => {
+    const nuevo = !state.prevTable.includes(entry.card.id), className = four ? 's' + ((entry.seat - state.mySeat + playerCount) % playerCount) : (entry.seat === state.mySeat ? 'mine' : 'theirs');
     return face(entry.card, className, `data-tc="${colorOf(teamOf(entry.seat))}" style="${nuevo ? '' : 'animation:none'}"`);
   }).join('');
-  state.prevTable = state.game.table.map(entry => entry.card).join();
+  state.prevTable = state.game.mesa.map(entry => entry.card.id).join();
   // Montones de bazas (por equipo)
   const pile = count => count ? Array.from({length:Math.min(count,5)}, (unused, index) => back('', `style="top:${index*-2}px"`)).join('') + `<span>${count} baza${count>1?'s':''}</span>` : '';
   byId('pMe').setAttribute('data-tc', colorOf(team)); byId('pOpp').setAttribute('data-tc', colorOf(otherTeam));
-  byId('pOpp').innerHTML = pile(state.game.tricksTaken[otherTeam]); byId('pMe').innerHTML = pile(state.game.tricksTaken[team]);
+  byId('pOpp').innerHTML = pile(state.game.marcador.bazasDe(otherTeam)); byId('pMe').innerHTML = pile(state.game.marcador.bazasDe(team));
 }
 
 function renderScore({team, otherTeam}){
-  byId('deckInfo').innerHTML = `<span class="tfs">★</span> Triunfo: ${state.game.trump} · ${state.game.deck.length}<span class="mz"> en el mazo</span>`;
-  // Puntos acumulados: manos anteriores + mano en curso (al terminar la mano, tot ya incluye sus puntos)
-  const accumulatedPoints = teamIndex => state.game.mode === 'normal' ? state.game.totalPoints[teamIndex] + (state.game.handOver ? 0 : state.game.handPoints[teamIndex]) : state.game.handPoints[teamIndex];
-  byId('score').innerHTML = (state.game.mode === 'normal' ? `M ${state.game.handNumber} · ` : '') +
-    `<i class="dot" data-tc="${colorOf(team)}"></i> <b>${accumulatedPoints(team)}</b> – <i class="dot" data-tc="${colorOf(otherTeam)}"></i> <b>${accumulatedPoints(otherTeam)}</b>`;
-  byId('score').title = state.game.mode === 'normal' ? `Puntos acumulados (se juega a ${ReglasGuinote.META})` : 'Puntos de la mano';
+  const partida = state.game, marcador = partida.marcador;
+  byId('deckInfo').innerHTML = `<span class="tfs">★</span> Triunfo: ${partida.triunfo} · ${partida.cartasEnMazo}<span class="mz"> en el mazo</span>`;
+  // Puntos acumulados: manos anteriores + mano en curso (al terminar la mano, el total ya incluye sus puntos)
+  byId('score').innerHTML = (marcador.esNormal ? `M ${marcador.numeroMano} · ` : '') +
+    `<i class="dot" data-tc="${colorOf(team)}"></i> <b>${marcador.puntosAcumulados(team)}</b> – <i class="dot" data-tc="${colorOf(otherTeam)}"></i> <b>${marcador.puntosAcumulados(otherTeam)}</b>`;
+  byId('score').title = marcador.esNormal ? `Puntos acumulados (se juega a ${ReglasGuinote.META})` : 'Puntos de la mano';
 }
 
-function renderStatus({playerCount, four, team, isMyTurn, relativeSeat}){
-  const eventOwner = state.game.lastEvent && teamOf(state.game.lastEvent.seat) === team ? 'mine' : 'rival', eventMessage = evText(state.game.lastEvent);
-  if(state.game.handOver) setMsg('Mano terminada', 'wait', eventMessage, eventOwner);
-  else if(state.game.table.length === playerCount) setMsg('Baza completa…', 'wait', eventMessage, eventOwner);
+function renderStatus({four, team, isMyTurn, relativeSeat}){
+  const partida = state.game, eventOwner = partida.ultimoEvento && teamOf(partida.ultimoEvento.seat) === team ? 'mine' : 'rival', eventMessage = evText(partida.ultimoEvento);
+  if(partida.manoTerminada) setMsg('Mano terminada', 'wait', eventMessage, eventOwner);
+  else if(partida.bazaCompleta) setMsg('Baza completa…', 'wait', eventMessage, eventOwner);
   else if(isMyTurn) setMsg('Tu turno', 'mine', eventMessage, eventOwner,
-    state.game.forced ? `Cantaste: sal con el rey o el caballo de ${state.game.forced}` :
-    state.game.deck.length ? '' : 'Arrastre: asiste al palo y supera si puedes');
-  else setMsg('Turno de ' + nameOf(state.game.turn) + (four && state.game.turn === relativeSeat(2) ? ' (tu pareja)' : ''), 'wait', eventMessage, eventOwner);
+    partida.paloForzado ? `Cantaste: sal con el rey o el caballo de ${partida.paloForzado}` :
+    partida.cartasEnMazo ? '' : 'Arrastre: asiste al palo y supera si puedes');
+  else setMsg('Turno de ' + nameOf(partida.turno) + (four && partida.turno === relativeSeat(2) ? ' (tu pareja)' : ''), 'wait', eventMessage, eventOwner);
 }
 
 function renderFin({four, team, otherTeam}){
-  byId('fin').hidden = !state.game.handOver;
-  if(!state.game.handOver) return;
-  const ownPoints = state.game.handPoints[team], rivalPoints = state.game.handPoints[otherTeam], ownTotal = state.game.totalPoints[team], rivalTotal = state.game.totalPoints[otherTeam], byMode = (twoPlayers, fourPlayers) => four ? fourPlayers : twoPlayers;
+  const partida = state.game, marcador = partida.marcador;
+  byId('fin').hidden = !partida.manoTerminada;
+  if(!partida.manoTerminada) return;
+  const ownPoints = marcador.puntosDe(team), rivalPoints = marcador.puntosDe(otherTeam), ownTotal = marcador.totalDe(team), rivalTotal = marcador.totalDe(otherTeam), byMode = (twoPlayers, fourPlayers) => four ? fourPlayers : twoPlayers;
   const ownLabel = four ? `Equipo ${colorOf(team)}` : 'Tú', rivalLabel = four ? `Equipo ${colorOf(otherTeam)}` : 'Rival';
-  if(state.game.mode !== 'normal'){
-    byId('finT').textContent = ownPoints > rivalPoints ? byMode('¡Has ganado!','¡Habéis ganado!') : ownPoints < rivalPoints ? byMode('Has perdido','Habéis perdido') : 'Empate';
+  const handWinner = marcador.ganadorMano();                      // equipo con más puntos en la mano (null = empate)
+  if(!marcador.esNormal){
+    byId('finT').textContent = handWinner === team ? byMode('¡Has ganado!','¡Habéis ganado!') : handWinner === null ? 'Empate' : byMode('Has perdido','Habéis perdido');
     byId('finS').textContent = `${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}`;
     byId('bRe').textContent = 'Otra partida';
-  }else if(state.game.matchOver){
-    byId('finT').textContent = ownTotal > rivalTotal ? byMode('¡Has ganado la partida!','¡Habéis ganado la partida!') : byMode('Has perdido la partida','Habéis perdido la partida');
+  }else if(partida.partidaTerminada){
+    byId('finT').textContent = marcador.ganadorPartida() === team ? byMode('¡Has ganado la partida!','¡Habéis ganado la partida!') : byMode('Has perdido la partida','Habéis perdido la partida');
     byId('finS').textContent = `Última mano: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador final: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}`;
     byId('bRe').textContent = 'Nueva partida';
   }else{
-    byId('finT').textContent = ownPoints > rivalPoints ? byMode('Ganas la mano','Ganáis la mano') : ownPoints < rivalPoints ? byMode('Pierdes la mano','Perdéis la mano') : 'Mano empatada';
-    byId('finS').textContent = `Mano ${state.game.handNumber}: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}\nSe juega a ${ReglasGuinote.META} puntos`;
+    byId('finT').textContent = handWinner === team ? byMode('Ganas la mano','Ganáis la mano') : handWinner === null ? 'Mano empatada' : byMode('Pierdes la mano','Perdéis la mano');
+    byId('finS').textContent = `Mano ${marcador.numeroMano}: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}\nSe juega a ${ReglasGuinote.META} puntos`;
     byId('bRe').textContent = 'Siguiente mano';
   }
 }
@@ -1282,9 +1565,9 @@ function renderFin({four, team, otherTeam}){
 function render(){
   if(!state.game) return renderWaiting();
   byId('bNueva').hidden = false;
-  const playerCount = state.game.playerCount, team = teamOf(state.mySeat);
-  const view = {playerCount, four: playerCount === 4, team, otherTeam: 1 - team, isMyTurn: myTurn(state.mySeat), relativeSeat: offset => (state.mySeat + offset) % playerCount,
-             currentSeat: state.game.handOver || state.game.table.length === playerCount ? -1 : state.game.turn};   // currentSeat: de quién es el turno (para resaltar)
+  const playerCount = state.game.jugadores, team = teamOf(state.mySeat);
+  const view = {playerCount, four: playerCount === 4, team, otherTeam: 1 - team, isMyTurn: state.game.esTurnoDe(state.mySeat), relativeSeat: offset => (state.mySeat + offset) % playerCount,
+             currentSeat: state.game.manoTerminada || state.game.bazaCompleta ? -1 : state.game.turno};   // currentSeat: de quién es el turno (para resaltar)
   document.body.classList.toggle('p4', view.four);
   renderNames(view); renderHands(view); renderTable(view); renderScore(view); renderStatus(view); renderFin(view);
 }
