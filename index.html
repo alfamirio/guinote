@@ -245,15 +245,20 @@
         opacity: 0.75;
         font-size: 0.75rem;
       }
-      #bAyuda {
+      #barraLobby {
         position: fixed;
         top: calc(env(safe-area-inset-top, 0px) + 0.8rem);
         right: 0.8rem;
         z-index: 2;
+        display: flex;
+        gap: 0.4rem;
+      }
+      #barraLobby .btn {
         font-size: 0.9rem;
         padding: 0.35em 0.9em;
       }
-      #ayuda {
+      #ayuda,
+      #historial {
         max-width: min(92vw, 40rem);
         max-height: 86vh;
         overflow: auto;
@@ -264,10 +269,12 @@
         padding: 1.3rem 1.5rem;
         line-height: 1.5;
       }
-      #ayuda::backdrop {
+      #ayuda::backdrop,
+      #historial::backdrop {
         background: var(--fondo-modal);
       }
-      #ayuda h2 {
+      #ayuda h2,
+      #historial h2 {
         margin: 0 0 0.6rem;
         font-size: 1.6rem;
       }
@@ -278,8 +285,35 @@
         text-transform: uppercase;
         color: var(--oro);
       }
-      #ayuda p {
+      #ayuda p,
+      #historial p {
         margin: 0.2rem 0;
+      }
+      #historial table {
+        border-collapse: collapse;
+        margin: 0.6rem 0;
+        font-size: 0.85rem;
+        width: 100%;
+        display: block;
+        overflow-x: auto;
+      }
+      #historial th,
+      #historial td {
+        border: 1px solid var(--borde-suave);
+        padding: 0.3em 0.55em;
+        text-align: left;
+        vertical-align: top;
+      }
+      #historial th {
+        color: var(--oro);
+        white-space: nowrap;
+      }
+      #historial td.hora {
+        white-space: nowrap;
+      }
+      #historial .gana {
+        color: var(--oro);
+        font-weight: bold;
       }
       #ayuda table {
         border-collapse: collapse;
@@ -992,7 +1026,7 @@
       /* ===== Móvil: HUD compacto arriba y cartas del tapete más grandes ===== */
       @media (max-width: 640px) {
         /* Barra superior de una línea: marcador · triunfo · menú */
-        body:has(#game:not([hidden])) #bAyuda {
+        body:has(#game:not([hidden])) #barraLobby {
           display: none;
         }
         #top {
@@ -1062,6 +1096,7 @@
           text-align: center;
         }
         #menu #bNueva,
+        #menu #bHistorialMenu,
         #menu #bAyudaMenu {
           font-size: 0.85rem;
           padding: 0.45em 0.8em;
@@ -1333,9 +1368,20 @@
   </head>
   <body>
     <div id="lobby">
-      <button class="btn alt small" id="bAyuda" type="button" aria-haspopup="dialog" aria-label="Ayuda">
-        ?<span class="textoAyuda"> Ayuda</span>
-      </button>
+      <div id="barraLobby">
+        <button
+          class="btn alt small"
+          id="bHistorial"
+          type="button"
+          aria-haspopup="dialog"
+          aria-label="Historial de partidas"
+        >
+          ⏱<span class="textoAyuda"> Historial</span>
+        </button>
+        <button class="btn alt small" id="bAyuda" type="button" aria-haspopup="dialog" aria-label="Ayuda">
+          ?<span class="textoAyuda"> Ayuda</span>
+        </button>
+      </div>
       <div class="box">
         <h1 id="tituloJuego"></h1>
         <p id="subtituloJuego"></p>
@@ -1389,12 +1435,21 @@
         </div>
         <button class="btn alt small" id="bMenu" type="button" aria-label="Menú" aria-haspopup="true">☰</button>
         <div id="menu">
+          <button class="btn alt small" id="bHistorialMenu" type="button">⏱ Historial</button>
           <button class="btn alt small" id="bAyudaMenu" type="button">? Ayuda</button>
         </div>
       </div>
       <aside id="panel"></aside>
       <div id="mesa"></div>
     </div>
+    <dialog id="historial" aria-labelledby="historialTitulo">
+      <h2 id="historialTitulo">Partidas de las últimas 24 horas</h2>
+      <p>Incluye las partidas contra bots y contra personas. Se borran solas pasadas 24 horas.</p>
+      <div id="historialLista"></div>
+      <p style="text-align: center; margin-bottom: 0">
+        <button class="btn" id="bHistorialCerrar" type="button">Cerrar</button>
+      </p>
+    </dialog>
     <dialog id="ayuda" aria-labelledby="ayudaTitulo">
       <h2 id="ayudaTitulo"></h2>
       <div id="ayudaJuego"></div>
@@ -1428,7 +1483,8 @@
    CONFIG_EN_BASE64 más abajo), junto a este archivo. Formato del JSON:
    { "apiKey": "...", "authDomain": "...", "databaseURL": "https://...firebaseio.com",
      "projectId": "...", "appId": "..." }
-   Reglas mínimas para jugar: { "rules": { "rooms": { ".read": true, ".write": true }, "lobby": { ".read": true, ".write": true } } } */
+   Reglas mínimas para jugar: { "rules": { "salas": { ".read": true, ".write": true }, "lobby": { ".read": true, ".write": true },
+     "historial": { ".read": true, ".write": true } } } */
 
       import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
       import {
@@ -1473,6 +1529,8 @@
        puedeAplicar(asiento, accion) / aplicar(asiento, accion)     accion = { tipo, … }, la que devuelve Bot.elegirJugada
        resolucionPendiente / resolver()    paso automático entre acciones (en guiñote, recoger la baza completa)
        manoTerminada, partidaTerminada, siguienteMano(), aEstado()
+     Historial
+       resumenResultado(partida) → { ganador (equipo, -1 si empate), puntos [equipo0, equipo1] }  partida terminada
      Vista
        anclaNombres, anclaEstado (ids ante los que el HUD móvil coloca los nombres y el estado)
        dibujar(), reiniciarAnimaciones(), limpiar()
@@ -3153,6 +3211,10 @@
 
         nuevaPartida: (numJugadores, modo) => PartidaGuinote.nueva(numJugadores, modo),
         partidaDesdeEstado: (estado) => PartidaGuinote.desdeEstado(estado),
+        resumenResultado: (partida) => ({
+          ganador: partida.marcador.ganadorPartida() ?? -1,
+          puntos: [0, 1].map((equipo) => partida.marcador.puntosAcumulados(equipo)),
+        }),
         Bot: BotGuinote,
         crearVista: (mesa) => new VistaGuinote(mesa),
       });
@@ -3603,6 +3665,89 @@
         }
       }
 
+
+      /* ============ HISTORIAL DE PARTIDAS ============ */
+      /* Registro de las partidas terminadas de las últimas 24 h (contra bots y contra personas). Mismo interfaz en los dos
+   almacenes: registrar(clave, registro) (no duplica si la clave ya existe) y listar() (solo las recientes, la más nueva
+   primero). Realtime Database no tiene caducidad automática: se borra lo antiguo cada vez que alguien registra una partida
+   o abre el historial, y listar() nunca devuelve nada de más de 24 h aunque siga guardado. */
+
+      /** Historial compartido en Firebase: historial/<clave> con { hora, … }. */
+      class HistorialFirebase {
+        #bd;
+
+        constructor(baseDeDatos) {
+          this.#bd = baseDeDatos;
+        }
+
+        #ref(ruta) {
+          return ref(this.#bd, ruta);
+        }
+
+        async registrar(clave, registro) {
+          await runTransaction(this.#ref(`historial/${clave}`), (actual) => (actual === null ? registro : undefined)); // varios jugadores lo intentan: gana el primero
+          this.listar().catch(() => {}); // aprovecha para borrar las de más de 24 h
+        }
+
+        /** Lee todo el historial, borra las partidas de más de 24 h y devuelve las recientes, la más nueva primero. */
+        async listar() {
+          const corte = Date.now() - AJUSTES.historialMs;
+          const instantanea = await get(this.#ref("historial"));
+          const recientes = [],
+            borrados = [];
+          instantanea.forEach((hijo) => {
+            const registro = hijo.val();
+            if (registro?.hora > corte) recientes.push(registro);
+            else borrados.push(remove(hijo.ref).catch(() => {}));
+          });
+          await Promise.all(borrados);
+          return recientes.sort((a, b) => b.hora - a.hora);
+        }
+      }
+
+      /** Historial en este navegador (localStorage): se usa cuando no hay Firebase. */
+      class HistorialLocal {
+        #clave;
+
+        constructor(idJuego) {
+          this.#clave = `${idJuego}-historial`;
+        }
+
+        #leer() {
+          const corte = Date.now() - AJUSTES.historialMs;
+          try {
+            const guardado = JSON.parse(localStorage.getItem(this.#clave) || "[]");
+            return Array.isArray(guardado) ? guardado.filter((entrada) => entrada.hora > corte) : [];
+          } catch (error) {
+            return [];
+          }
+        }
+
+        async registrar(clave, registro) {
+          const lista = this.#leer().filter((entrada) => entrada.clave !== clave);
+          lista.push({ ...registro, clave });
+          try {
+            localStorage.setItem(this.#clave, JSON.stringify(lista));
+          } catch (error) {}
+        }
+
+        async listar() {
+          const lista = this.#leer();
+          try {
+            localStorage.setItem(this.#clave, JSON.stringify(lista)); // deja guardado solo lo reciente
+          } catch (error) {}
+          return lista.sort((a, b) => b.hora - a.hora);
+        }
+      }
+
+      /** Clave estable de una partida online (misma en todos los jugadores) a partir del código de sala y su estado final. */
+      function claveDePartida(codigo, estado) {
+        const texto = JSON.stringify(estado);
+        let hash = 5381;
+        for (let indice = 0; indice < texto.length; indice++) hash = ((hash * 33) ^ texto.charCodeAt(indice)) >>> 0;
+        return `${codigo}-${hash.toString(36)}`;
+      }
+
       /* ============ JUEGO ACTIVO ============
    Único sitio fuera de la sección «JUEGO: GUIÑOTE» que nombra el juego. Para jugar a otra cosa, apuntar aquí a su descriptor. */
       const JUEGO = JuegoGuinote;
@@ -3634,11 +3779,13 @@
       }
 
       const almacenFirebase = baseDeDatos ? new AlmacenFirebase(baseDeDatos, JUEGO) : null; // null si no se pudo cargar la configuración
+      const historial = baseDeDatos ? new HistorialFirebase(baseDeDatos) : new HistorialLocal(JUEGO.id);
 
       /* ============ AJUSTES DE LA APLICACIÓN ============ */
       /* Las reglas del juego viven en la sección de cada juego (para el guiñote, ReglasGuinote); aquí solo lo que no es regla. */
       const AJUSTES = {
         resolverMs: 1500, // pausa antes de resolver el paso pendiente de la partida (en guiñote, recoger la baza completa)
+        historialMs: 24 * 60 * 60 * 1000, // cuánto tiempo se conserva una partida en el historial (24 h)
         purgaCadaMs: 15000, // cada cuánto se comprueba si la sala ha caducado para eliminarla
         longMaxNombre: 16, // letras máximas del nombre de jugador
         reservaSufijoNombre: 3, // letras que se dejan libres al final del nombre para desambiguarlo (« 2» … « 99»)
@@ -3675,6 +3822,8 @@
           this.local = false; // true = contra bots, sin base de datos
           this.botOcupado = false; // hay una jugada del bot programada
           this.resolviendo = false; // hay un paso pendiente de resolver (en guiñote, una baza completa)
+          this.claveRegistrada = null; // clave de la partida terminada que ya se ha anotado en el historial
+          this.claveLocal = null; // clave de la partida local en curso (las online la derivan de la sala)
           this.temporizadorBot = null; // id del setTimeout del bot
           this.temporizadorResolucion = null; // id del setTimeout que resuelve el paso pendiente
           Object.assign(this, inicial); // valores de arranque que no son los por defecto (p. ej. partida local)
@@ -4259,9 +4408,10 @@
    (entrar, salir, cambios de sala, partida local), el HUD y los eventos del DOM. Nada de esto vive ya en el ámbito
    global del módulo: el arranque es `new Juego(JUEGO, almacenFirebase).arrancar()`. */
       class Juego {
-        constructor(juego, almacenFirebase) {
+        constructor(juego, almacenFirebase, historial) {
           this.juego = juego; // el juego al que se juega (ver CONTRATO DE JUEGO)
           this.almacenFirebase = almacenFirebase; // null si no se pudo cargar la configuración
+          this.historial = historial; // HistorialFirebase o HistorialLocal
           this.sesion = new Sesion(juego);
           this.mesa = new Mesa(this.sesion);
           this.lobby = new Lobby(this.sesion, almacenFirebase, {
@@ -4342,6 +4492,7 @@
           sesion.sala = sala;
           sesion.jugadores = sala.jugadores;
           sesion.partida = sala.partida;
+          this.anotarSiTermina();
           porId("room").textContent = sala.nombre
             ? sesion.codigo
               ? `${sala.nombre} (${sesion.codigo})`
@@ -4381,6 +4532,98 @@
           sesion.cancelarSuscripcion = sesion.almacen.suscribir(undefined, (sala) => this.alCambiarSala(sala)); // avisa enseguida con la sala inicial
         }
 
+        /* ---- Historial ---- */
+        /** Al terminar la partida la anota (una sola vez por partida; si varios jugadores lo intentan, gana el primero). */
+        anotarSiTermina() {
+          const { sesion } = this,
+            partida = sesion.partida;
+          if (!partida?.partidaTerminada) {
+            sesion.claveRegistrada = sesion.claveLocal = null; // la siguiente partida será otra anotación
+            return;
+          }
+          const clave = sesion.codigo
+            ? claveDePartida(sesion.codigo, partida.aEstado())
+            : (sesion.claveLocal ??= `L${Date.now().toString(36)}${((Math.random() * 1e6) | 0).toString(36)}`);
+          if (sesion.claveRegistrada === clave) return;
+          sesion.claveRegistrada = clave;
+          this.historial.registrar(clave, this.registroDePartida()).catch(console.error);
+        }
+
+        registroDePartida() {
+          const { sesion, juego } = this,
+            { sala, partida } = sesion;
+          const jugadores = rango(sala.numJugadores).map((asiento) => ({
+            nombre: sesion.nombreDe(asiento),
+            bot: sesion.esBot(asiento),
+            equipo: juego.equipos.de(asiento),
+          }));
+          const bots = jugadores.filter((jugador) => jugador.bot).length;
+          const resumen = juego.resumenResultado(partida);
+          return {
+            juego: juego.nombre,
+            hora: Date.now(),
+            numJugadores: sala.numJugadores,
+            modo: juego.descripcionModo(sala.modo),
+            tipo: bots === 0 ? "humanos" : bots === jugadores.length - 1 && sesion.local ? "bots" : "mixta",
+            jugadores,
+            ganador: resumen.ganador,
+            puntos: resumen.puntos,
+          };
+        }
+
+        async abrirHistorial() {
+          const dialogo = porId("historial"),
+            lista = porId("historialLista");
+          lista.textContent = "Cargando…";
+          dialogo.showModal();
+          try {
+            pintar(lista, this.tablaHistorial(await this.historial.listar()));
+          } catch (error) {
+            console.error(error);
+            lista.textContent = "No se pudo cargar el historial.";
+          }
+        }
+
+        tablaHistorial(partidas) {
+          if (!partidas.length) return html`<p>Todavía no hay partidas en las últimas 24 horas.</p>`;
+          const inicioHoy = new Date().setHours(0, 0, 0, 0),
+            hora = (ms) =>
+              (ms < inicioHoy ? "ayer " : "") + new Date(ms).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }),
+            tipo = { bots: "contra bot", humanos: "con humanos", mixta: "humanos y bots" },
+            equipo = (partida, indice) =>
+              (partida.jugadores || [])
+                .filter((jugador) => jugador.equipo === indice)
+                .map((jugador) => jugador.nombre + (jugador.bot ? " (bot)" : ""))
+                .join(" y "),
+            resultado = (partida) => {
+              const [a, b] = partida.puntos || [0, 0];
+              if (partida.ganador < 0) return html`Empate ${a}–${b}`;
+              const perdedor = 1 - partida.ganador;
+              return html`<span class="gana">Gana ${equipo(partida, partida.ganador)}</span> ·
+                ${partida.puntos[partida.ganador]}–${partida.puntos[perdedor]}`;
+            };
+          return html`<table>
+            <thead>
+              <tr>
+                <th>Hora</th>
+                <th>Partida</th>
+                <th>Jugadores</th>
+                <th>Resultado</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${partidas.map(
+                (partida) => html`<tr>
+                  <td class="hora">${hora(partida.hora)}</td>
+                  <td>${partida.juego} · ${partida.numJugadores} jug. · ${partida.modo}<br />${tipo[partida.tipo] || ""}</td>
+                  <td>${equipo(partida, 0)} <b>vs</b> ${equipo(partida, 1)}</td>
+                  <td>${resultado(partida)}</td>
+                </tr>`,
+              )}
+            </tbody>
+          </table>`;
+        }
+
         /* ---- HUD móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa ---- */
         colocarHud() {
           const menu = porId("menu"),
@@ -4409,6 +4652,13 @@
             boton.addEventListener("click", () => porId("ayuda").showModal()),
           );
           porId("bAyudaCerrar").addEventListener("click", () => porId("ayuda").close());
+          [porId("bHistorial"), porId("bHistorialMenu")].forEach((boton) =>
+            boton.addEventListener("click", () => this.abrirHistorial()),
+          );
+          porId("bHistorialCerrar").addEventListener("click", () => porId("historial").close());
+          porId("historial").addEventListener("click", (evento) => {
+            if (evento.target === evento.currentTarget) evento.currentTarget.close();
+          });
           porId("bMenu").addEventListener("click", (evento) => {
             evento.stopPropagation();
             porId("menu").classList.toggle("open");
@@ -4440,7 +4690,7 @@
         }
       }
 
-      new Juego(JUEGO, almacenFirebase).arrancar();
+      new Juego(JUEGO, almacenFirebase, historial).arrancar();
     </script>
   </body>
 </html>
