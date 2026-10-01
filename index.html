@@ -1459,45 +1459,50 @@ const CARD_EXT = 'webp';
 const AJUSTES = {
   resolverMs: 1500,       // pausa con la baza completa antes de recogerla
 };
-const colorOf = (teamIndex, firstColor = state.room.colorPrimerEquipo) => Sala.colorDeEquipo(teamIndex, firstColor);   // color del equipo t
+const colorOf = (teamIndex, firstColor = sesion.room.colorPrimerEquipo) => Sala.colorDeEquipo(teamIndex, firstColor);   // color del equipo t
 const capitalize = word => word[0].toUpperCase() + word.slice(1);
 const teamOf = Partida.equipoDe;                                 // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
 const range = count => [...Array(count).keys()];
-const nameOf = seat => state.jugadores[seat]?.nombre || (state.room.numJugadores === 4 ? `Jugador ${seat + 1}` : 'Rival');
+const nameOf = seat => sesion.jugadores[seat]?.nombre || (sesion.room.numJugadores === 4 ? `Jugador ${seat + 1}` : 'Rival');
 const checked = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value;
 const FB_ERR = 'No se pudo conectar con Firebase. Revisa la configuración.';
 
-/* ============ ESTADO ============ */
-/* Estado de la sesión actual: sala, asiento y partida. newSession() da los valores iniciales;
-   resetSession() los restaura (al salir o al empezar una partida local) y cancela los timers pendientes. */
-const newSession = () => ({
-  code: undefined,        // código de la sala (undefined en partidas contra bots)
-  mySeat: undefined,          // asiento propio
-  room: null,                // Sala actual (configuración, asientos, nombres, bots)
-  almacen: null,          // AlmacenFirebase (sala online) o AlmacenLocal (contra bots)
-  jugadores: [],          // Jugador / Bot por asiento (null = asiento vacío), derivado de room
-  game: null,                // partida en curso
-  local: false,           // true = contra bots, sin base de datos
-  botBusy: false,         // hay una jugada del bot programada
-  resolving: false,       // hay una baza completa pendiente de recoger
-  seen: new Set(),        // cartas de mi mano ya pintadas (animación de reparto)
-  prevTable: '',          // baza pintada en el render anterior (animación de jugada)
-  botTimer: null,         // id del setTimeout del bot
-  resolveTimer: null,     // id del setTimeout que recoge la baza
-});
-const state = {
-  ...newSession(),
-  purgeTimer: null,              // intervalo que purga la sala al cumplirse la hora
-  unsub: null,            // cancela la suscripción a la sala
-  unLobby: null,          // cancela la suscripción al lobby
-  hayLock: false,         // ¿hay alguna sala con contraseña en la lista?
-};
-function resetSession(){
-  clearTimeout(state.botTimer); clearTimeout(state.resolveTimer);
-  Object.assign(state, newSession());
+/* ============ SESIÓN ============ */
+/* Estado de la sesión actual: sala, asiento y partida. reiniciar() restaura los valores iniciales (al salir o al
+   empezar una partida local) y cancela los timers pendientes. Los campos declarados arriba (purgeTimer, unsub,
+   unLobby, hayLock) pertenecen al ciclo de vida de la pantalla y sobreviven al reinicio. */
+class Sesion{
+  purgeTimer = null;      // intervalo que purga la sala al cumplirse la hora
+  unsub = null;           // cancela la suscripción a la sala
+  unLobby = null;         // cancela la suscripción al lobby
+  hayLock = false;        // ¿hay alguna sala con contraseña en la lista?
+
+  constructor(){ this.reiniciar(); }
+
+  reiniciar(inicial = {}){
+    clearTimeout(this.botTimer); clearTimeout(this.resolveTimer);
+    this.code = undefined;        // código de la sala (undefined en partidas contra bots)
+    this.mySeat = undefined;      // asiento propio
+    this.room = null;             // Sala actual (configuración, asientos, nombres, bots)
+    this.almacen = null;          // AlmacenFirebase (sala online) o AlmacenLocal (contra bots)
+    this.jugadores = [];          // Jugador / Bot por asiento (null = asiento vacío), derivado de room
+    this.game = null;             // partida en curso
+    this.local = false;           // true = contra bots, sin base de datos
+    this.botBusy = false;         // hay una jugada del bot programada
+    this.resolving = false;       // hay una baza completa pendiente de recoger
+    this.seen = new Set();        // cartas de mi mano ya pintadas (animación de reparto)
+    this.prevTable = '';          // baza pintada en el render anterior (animación de jugada)
+    this.botTimer = null;         // id del setTimeout del bot
+    this.resolveTimer = null;     // id del setTimeout que recoge la baza
+    Object.assign(this, inicial); // valores de arranque que no son los por defecto (p. ej. partida local)
+  }
+
+  guardar(partida){ return this.almacen.guardarPartida(this.code, partida); }
+  esBot(seat){ return !!this.jugadores[seat]?.esBot; }
+  get ejecutaBots(){ return this.local || this.mySeat === 0; }   // solo el anfitrión mueve a los bots
 }
+const sesion = new Sesion();
 const byId = elementId => document.getElementById(elementId);
-const save = partida => state.almacen.guardarPartida(state.code, partida);
 
 /* ---- Lobby ---- */
 const CIUDADES = ['Sevilla','Zaragoza','Valencia','Bilbao','Granada','Toledo','Cádiz','Vigo','León','Soria','Teruel','Huesca','Jaca','Segovia','Salamanca','Córdoba','Málaga','Oviedo','Burgos','Lisboa','París','Roma','Viena','Praga','Oslo','Lima','Quito','Bogotá','Kioto','Dublín','Atenas','Cuzco'];
@@ -1532,9 +1537,9 @@ const lobbyErr = message => byId('err').textContent = message;
 
 
 function watchLobby(){
-  if(state.unLobby || !almacenFirebase) return;
-  state.unLobby = almacenFirebase.suscribirLobby((list, now) => {
-    state.hayLock = list.some(([,lobbyEntry]) => lobbyEntry.locked); if(byId('seatsBox').children.length) updatePasswordInput();
+  if(sesion.unLobby || !almacenFirebase) return;
+  sesion.unLobby = almacenFirebase.suscribirLobby((list, now) => {
+    sesion.hayLock = list.some(([,lobbyEntry]) => lobbyEntry.locked); if(byId('seatsBox').children.length) updatePasswordInput();
     byId('rooms').innerHTML = list.length ? list.map(([code,lobbyEntry]) => {
       const {playerCount = 2, seatedCount = 1, name = 'Sala', occupiedSeats = '1000', firstTeamColor = 'azul'} = lobbyEntry, full = seatedCount >= playerCount, minutes = Math.max(1, Math.round((now - lobbyEntry.createdAt)/60000));
       const info = `<span><b>${escapeHtml(name)}</b><i>(${escapeHtml(code)})</i><small>${playerCount === 4 ? '4 jugadores' : '2 jugadores'} (${seatedCount}/${playerCount}) · ${lobbyEntry.mode === 'rapida' ? 'Rápida' : 'Normal · ' + ReglasGuinote.META} · ${lobbyEntry.locked ? '🔒 con contraseña' : 'abierta'} · hace ${minutes} min</small></span>`;
@@ -1548,7 +1553,7 @@ function watchLobby(){
     }).join('') : '<em>No hay salas ahora mismo. Crea una.</em>';
   }, () => lobbyErr('No se pudo leer la lista de salas (revisa las reglas de la base de datos).'));
 }
-function unwatchLobby(){ if(state.unLobby) state.unLobby(); state.unLobby = null; }
+function unwatchLobby(){ if(sesion.unLobby) sesion.unLobby(); sesion.unLobby = null; }
 
 const selectedPlayerCount = () => +checked('np');
 const seatBots = playerCount => range(playerCount - 1).map(index => checked(`seat${index+1}`) !== 'humano');   // asientos 1..playerCount-1: true = bot
@@ -1564,7 +1569,7 @@ function buildSeats(){
 }
 
 function updatePasswordInput(){
-  const allBot = seatBots(selectedPlayerCount()).every(Boolean), enabled = !allBot || state.hayLock, passwordInput = byId('inPass');
+  const allBot = seatBots(selectedPlayerCount()).every(Boolean), enabled = !allBot || sesion.hayLock, passwordInput = byId('inPass');
   passwordInput.disabled = !enabled;
   passwordInput.placeholder = enabled ? 'Contraseña' : 'Contraseña (no necesaria)';
 }
@@ -1582,35 +1587,35 @@ function assignBots(seatList, used){                       // nombre automático
 }
 byId('bCrear').addEventListener('click', async () => {
   const playerCount = selectedPlayerCount(), bots = seatBots(playerCount), botSeats = range(playerCount - 1).filter(index => bots[index]).map(index => index + 1);
-  if(botSeats.length === playerCount - 1) return jugarBot(playerCount, botSeats);          // todos bots: partida state.local, sin base de datos
+  if(botSeats.length === playerCount - 1) return jugarBot(playerCount, botSeats);          // todos bots: partida local, sin base de datos
   try{
     lobbyErr('');
-    state.code = await almacenFirebase.codigoLibre();
-    state.mySeat = 0;
+    sesion.code = await almacenFirebase.codigoLibre();
+    sesion.mySeat = 0;
     const mode = checked('mode'), teamColor = playerCount === 4 ? checked('tc') : 'azul';
-    const hashClave = await Sala.hashDe(byId('inPass').value, state.code), name = nombreSala(), ownName = miNombre([]);
+    const hashClave = await Sala.hashDe(byId('inPass').value, sesion.code), name = nombreSala(), ownName = miNombre([]);
     const {names: botNames, bots: botMarks} = assignBots(botSeats, [ownName]), players = {}, names = {0:ownName, ...botNames};
     [0, ...botSeats].forEach(index => players[index] = Date.now());
-    await almacenFirebase.crearSala(state.code, new Sala({numJugadores: playerCount, modo: mode, nombre: name, colorPrimerEquipo: teamColor, asientos: players, nombres: names, bots: botMarks, hashClave}));
+    await almacenFirebase.crearSala(sesion.code, new Sala({numJugadores: playerCount, modo: mode, nombre: name, colorPrimerEquipo: teamColor, asientos: players, nombres: names, bots: botMarks, hashClave}));
     enter();
   }catch(error){ console.error(error); lobbyErr(FB_ERR); }
 });
 
 async function unirse(code, color = 'any'){
   try{
-    lobbyErr(''); state.code = (code || '').trim().toUpperCase();
-    if(state.code.length !== Sala.LONG_CODIGO) return lobbyErr(`Escribe el código de ${Sala.LONG_CODIGO} letras.`);
-    const room = await almacenFirebase.leerSala(state.code);
+    lobbyErr(''); sesion.code = (code || '').trim().toUpperCase();
+    if(sesion.code.length !== Sala.LONG_CODIGO) return lobbyErr(`Escribe el código de ${Sala.LONG_CODIGO} letras.`);
+    const room = await almacenFirebase.leerSala(sesion.code);
     if(!room) return lobbyErr('Esa sala no existe.');
     if(room.completa) return lobbyErr('La sala ya está completa.');
     if(room.tieneClave){
       const enteredPassword = byId('inPass').value;
-      if(!enteredPassword){ byId('inPass').focus(); return lobbyErr(`La sala ${state.code} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`); }
-      if(await Sala.hashDe(enteredPassword, state.code) !== room.hashClave){ byId('inPass').focus(); return lobbyErr('Contraseña incorrecta.'); }
+      if(!enteredPassword){ byId('inPass').focus(); return lobbyErr(`La sala ${sesion.code} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`); }
+      if(await Sala.hashDe(enteredPassword, sesion.code) !== room.hashClave){ byId('inPass').focus(); return lobbyErr('Contraseña incorrecta.'); }
     }
-    const seat = await almacenFirebase.unirse(state.code, room, room.asientosCandidatos(color), () => miNombre(Object.values(room.nombres).filter(Boolean)));
+    const seat = await almacenFirebase.unirse(sesion.code, room, room.asientosCandidatos(color), () => miNombre(Object.values(room.nombres).filter(Boolean)));
     if(seat < 0) return lobbyErr(room.numJugadores === 4 && color !== 'any' ? `El equipo ${color} ya está completo.` : 'La sala ya está completa.');
-    state.mySeat = seat;
+    sesion.mySeat = seat;
     enter();
   }catch(error){ console.error(error); lobbyErr(FB_ERR); }
 }
@@ -1643,18 +1648,18 @@ byId('rooms').addEventListener('click', event => {
 });
 
 byId('bRe').addEventListener('click', () => {
-  const handNumber = state.game.marcador.numeroMano; state.seen = new Set(); state.prevTable = '';
-  state.almacen.siguienteMano(state.code, handNumber).catch(console.error);
+  const handNumber = sesion.game.marcador.numeroMano; sesion.seen = new Set(); sesion.prevTable = '';
+  sesion.almacen.siguienteMano(sesion.code, handNumber).catch(console.error);
 });
 byId('bNueva').addEventListener('click', () => {
-  if(state.game && !state.game.manoTerminada && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
+  if(sesion.game && !sesion.game.manoTerminada && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
   salir();
 });
 function salir(){
-  if(state.unsub) state.unsub();
-  clearInterval(state.purgeTimer);
-  if(state.code && !state.game) state.almacen.abandonar(state.code, state.mySeat);   // la partida no ha empezado: el anfitrión cierra la sala y un invitado libera su asiento
-  resetSession(); state.unsub = null;
+  if(sesion.unsub) sesion.unsub();
+  clearInterval(sesion.purgeTimer);
+  if(sesion.code && !sesion.game) sesion.almacen.abandonar(sesion.code, sesion.mySeat);   // la partida no ha empezado: el anfitrión cierra la sala y un invitado libera su asiento
+  sesion.reiniciar(); sesion.unsub = null;
   sessionStorage.removeItem('guinote');
   document.body.classList.remove('p4'); byId('game').hidden = true; byId('fin').hidden = true; byId('bNueva').hidden = true;
   byId('inCode').value = ''; byId('inPass').value = ''; byId('err').textContent = '';
@@ -1665,79 +1670,77 @@ function salir(){
 /* Cambio en la sala (online o local): lo llama el almacén al suscribirse y tras cada cambio; null = la sala ya no existe */
 function alCambiarSala(sala){
   if(sala === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
-  state.room = sala; state.jugadores = sala.jugadores; state.game = sala.partida;
-  byId('room').textContent = sala.nombre ? (state.code ? `${sala.nombre} (${state.code})` : sala.nombre) : 'Sala ' + state.code;
-  if(sala.caducada(Date.now())) state.almacen.purgar(state.code);
-  if(!state.game && state.mySeat === 0 && sala.completa) return save(Partida.nueva(sala.numJugadores, sala.modo));   // el que no reparte empieza (mano = jugador 1)
+  sesion.room = sala; sesion.jugadores = sala.jugadores; sesion.game = sala.partida;
+  byId('room').textContent = sala.nombre ? (sesion.code ? `${sala.nombre} (${sesion.code})` : sala.nombre) : 'Sala ' + sesion.code;
+  if(sala.caducada(Date.now())) sesion.almacen.purgar(sesion.code);
+  if(!sesion.game && sesion.mySeat === 0 && sala.completa) return sesion.guardar(Partida.nueva(sala.numJugadores, sala.modo));   // el que no reparte empieza (mano = jugador 1)
   afterState();
 }
 function enter(){
   unwatchLobby();
-  state.almacen = almacenFirebase;
-  clearInterval(state.purgeTimer);
-  state.purgeTimer = setInterval(() => { if(state.room?.caducada(Date.now())) state.almacen.purgar(state.code); }, 15000);
-  sessionStorage.setItem('guinote', JSON.stringify({code: state.code, seat: state.mySeat}));
+  sesion.almacen = almacenFirebase;
+  clearInterval(sesion.purgeTimer);
+  sesion.purgeTimer = setInterval(() => { if(sesion.room?.caducada(Date.now())) sesion.almacen.purgar(sesion.code); }, 15000);
+  sessionStorage.setItem('guinote', JSON.stringify({code: sesion.code, seat: sesion.mySeat}));
   byId('lobby').hidden = true; byId('game').hidden = false; byId('bNueva').hidden = false;
-  byId('room').textContent = 'Sala ' + state.code;
-  state.unsub = state.almacen.suscribir(state.code, alCambiarSala);
+  byId('room').textContent = 'Sala ' + sesion.code;
+  sesion.unsub = sesion.almacen.suscribir(sesion.code, alCambiarSala);
 }
 const saved = JSON.parse(sessionStorage.getItem('guinote') || 'null');
-if(saved && almacenFirebase){ state.code = saved.code; state.mySeat = saved.seat; enter(); }
+if(saved && almacenFirebase){ sesion.code = saved.code; sesion.mySeat = saved.seat; enter(); }
 else watchLobby();
 
 /* ---- Acciones del jugador ---- */
 /* Las reglas están en ReglasGuinote y el estado de la mano y sus transiciones en Partida (inmutable: cada acción
    devuelve una Partida nueva). Aquí solo se comprueba que la acción es válida y se guarda el resultado. */
 function play(seat, card){                                      // card: Carta o id
-  if(state.game && state.game.puedeJugar(seat, card)) save(state.game.jugar(seat, card));
+  if(sesion.game && sesion.game.puedeJugar(seat, card)) sesion.guardar(sesion.game.jugar(seat, card));
 }
-function cantar(seat, suitName){ if(state.game && state.game.puedeCantar(seat, suitName)) save(state.game.cantar(seat, suitName)); }
-function cambiar(seat){ if(state.game && state.game.puedeCambiarSiete(seat)) save(state.game.cambiarSiete(seat)); }
+function cantar(seat, suitName){ if(sesion.game && sesion.game.puedeCantar(seat, suitName)) sesion.guardar(sesion.game.cantar(seat, suitName)); }
+function cambiar(seat){ if(sesion.game && sesion.game.puedeCambiarSiete(seat)) sesion.guardar(sesion.game.cambiarSiete(seat)); }
 
 /* Solo el anfitrión (jugador 0) resuelve la baza */
 function resolve(){
-  state.resolving = false;
-  if(state.game && state.game.bazaCompleta) save(state.game.resolverBaza());
+  sesion.resolving = false;
+  if(sesion.game && sesion.game.bazaCompleta) sesion.guardar(sesion.game.resolverBaza());
 }
 
-/* ---- Bots (los asientos de bot los marca state.room.bots; sus decisiones, la clase Bot; los ejecuta el anfitrión) ---- */
-const isBot = seat => !!state.jugadores[seat]?.esBot;
+/* ---- Bots (los asientos de bot los marca sesion.room.bots; sus decisiones, la clase Bot; los ejecuta el anfitrión) ---- */
 function ejecutar(seat, accion){                           // aplica una acción de Bot.elegirJugada
   if(accion.tipo === 'cambiar') cambiar(seat);
   else if(accion.tipo === 'cantar') cantar(seat, accion.palo);
   else play(seat, accion.carta);
 }
-const botHost = () => state.local || state.mySeat === 0;
 function botMove(){
-  const partida = state.game, bot = partida && state.jugadores[partida.turno];
+  const partida = sesion.game, bot = partida && sesion.jugadores[partida.turno];
   if(partida && !partida.manoTerminada && !partida.bazaCompleta && bot?.esBot) ejecutar(bot.asiento, bot.elegirJugada(partida));
 }
 function botTick(){
-  if(!state.game || state.game.manoTerminada || !botHost() || !isBot(state.game.turno) || state.game.bazaCompleta || state.botBusy) return;
-  state.botBusy = true;
-  state.botTimer = setTimeout(() => { state.botBusy = false; botMove(); }, state.jugadores[state.game.turno].retardo());
+  if(!sesion.game || sesion.game.manoTerminada || !sesion.ejecutaBots || !sesion.esBot(sesion.game.turno) || sesion.game.bazaCompleta || sesion.botBusy) return;
+  sesion.botBusy = true;
+  sesion.botTimer = setTimeout(() => { sesion.botBusy = false; botMove(); }, sesion.jugadores[sesion.game.turno].retardo());
 }
 function afterState(){
   render();
-  if(state.game && state.mySeat === 0 && state.game.bazaCompleta && !state.resolving){ state.resolving = true; state.resolveTimer = setTimeout(resolve, AJUSTES.resolverMs); }
+  if(sesion.game && sesion.mySeat === 0 && sesion.game.bazaCompleta && !sesion.resolving){ sesion.resolving = true; sesion.resolveTimer = setTimeout(resolve, AJUSTES.resolverMs); }
   botTick();
 }
 function jugarBot(playerCount = 2, botSeats = [1]){
   lobbyErr('');
   const mode = checked('mode'), ownName = miNombre([]), firstColor = playerCount === 4 ? checked('tc') : 'azul';
-  unwatchLobby(); clearInterval(state.purgeTimer);
-  resetSession(); Object.assign(state, {local: true, mySeat: 0});
+  unwatchLobby(); clearInterval(sesion.purgeTimer);
+  sesion.reiniciar({local: true, mySeat: 0});
   const players = {}, {names: botNames, bots} = assignBots(botSeats, [ownName]);
   range(playerCount).forEach(index => players[index] = Date.now());
   const sala = new Sala({numJugadores: playerCount, modo: mode, nombre: playerCount === 2 ? 'Contra el bot' : 'Con bots', colorPrimerEquipo: firstColor,
                          asientos: players, nombres: {0:ownName, ...botNames}, bots, partida: Partida.nueva(playerCount, mode)});
-  state.almacen = new AlmacenLocal(sala);
+  sesion.almacen = new AlmacenLocal(sala);
   byId('lobby').hidden = true; byId('game').hidden = false; byId('bNueva').hidden = false;
-  state.unsub = state.almacen.suscribir(undefined, alCambiarSala);       // avisa enseguida con la sala inicial
+  sesion.unsub = sesion.almacen.suscribir(undefined, alCambiarSala);       // avisa enseguida con la sala inicial
 }
 
 /* ============ RENDER ============ */
-const isTf = card => state.game && Carta.de(card).palo === state.game.triunfo;
+const isTf = card => sesion.game && Carta.de(card).palo === sesion.game.triunfo;
 // Carta boca arriba; las de triunfo van en un <div> para poder llevar marco y estrella
 const face = (card, className, attrs='', ext=CARD_EXT) => isTf(card)
   ? `<div class="card ${className} tf" ${attrs}><img src="cartas/${card}.${ext}" draggable="false" alt="${card}"></div>`
@@ -1753,7 +1756,7 @@ function setMsg(statusText, statusClass = '', eventText = '', eventClass = '', h
 }
 function evText(gameEvent){
   if(!gameEvent) return '';
-  const isMine = gameEvent.seat === state.mySeat, displayName = nameOf(gameEvent.seat) + (state.game.jugadores === 4 && !isMine && teamOf(gameEvent.seat) === teamOf(state.mySeat) ? ' (tu pareja)' : '');
+  const isMine = gameEvent.seat === sesion.mySeat, displayName = nameOf(gameEvent.seat) + (sesion.game.jugadores === 4 && !isMine && teamOf(gameEvent.seat) === teamOf(sesion.mySeat) ? ' (tu pareja)' : '');
   if(gameEvent.type === 'baza') return `${isMine ? 'Te llevas' : displayName + ' se lleva'} la baza (${gameEvent.points} puntos)` + (gameEvent.lastTrickBonus ? ' y las diez de últimas' : '');
   if(gameEvent.type === 'cante') return `${isMine ? 'Cantas' : displayName + ' canta'} las ${gameEvent.points} en ${gameEvent.suit}`;
   if(gameEvent.type === 'cambio') return `${isMine ? 'Cambias' : displayName + ' cambia'} el siete de triunfo`;
@@ -1763,66 +1766,66 @@ function evText(gameEvent){
 const backs = handCards => handCards.map(() => back()).join('');
 
 function renderWaiting(){
-  if(!state.room) return;
-  const playerCount = state.room.numJugadores, seatedCount = state.room.sentados, seatedInTeam = teamIndex => state.room.sentadosEnEquipo(teamIndex);
+  if(!sesion.room) return;
+  const playerCount = sesion.room.numJugadores, seatedCount = sesion.room.sentados, seatedInTeam = teamIndex => sesion.room.sentadosEnEquipo(teamIndex);
   setMsg(playerCount === 4 ? `Esperando jugadores (${seatedCount}/4)…` : 'Esperando rival…', 'wait', '', '',
-    playerCount === 4 ? `Tu equipo: ${colorOf(teamOf(state.mySeat))} · ${colorOf(0)} ${seatedInTeam(0)}/2 · ${colorOf(1)} ${seatedInTeam(1)}/2 · Código ${state.code}` : `Comparte el código ${state.code}`);
-  byId('names').innerHTML = range(playerCount).filter(index => state.room.ocupado(index)).map(index =>
-    `<span class="pn${index === state.mySeat ? ' on' : ''}" data-tc="${colorOf(teamOf(index))}"><i class="dot"></i>${escapeHtml(nameOf(index))}${index === state.mySeat ? ' (tú)' : ''}</span>`).join('');
+    playerCount === 4 ? `Tu equipo: ${colorOf(teamOf(sesion.mySeat))} · ${colorOf(0)} ${seatedInTeam(0)}/2 · ${colorOf(1)} ${seatedInTeam(1)}/2 · Código ${sesion.code}` : `Comparte el código ${sesion.code}`);
+  byId('names').innerHTML = range(playerCount).filter(index => sesion.room.ocupado(index)).map(index =>
+    `<span class="pn${index === sesion.mySeat ? ' on' : ''}" data-tc="${colorOf(teamOf(index))}"><i class="dot"></i>${escapeHtml(nameOf(index))}${index === sesion.mySeat ? ' (tú)' : ''}</span>`).join('');
   byId('score').textContent = ''; byId('deckInfo').textContent = '';
 }
 
 function renderNames({playerCount, currentSeat}){
-  byId('names').innerHTML = range(playerCount).map(offset => { const seat = (state.mySeat + offset) % playerCount;
-    return `<span class="pn${currentSeat === seat ? ' on' : ''}" data-tc="${colorOf(teamOf(seat))}"><i class="dot"></i>${escapeHtml(nameOf(seat))}${seat === state.mySeat ? ' (tú)' : ''}</span>`; }).join('');
+  byId('names').innerHTML = range(playerCount).map(offset => { const seat = (sesion.mySeat + offset) % playerCount;
+    return `<span class="pn${currentSeat === seat ? ' on' : ''}" data-tc="${colorOf(teamOf(seat))}"><i class="dot"></i>${escapeHtml(nameOf(seat))}${seat === sesion.mySeat ? ' (tú)' : ''}</span>`; }).join('');
 }
 
 function renderHands({four, isMyTurn, relativeSeat, currentSeat}){
   const setTeamColor = (elementId, seat) => byId(elementId).setAttribute('data-tc', colorOf(teamOf(seat)));   // contorno del color de cada jugador/equipo
-  setTeamColor('me', state.mySeat); setTeamColor('opp', four ? relativeSeat(2) : relativeSeat(1));
+  setTeamColor('me', sesion.mySeat); setTeamColor('opp', four ? relativeSeat(2) : relativeSeat(1));
   if(four){ setTeamColor('oR', relativeSeat(1)); setTeamColor('oL', relativeSeat(3)); }
   // Rivales y pareja (en 4: pareja arriba, rivales a derecha e izquierda)
-  if(four){ byId('opp').innerHTML = backs(state.game.cartasDe(relativeSeat(2))); byId('oR').innerHTML = backs(state.game.cartasDe(relativeSeat(1))); byId('oL').innerHTML = backs(state.game.cartasDe(relativeSeat(3))); }
-  else{ byId('opp').innerHTML = backs(state.game.cartasDe(1 - state.mySeat)); byId('oR').innerHTML = byId('oL').innerHTML = ''; }
+  if(four){ byId('opp').innerHTML = backs(sesion.game.cartasDe(relativeSeat(2))); byId('oR').innerHTML = backs(sesion.game.cartasDe(relativeSeat(1))); byId('oL').innerHTML = backs(sesion.game.cartasDe(relativeSeat(3))); }
+  else{ byId('opp').innerHTML = backs(sesion.game.cartasDe(1 - sesion.mySeat)); byId('oR').innerHTML = byId('oL').innerHTML = ''; }
   byId('opp').classList.toggle('act', four && currentSeat === relativeSeat(2));
   byId('oR').classList.toggle('act', four && currentSeat === relativeSeat(1));
   byId('oL').classList.toggle('act', four && currentSeat === relativeSeat(3));
   // Mano propia, ordenada por palo y fuerza (el triunfo siempre a la izquierda)
-  const suitOrder = card => card.palo === state.game.triunfo ? -1 : Carta.PALOS.indexOf(card.palo);
-  const mine = state.game.cartasDe(state.mySeat).sort((first,second) => suitOrder(first) - suitOrder(second) || second.fuerza - first.fuerza);
-  const playable = isMyTurn ? state.game.cartasLegales(state.mySeat) : [];
+  const suitOrder = card => card.palo === sesion.game.triunfo ? -1 : Carta.PALOS.indexOf(card.palo);
+  const mine = sesion.game.cartasDe(sesion.mySeat).sort((first,second) => suitOrder(first) - suitOrder(second) || second.fuerza - first.fuerza);
+  const playable = isMyTurn ? sesion.game.cartasLegales(sesion.mySeat) : [];
   let dealtCount = 0;
   byId('me').className = 'hand' + (isMyTurn ? ' turno' : '');
   byId('me').innerHTML = mine.map(card => {
-    const nuevo = !state.seen.has(card), isPlayable = playable.includes(card);
+    const nuevo = !sesion.seen.has(card), isPlayable = playable.includes(card);
     return face(card, `${isPlayable ? 'ok' : ''} ${isMyTurn && !isPlayable ? 'dim' : ''} ${nuevo ? 'deal' : ''}`, `style="${nuevo ? `animation-delay:${dealtCount++*70}ms` : ''}" data-card="${card}"`);
   }).join('');
-  state.seen = new Set(mine);
+  sesion.seen = new Set(mine);
   // Acciones (cantes y cambio del 7)
-  const actionButtons = state.game.cantesPosibles(state.mySeat).map(suitName => `<button class="btn" data-cante="${suitName}">Cantar las ${ReglasGuinote.valorCante(suitName, state.game.triunfo)} en ${suitName}</button>`);
-  if(state.game.puedeCambiarSiete(state.mySeat)) actionButtons.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
+  const actionButtons = sesion.game.cantesPosibles(sesion.mySeat).map(suitName => `<button class="btn" data-cante="${suitName}">Cantar las ${ReglasGuinote.valorCante(suitName, sesion.game.triunfo)} en ${suitName}</button>`);
+  if(sesion.game.puedeCambiarSiete(sesion.mySeat)) actionButtons.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
   byId('acts').innerHTML = actionButtons.join('');
 }
 
 function renderTable({playerCount, four, team, otherTeam}){
   // Mazo con el triunfo girado debajo
-  const deckCount = state.game.cartasEnMazo;
-  byId('deck').innerHTML = (deckCount ? cardImg(state.game.cartaTriunfo,'tr') : '') + (deckCount > 1 ? back('bk') + (deckCount > 2 ? back('bk') : '') : '');
+  const deckCount = sesion.game.cartasEnMazo;
+  byId('deck').innerHTML = (deckCount ? cardImg(sesion.game.cartaTriunfo,'tr') : '') + (deckCount > 1 ? back('bk') + (deckCount > 2 ? back('bk') : '') : '');
   // Cartas en la mesa (en 4: cada una en su lado, según el asiento relativo)
   byId('play').className = four ? 'p4' : '';
-  byId('play').innerHTML = state.game.mesa.map(entry => {
-    const nuevo = !state.prevTable.includes(entry.card.id), className = four ? 's' + ((entry.seat - state.mySeat + playerCount) % playerCount) : (entry.seat === state.mySeat ? 'mine' : 'theirs');
+  byId('play').innerHTML = sesion.game.mesa.map(entry => {
+    const nuevo = !sesion.prevTable.includes(entry.card.id), className = four ? 's' + ((entry.seat - sesion.mySeat + playerCount) % playerCount) : (entry.seat === sesion.mySeat ? 'mine' : 'theirs');
     return face(entry.card, className, `data-tc="${colorOf(teamOf(entry.seat))}" style="${nuevo ? '' : 'animation:none'}"`);
   }).join('');
-  state.prevTable = state.game.mesa.map(entry => entry.card.id).join();
+  sesion.prevTable = sesion.game.mesa.map(entry => entry.card.id).join();
   // Montones de bazas (por equipo)
   const pile = count => count ? Array.from({length:Math.min(count,5)}, (unused, index) => back('', `style="top:${index*-2}px"`)).join('') + `<span>${count} baza${count>1?'s':''}</span>` : '';
   byId('pMe').setAttribute('data-tc', colorOf(team)); byId('pOpp').setAttribute('data-tc', colorOf(otherTeam));
-  byId('pOpp').innerHTML = pile(state.game.marcador.bazasDe(otherTeam)); byId('pMe').innerHTML = pile(state.game.marcador.bazasDe(team));
+  byId('pOpp').innerHTML = pile(sesion.game.marcador.bazasDe(otherTeam)); byId('pMe').innerHTML = pile(sesion.game.marcador.bazasDe(team));
 }
 
 function renderScore({team, otherTeam}){
-  const partida = state.game, marcador = partida.marcador;
+  const partida = sesion.game, marcador = partida.marcador;
   byId('deckInfo').innerHTML = `<span class="tfs">★</span> Triunfo: ${partida.triunfo} · ${partida.cartasEnMazo}<span class="mz"> en el mazo</span>`;
   // Puntos acumulados: manos anteriores + mano en curso (al terminar la mano, el total ya incluye sus puntos)
   byId('score').innerHTML = (marcador.esNormal ? `M ${marcador.numeroMano} · ` : '') +
@@ -1831,7 +1834,7 @@ function renderScore({team, otherTeam}){
 }
 
 function renderStatus({four, team, isMyTurn, relativeSeat}){
-  const partida = state.game, eventOwner = partida.ultimoEvento && teamOf(partida.ultimoEvento.seat) === team ? 'mine' : 'rival', eventMessage = evText(partida.ultimoEvento);
+  const partida = sesion.game, eventOwner = partida.ultimoEvento && teamOf(partida.ultimoEvento.seat) === team ? 'mine' : 'rival', eventMessage = evText(partida.ultimoEvento);
   if(partida.manoTerminada) setMsg('Mano terminada', 'wait', eventMessage, eventOwner);
   else if(partida.bazaCompleta) setMsg('Baza completa…', 'wait', eventMessage, eventOwner);
   else if(isMyTurn) setMsg('Tu turno', 'mine', eventMessage, eventOwner,
@@ -1841,7 +1844,7 @@ function renderStatus({four, team, isMyTurn, relativeSeat}){
 }
 
 function renderFin({four, team, otherTeam}){
-  const partida = state.game, marcador = partida.marcador;
+  const partida = sesion.game, marcador = partida.marcador;
   byId('fin').hidden = !partida.manoTerminada;
   if(!partida.manoTerminada) return;
   const ownPoints = marcador.puntosDe(team), rivalPoints = marcador.puntosDe(otherTeam), ownTotal = marcador.totalDe(team), rivalTotal = marcador.totalDe(otherTeam), byMode = (twoPlayers, fourPlayers) => four ? fourPlayers : twoPlayers;
@@ -1863,20 +1866,20 @@ function renderFin({four, team, otherTeam}){
 }
 
 function render(){
-  if(!state.game) return renderWaiting();
+  if(!sesion.game) return renderWaiting();
   byId('bNueva').hidden = false;
-  const playerCount = state.game.jugadores, team = teamOf(state.mySeat);
-  const view = {playerCount, four: playerCount === 4, team, otherTeam: 1 - team, isMyTurn: state.game.esTurnoDe(state.mySeat), relativeSeat: offset => (state.mySeat + offset) % playerCount,
-             currentSeat: state.game.manoTerminada || state.game.bazaCompleta ? -1 : state.game.turno};   // currentSeat: de quién es el turno (para resaltar)
+  const playerCount = sesion.game.jugadores, team = teamOf(sesion.mySeat);
+  const view = {playerCount, four: playerCount === 4, team, otherTeam: 1 - team, isMyTurn: sesion.game.esTurnoDe(sesion.mySeat), relativeSeat: offset => (sesion.mySeat + offset) % playerCount,
+             currentSeat: sesion.game.manoTerminada || sesion.game.bazaCompleta ? -1 : sesion.game.turno};   // currentSeat: de quién es el turno (para resaltar)
   document.body.classList.toggle('p4', view.four);
   renderNames(view); renderHands(view); renderTable(view); renderScore(view); renderStatus(view); renderFin(view);
 }
 
 /* Eventos */
-byId('me').addEventListener('click', event => { const card = event.target.dataset && event.target.dataset.card; if(card) play(state.mySeat, card); });
+byId('me').addEventListener('click', event => { const card = event.target.dataset && event.target.dataset.card; if(card) play(sesion.mySeat, card); });
 byId('acts').addEventListener('click', event => {
-  if(event.target.dataset.cante) cantar(state.mySeat, event.target.dataset.cante);
-  if(event.target.id === 'bCamb') cambiar(state.mySeat);
+  if(event.target.dataset.cante) cantar(sesion.mySeat, event.target.dataset.cante);
+  if(event.target.id === 'bCamb') cambiar(sesion.mySeat);
 });
 </script>
 </body>
