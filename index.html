@@ -1151,6 +1151,7 @@ class Bot extends Jugador {
 class Sala {
   static DURACION_MS = 3600e3;       // duración máxima de una sala
   static LONG_CODIGO = 4;            // letras del código de sala
+  static COLORES = ['azul', 'rojo'];
   static #LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
   #jugadores = null;
@@ -1160,7 +1161,7 @@ class Sala {
     this.numJugadores = numJugadores;
     this.modo = modo;
     this.nombre = nombre;
-    this.colorPrimerEquipo = colorPrimerEquipo;     // color del equipo 0
+    this.colorPrimerEquipo = Sala.colorValido(colorPrimerEquipo);     // color del equipo 0
     this.asientos = Sala.#sinHuecos(asientos);        // asiento → hora a la que se sentó
     this.nombres = Sala.#sinHuecos(nombres);          // asiento → nombre
     this.bots = Sala.#sinHuecos(bots);                // asiento → true si lo ocupa un bot
@@ -1192,7 +1193,13 @@ class Sala {
 
   /** Color del equipo 0 o 1, dado el color del equipo 0. */
   static colorDeEquipo(equipo, primerColor) {
-    return equipo === 0 ? primerColor : (primerColor === 'azul' ? 'rojo' : 'azul');
+    const primero = Sala.colorValido(primerColor);
+    return equipo === 0 ? primero : (primero === 'azul' ? 'rojo' : 'azul');
+  }
+
+  /** Solo 'azul' o 'rojo': cualquier otro valor (p. ej. uno remoto manipulado) cae en 'azul'. */
+  static colorValido(color) {
+    return Sala.COLORES.includes(color) ? color : 'azul';
   }
 
   /** Asientos ocupados entre los `numJugadores` primeros. */
@@ -1459,11 +1466,28 @@ const CARD_EXT = 'webp';
 const AJUSTES = {
   resolverMs: 1500,       // pausa con la baza completa antes de recogerla
 };
-const colorOf = (teamIndex, firstColor = sesion.room.colorPrimerEquipo) => Sala.colorDeEquipo(teamIndex, firstColor);   // color del equipo t
 const capitalize = word => word[0].toUpperCase() + word.slice(1);
 const teamOf = Partida.equipoDe;                                 // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
 const range = count => [...Array(count).keys()];
 const FB_ERR = 'No se pudo conectar con Firebase. Revisa la configuración.';
+
+/* ============ HTML SEGURO ============ */
+/* Plantilla etiquetada: html`<b>${valor}</b>` escapa por defecto todo lo interpolado (texto y atributos entre
+   comillas). Solo se inserta tal cual otro fragmento Html (el resultado de otra plantilla). Las listas se
+   concatenan. null, undefined y false no pintan nada. pintar() es el único sitio que asigna innerHTML. */
+const escapeHtml = text => String(text).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
+class Html{
+  #texto;
+  constructor(texto){ this.#texto = texto; Object.freeze(this); }
+  toString(){ return this.#texto; }
+}
+const aHtml = valor => valor instanceof Html ? String(valor)
+  : Array.isArray(valor) ? valor.map(aHtml).join('')
+  : valor == null || valor === false ? '' : escapeHtml(valor);
+function html(literales, ...valores){
+  return new Html(literales.reduce((texto, literal, indice) => texto + literal + (indice < valores.length ? aHtml(valores[indice]) : ''), ''));
+}
+const pintar = (elemento, contenido) => { elemento.innerHTML = String(contenido instanceof Html ? contenido : html`${contenido}`); };
 
 /* ============ SESIÓN ============ */
 /* Estado de la sesión actual: sala, asiento y partida. reiniciar() restaura los valores iniciales (al salir o al
@@ -1495,8 +1519,41 @@ class Sesion{
   esBot(seat){ return !!this.jugadores[seat]?.esBot; }
   nombreDe(seat){ return this.jugadores[seat]?.nombre || (this.room.numJugadores === 4 ? `Jugador ${seat + 1}` : 'Rival'); }
   get ejecutaBots(){ return this.local || this.mySeat === 0; }   // solo el anfitrión mueve a los bots
+
+  /* ---- Acciones del jugador ---- */
+  /* Las reglas están en ReglasGuinote y el estado de la mano y sus transiciones en Partida (inmutable: cada acción
+     devuelve una Partida nueva). Aquí solo se comprueba que la acción es válida y se guarda el resultado. */
+  jugar(asiento, carta){ if(this.game?.puedeJugar(asiento, carta)) this.guardar(this.game.jugar(asiento, carta)); }   // carta: Carta o id
+  cantar(asiento, palo){ if(this.game?.puedeCantar(asiento, palo)) this.guardar(this.game.cantar(asiento, palo)); }
+  cambiarSiete(asiento){ if(this.game?.puedeCambiarSiete(asiento)) this.guardar(this.game.cambiarSiete(asiento)); }
+
+  /* Solo el anfitrión (asiento 0) resuelve la baza */
+  resolverBaza(){
+    this.resolving = false;
+    if(this.game?.bazaCompleta) this.guardar(this.game.resolverBaza());
+  }
+  programarResolucion(ms){
+    if(!this.game || this.mySeat !== 0 || !this.game.bazaCompleta || this.resolving) return;
+    this.resolving = true;
+    this.resolveTimer = setTimeout(() => this.resolverBaza(), ms);
+  }
+
+  /* ---- Bots (los asientos de bot los marca room.bots; sus decisiones, la clase Bot; los ejecuta el anfitrión) ---- */
+  ejecutar(asiento, accion){                         // aplica una acción de Bot.elegirJugada
+    if(accion.tipo === 'cambiar') this.cambiarSiete(asiento);
+    else if(accion.tipo === 'cantar') this.cantar(asiento, accion.palo);
+    else this.jugar(asiento, accion.carta);
+  }
+  moverBot(){
+    const partida = this.game, bot = partida && this.jugadores[partida.turno];
+    if(partida && !partida.manoTerminada && !partida.bazaCompleta && bot?.esBot) this.ejecutar(bot.asiento, bot.elegirJugada(partida));
+  }
+  programarBot(){
+    if(!this.game || this.game.manoTerminada || !this.ejecutaBots || !this.esBot(this.game.turno) || this.game.bazaCompleta || this.botBusy) return;
+    this.botBusy = true;
+    this.botTimer = setTimeout(() => { this.botBusy = false; this.moverBot(); }, this.jugadores[this.game.turno].retardo());
+  }
 }
-const sesion = new Sesion();
 const byId = elementId => document.getElementById(elementId);
 
 /* ---- Lobby ---- */
@@ -1518,7 +1575,6 @@ function nombreAuto(usados){
   return capitalize(pickRandom(ANIMALES)[0]) + ' ' + (10 + Math.random()*90|0);
 }
 const nombreSala = () => `${pickRandom(CIUDADES)} ${pickRandom(TIEMPOS)}`;
-const escapeHtml = text => String(text).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
 /* ============ LOBBY ============ */
 /* Pantalla de inicio: formulario de creación, lista de salas y unirse por código. No conoce el flujo de la partida:
    avisa con alEntrar() (sala online lista) o alJugarLocal(config) (todos los asientos son bots). Guarda el estado
@@ -1563,10 +1619,10 @@ class Lobby{
   construirAsientos(){
     const playerCount = this.numJugadores;
     const seatLabel = index => playerCount === 4 ? (index === 2 ? 'tu pareja' : 'rival') : 'rival';
-    this.el.seatsBox.innerHTML = range(playerCount - 1).map(offset => { const index = offset + 1;
-      return `<div class="seatrow"><div class="sl">Jugador ${index + 1}<small>${seatLabel(index)}</small></div><div class="modes">
+    pintar(this.el.seatsBox, range(playerCount - 1).map(offset => { const index = offset + 1;
+      return html`<div class="seatrow"><div class="sl">Jugador ${index + 1}<small>${seatLabel(index)}</small></div><div class="modes">
         <label><input type="radio" name="seat${index}" value="bot" checked><span>🤖 Bot</span></label>
-        <label><input type="radio" name="seat${index}" value="humano"><span>👤 Humano</span></label></div></div>`; }).join('');
+        <label><input type="radio" name="seat${index}" value="humano"><span>👤 Humano</span></label></div></div>`; }));
     this.el.seatsBox.querySelectorAll('input').forEach(input => input.addEventListener('change', () => this.actualizarBotonCrear()));
     this.el.tcBox.hidden = playerCount !== 4; this.actualizarBotonCrear();
   }
@@ -1588,17 +1644,17 @@ class Lobby{
     if(this.unLobby || !this.almacen) return;
     this.unLobby = this.almacen.suscribirLobby((list, now) => {
       this.hayLock = list.some(([,lobbyEntry]) => lobbyEntry.locked); if(this.el.seatsBox.children.length) this.actualizarClave();
-      this.el.rooms.innerHTML = list.length ? list.map(([code,lobbyEntry]) => {
+      pintar(this.el.rooms, list.length ? list.map(([code,lobbyEntry]) => {
         const {playerCount = 2, seatedCount = 1, name = 'Sala', occupiedSeats = '1000', firstTeamColor = 'azul'} = lobbyEntry, full = seatedCount >= playerCount, minutes = Math.max(1, Math.round((now - lobbyEntry.createdAt)/60000));
-        const info = `<span><b>${escapeHtml(name)}</b><i>(${escapeHtml(code)})</i><small>${playerCount === 4 ? '4 jugadores' : '2 jugadores'} (${seatedCount}/${playerCount}) · ${lobbyEntry.mode === 'rapida' ? 'Rápida' : 'Normal · ' + ReglasGuinote.META} · ${lobbyEntry.locked ? '🔒 con contraseña' : 'abierta'} · hace ${minutes} min</small></span>`;
+        const info = html`<span><b>${name}</b><i>(${code})</i><small>${playerCount === 4 ? '4 jugadores' : '2 jugadores'} (${seatedCount}/${playerCount}) · ${lobbyEntry.mode === 'rapida' ? 'Rápida' : 'Normal · ' + ReglasGuinote.META} · ${lobbyEntry.locked ? '🔒 con contraseña' : 'abierta'} · hace ${minutes} min</small></span>`;
         if(playerCount === 4){
           const free = teamIndex => [teamIndex, teamIndex + 2].filter(index => occupiedSeats[index] !== '1').length;
-          const teamButtonHtml = teamIndex => { const col = colorOf(teamIndex, firstTeamColor), freeSeats = free(teamIndex);
-            return `<button type="button" class="tb tc-${col}" data-team="${col}" ${freeSeats ? '' : 'disabled'}>${capitalize(col)} · ${freeSeats ? freeSeats + (freeSeats > 1 ? ' libres' : ' libre') : 'completo'}</button>`; };
-          return `<div class="room room4" data-code="${escapeHtml(code)}">${info}<span class="tbs">${teamButtonHtml(0)}${teamButtonHtml(1)}</span></div>`;
+          const teamButtonHtml = teamIndex => { const col = Sala.colorDeEquipo(teamIndex, firstTeamColor), freeSeats = free(teamIndex);
+            return html`<button type="button" class="tb tc-${col}" data-team="${col}" ${freeSeats ? '' : 'disabled'}>${capitalize(col)} · ${freeSeats ? freeSeats + (freeSeats > 1 ? ' libres' : ' libre') : 'completo'}</button>`; };
+          return html`<div class="room room4" data-code="${code}">${info}<span class="tbs">${teamButtonHtml(0)}${teamButtonHtml(1)}</span></div>`;
         }
-        return `<button class="room" data-code="${escapeHtml(code)}" ${full ? 'disabled' : ''}>${info}<span>${full ? 'En juego' : 'Unirse'}</span></button>`;
-      }).join('') : '<em>No hay salas ahora mismo. Crea una.</em>';
+        return html`<button class="room" data-code="${code}" ${full ? 'disabled' : ''}>${info}<span>${full ? 'En juego' : 'Unirse'}</span></button>`;
+      }) : html`<em>No hay salas ahora mismo. Crea una.</em>`);
     }, () => this.error('No se pudo leer la lista de salas (revisa las reglas de la base de datos).'));
   }
   dejarDeVigilar(){ if(this.unLobby) this.unLobby(); this.unLobby = null; }
@@ -1648,123 +1704,16 @@ class Lobby{
     }catch(error){ console.error(error); this.error(FB_ERR); }
   }
 }
-const lobby = new Lobby(sesion, almacenFirebase, {alEntrar: enter, alJugarLocal: jugarBot});
 function assignBots(seatList, used){                       // nombre automático y marca de bot para cada asiento
   const names = {}, bots = {};
   seatList.forEach(index => { const botName = nombreAuto(used); used.push(botName); names[index] = Bot.PREFIJO + botName; bots[index] = true; });
   return {names, bots};
 }
 
-[byId('bAyuda'), byId('bAyuda2')].forEach(button => button.addEventListener('click', () => byId('ayuda').showModal()));
-byId('bAyudaX').addEventListener('click', () => byId('ayuda').close());
-// Móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa
-const mobileQuery = matchMedia('(max-width:640px)');
-function placeHud(){
-  const menu = byId('menu'), mesaEl = byId('mesa'), topL = byId('topL');
-  if(mobileQuery.matches){
-    menu.prepend(byId('room')); menu.append(byId('bNueva'));
-    byId('topR').prepend(byId('score')); topL.append(byId('deckInfo'));
-    mesaEl.insertBefore(byId('names'), byId('row')); mesaEl.insertBefore(byId('msg'), byId('me'));
-  }else{
-    topL.prepend(byId('room')); byId('topR').append(byId('bNueva'));
-    byId('panel').append(byId('msg'), byId('names'), byId('score'), byId('deckInfo'));
-    menu.classList.remove('open');
-  }
-}
-mobileQuery.addEventListener('change', placeHud); placeHud();
-byId('menuB').addEventListener('click', event => { event.stopPropagation(); byId('menu').classList.toggle('open'); });
-byId('menu').addEventListener('click', event => { if(event.target.closest('button')) byId('menu').classList.remove('open'); });
-document.addEventListener('click', event => { if(!byId('menu').contains(event.target)) byId('menu').classList.remove('open'); });
-byId('ayuda').addEventListener('click', event => { if(event.target === event.currentTarget) event.currentTarget.close(); });
-
-byId('bRe').addEventListener('click', () => {
-  const handNumber = sesion.game.marcador.numeroMano; mesa.reiniciarAnimaciones();
-  sesion.almacen.siguienteMano(sesion.code, handNumber).catch(console.error);
-});
-byId('bNueva').addEventListener('click', () => {
-  if(sesion.game && !sesion.game.manoTerminada && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
-  salir();
-});
-function salir(){
-  if(sesion.unsub) sesion.unsub();
-  clearInterval(sesion.purgeTimer);
-  if(sesion.code && !sesion.game) sesion.almacen.abandonar(sesion.code, sesion.mySeat);   // la partida no ha empezado: el anfitrión cierra la sala y un invitado libera su asiento
-  sesion.reiniciar(); mesa.reiniciarAnimaciones(); sesion.unsub = null;
-  sessionStorage.removeItem('guinote');
-  document.body.classList.remove('p4'); byId('game').hidden = true; byId('fin').hidden = true; byId('bNueva').hidden = true;
-  lobby.mostrar();
-}
-
-/* Cambio en la sala (online o local): lo llama el almacén al suscribirse y tras cada cambio; null = la sala ya no existe */
-function alCambiarSala(sala){
-  if(sala === null){ salir(); lobby.error('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
-  sesion.room = sala; sesion.jugadores = sala.jugadores; sesion.game = sala.partida;
-  byId('room').textContent = sala.nombre ? (sesion.code ? `${sala.nombre} (${sesion.code})` : sala.nombre) : 'Sala ' + sesion.code;
-  if(sala.caducada(Date.now())) sesion.almacen.purgar(sesion.code);
-  if(!sesion.game && sesion.mySeat === 0 && sala.completa) return sesion.guardar(Partida.nueva(sala.numJugadores, sala.modo));   // el que no reparte empieza (mano = jugador 1)
-  afterState();
-}
-function enter(){
-  sesion.almacen = almacenFirebase;
-  clearInterval(sesion.purgeTimer);
-  sesion.purgeTimer = setInterval(() => { if(sesion.room?.caducada(Date.now())) sesion.almacen.purgar(sesion.code); }, 15000);
-  sessionStorage.setItem('guinote', JSON.stringify({code: sesion.code, seat: sesion.mySeat}));
-  lobby.ocultar(); byId('game').hidden = false; byId('bNueva').hidden = false;
-  byId('room').textContent = 'Sala ' + sesion.code;
-  sesion.unsub = sesion.almacen.suscribir(sesion.code, alCambiarSala);
-}
-
-/* ---- Acciones del jugador ---- */
-/* Las reglas están en ReglasGuinote y el estado de la mano y sus transiciones en Partida (inmutable: cada acción
-   devuelve una Partida nueva). Aquí solo se comprueba que la acción es válida y se guarda el resultado. */
-function play(seat, card){                                      // card: Carta o id
-  if(sesion.game && sesion.game.puedeJugar(seat, card)) sesion.guardar(sesion.game.jugar(seat, card));
-}
-function cantar(seat, suitName){ if(sesion.game && sesion.game.puedeCantar(seat, suitName)) sesion.guardar(sesion.game.cantar(seat, suitName)); }
-function cambiar(seat){ if(sesion.game && sesion.game.puedeCambiarSiete(seat)) sesion.guardar(sesion.game.cambiarSiete(seat)); }
-
-/* Solo el anfitrión (jugador 0) resuelve la baza */
-function resolve(){
-  sesion.resolving = false;
-  if(sesion.game && sesion.game.bazaCompleta) sesion.guardar(sesion.game.resolverBaza());
-}
-
-/* ---- Bots (los asientos de bot los marca sesion.room.bots; sus decisiones, la clase Bot; los ejecuta el anfitrión) ---- */
-function ejecutar(seat, accion){                           // aplica una acción de Bot.elegirJugada
-  if(accion.tipo === 'cambiar') cambiar(seat);
-  else if(accion.tipo === 'cantar') cantar(seat, accion.palo);
-  else play(seat, accion.carta);
-}
-function botMove(){
-  const partida = sesion.game, bot = partida && sesion.jugadores[partida.turno];
-  if(partida && !partida.manoTerminada && !partida.bazaCompleta && bot?.esBot) ejecutar(bot.asiento, bot.elegirJugada(partida));
-}
-function botTick(){
-  if(!sesion.game || sesion.game.manoTerminada || !sesion.ejecutaBots || !sesion.esBot(sesion.game.turno) || sesion.game.bazaCompleta || sesion.botBusy) return;
-  sesion.botBusy = true;
-  sesion.botTimer = setTimeout(() => { sesion.botBusy = false; botMove(); }, sesion.jugadores[sesion.game.turno].retardo());
-}
-function afterState(){
-  mesa.render();
-  if(sesion.game && sesion.mySeat === 0 && sesion.game.bazaCompleta && !sesion.resolving){ sesion.resolving = true; sesion.resolveTimer = setTimeout(resolve, AJUSTES.resolverMs); }
-  botTick();
-}
-function jugarBot({playerCount, botSeats, mode, teamColor: firstColor, ownName}){
-  clearInterval(sesion.purgeTimer);
-  sesion.reiniciar({local: true, mySeat: 0}); mesa.reiniciarAnimaciones();
-  const players = {}, {names: botNames, bots} = assignBots(botSeats, [ownName]);
-  range(playerCount).forEach(index => players[index] = Date.now());
-  const sala = new Sala({numJugadores: playerCount, modo: mode, nombre: playerCount === 2 ? 'Contra el bot' : 'Con bots', colorPrimerEquipo: firstColor,
-                         asientos: players, nombres: {0:ownName, ...botNames}, bots, partida: Partida.nueva(playerCount, mode)});
-  sesion.almacen = new AlmacenLocal(sala);
-  lobby.ocultar(); byId('game').hidden = false; byId('bNueva').hidden = false;
-  sesion.unsub = sesion.almacen.suscribir(undefined, alCambiarSala);       // avisa enseguida con la sala inicial
-}
-
 /* ============ MESA (VISTA) ============ */
 /* Pinta la sesión en el DOM. Guarda su propio estado de animación (seen, prevTable): no es estado de la sesión. */
-const back = (className='', attrs='', ext=CARD_EXT) => `<img class="card ${className}" ${attrs} src="cartas/reverso.${ext}" draggable="false" alt="">`;
-const backs = handCards => handCards.map(() => back()).join('');
+const back = (className='', attrs=html``, ext=CARD_EXT) => html`<img class="card ${className}" ${attrs} src="cartas/reverso.${ext}" draggable="false" alt="">`;
+const backs = handCards => html`${handCards.map(() => back())}`;
 
 class Mesa{
   static IDS = ['me','opp','oR','oL','acts','deck','play','pMe','pOpp','deckInfo','score','st','ev','hint','names','fin','finT','finS','bRe','bNueva'];
@@ -1774,6 +1723,7 @@ class Mesa{
     this.el = Object.fromEntries(Mesa.IDS.map(id => [id, byId(id)]));
     this.reiniciarAnimaciones();
   }
+  color(equipo){ return Sala.colorDeEquipo(equipo, this.sesion.room.colorPrimerEquipo); }   // color del equipo 0 o 1
   reiniciarAnimaciones(){
     this.seen = new Set();        // cartas de mi mano ya pintadas (animación de reparto)
     this.prevTable = '';          // baza pintada en el render anterior (animación de jugada)
@@ -1781,12 +1731,12 @@ class Mesa{
 
   // Carta boca arriba; las de triunfo van en un <div> para poder llevar marco y estrella
   isTf(card){ const game = this.sesion.game; return !!game && Carta.de(card).palo === game.triunfo; }
-  face(card, className, attrs='', ext=CARD_EXT){
+  face(card, className, attrs=html``, ext=CARD_EXT){
     return this.isTf(card)
-      ? `<div class="card ${className} tf" ${attrs}><img src="cartas/${card}.${ext}" draggable="false" alt="${card}"></div>`
-      : `<img class="card ${className}" ${attrs} src="cartas/${card}.${ext}" draggable="false" alt="${card}">`;
+      ? html`<div class="card ${className} tf" ${attrs}><img src="cartas/${card}.${ext}" draggable="false" alt="${card}"></div>`
+      : html`<img class="card ${className}" ${attrs} src="cartas/${card}.${ext}" draggable="false" alt="${card}">`;
   }
-  cardImg(card, className=''){ return this.face(card, className, `data-card="${card}"`); }
+  cardImg(card, className=''){ return this.face(card, className, html`data-card="${card}"`); }
 
   setMsg(statusText, statusClass = '', eventText = '', eventClass = '', hint = ''){
     this.el.st.textContent = statusText; this.el.st.className = 'st ' + statusClass;
@@ -1808,24 +1758,24 @@ class Mesa{
     if(!this.sesion.room) return;
     const playerCount = this.sesion.room.numJugadores, seatedCount = this.sesion.room.sentados, seatedInTeam = teamIndex => this.sesion.room.sentadosEnEquipo(teamIndex);
     this.setMsg(playerCount === 4 ? `Esperando jugadores (${seatedCount}/4)…` : 'Esperando rival…', 'wait', '', '',
-      playerCount === 4 ? `Tu equipo: ${colorOf(teamOf(this.sesion.mySeat))} · ${colorOf(0)} ${seatedInTeam(0)}/2 · ${colorOf(1)} ${seatedInTeam(1)}/2 · Código ${this.sesion.code}` : `Comparte el código ${this.sesion.code}`);
-    this.el.names.innerHTML = range(playerCount).filter(index => this.sesion.room.ocupado(index)).map(index =>
-      `<span class="pn${index === this.sesion.mySeat ? ' on' : ''}" data-tc="${colorOf(teamOf(index))}"><i class="dot"></i>${escapeHtml(this.sesion.nombreDe(index))}${index === this.sesion.mySeat ? ' (tú)' : ''}</span>`).join('');
+      playerCount === 4 ? `Tu equipo: ${this.color(teamOf(this.sesion.mySeat))} · ${this.color(0)} ${seatedInTeam(0)}/2 · ${this.color(1)} ${seatedInTeam(1)}/2 · Código ${this.sesion.code}` : `Comparte el código ${this.sesion.code}`);
+    pintar(this.el.names, range(playerCount).filter(index => this.sesion.room.ocupado(index)).map(index =>
+      html`<span class="pn${index === this.sesion.mySeat ? ' on' : ''}" data-tc="${this.color(teamOf(index))}"><i class="dot"></i>${this.sesion.nombreDe(index)}${index === this.sesion.mySeat ? ' (tú)' : ''}</span>`));
     this.el.score.textContent = ''; this.el.deckInfo.textContent = '';
   }
 
   renderNames({playerCount, currentSeat}){
-    this.el.names.innerHTML = range(playerCount).map(offset => { const seat = (this.sesion.mySeat + offset) % playerCount;
-      return `<span class="pn${currentSeat === seat ? ' on' : ''}" data-tc="${colorOf(teamOf(seat))}"><i class="dot"></i>${escapeHtml(this.sesion.nombreDe(seat))}${seat === this.sesion.mySeat ? ' (tú)' : ''}</span>`; }).join('');
+    pintar(this.el.names, range(playerCount).map(offset => { const seat = (this.sesion.mySeat + offset) % playerCount;
+      return html`<span class="pn${currentSeat === seat ? ' on' : ''}" data-tc="${this.color(teamOf(seat))}"><i class="dot"></i>${this.sesion.nombreDe(seat)}${seat === this.sesion.mySeat ? ' (tú)' : ''}</span>`; }));
   }
 
   renderHands({four, isMyTurn, relativeSeat, currentSeat}){
-    const setTeamColor = (elementId, seat) => this.el[elementId].setAttribute('data-tc', colorOf(teamOf(seat)));   // contorno del color de cada jugador/equipo
+    const setTeamColor = (elementId, seat) => this.el[elementId].setAttribute('data-tc', this.color(teamOf(seat)));   // contorno del color de cada jugador/equipo
     setTeamColor('me', this.sesion.mySeat); setTeamColor('opp', four ? relativeSeat(2) : relativeSeat(1));
     if(four){ setTeamColor('oR', relativeSeat(1)); setTeamColor('oL', relativeSeat(3)); }
     // Rivales y pareja (en 4: pareja arriba, rivales a derecha e izquierda)
-    if(four){ this.el.opp.innerHTML = backs(this.sesion.game.cartasDe(relativeSeat(2))); this.el.oR.innerHTML = backs(this.sesion.game.cartasDe(relativeSeat(1))); this.el.oL.innerHTML = backs(this.sesion.game.cartasDe(relativeSeat(3))); }
-    else{ this.el.opp.innerHTML = backs(this.sesion.game.cartasDe(1 - this.sesion.mySeat)); this.el.oR.innerHTML = this.el.oL.innerHTML = ''; }
+    if(four){ pintar(this.el.opp, backs(this.sesion.game.cartasDe(relativeSeat(2)))); pintar(this.el.oR, backs(this.sesion.game.cartasDe(relativeSeat(1)))); pintar(this.el.oL, backs(this.sesion.game.cartasDe(relativeSeat(3)))); }
+    else{ pintar(this.el.opp, backs(this.sesion.game.cartasDe(1 - this.sesion.mySeat))); pintar(this.el.oR, ''); pintar(this.el.oL, ''); }
     this.el.opp.classList.toggle('act', four && currentSeat === relativeSeat(2));
     this.el.oR.classList.toggle('act', four && currentSeat === relativeSeat(1));
     this.el.oL.classList.toggle('act', four && currentSeat === relativeSeat(3));
@@ -1835,40 +1785,39 @@ class Mesa{
     const playable = isMyTurn ? this.sesion.game.cartasLegales(this.sesion.mySeat) : [];
     let dealtCount = 0;
     this.el.me.className = 'hand' + (isMyTurn ? ' turno' : '');
-    this.el.me.innerHTML = mine.map(card => {
+    pintar(this.el.me, mine.map(card => {
       const nuevo = !this.seen.has(card), isPlayable = playable.includes(card);
-      return this.face(card, `${isPlayable ? 'ok' : ''} ${isMyTurn && !isPlayable ? 'dim' : ''} ${nuevo ? 'deal' : ''}`, `style="${nuevo ? `animation-delay:${dealtCount++*70}ms` : ''}" data-card="${card}"`);
-    }).join('');
+      return this.face(card, `${isPlayable ? 'ok' : ''} ${isMyTurn && !isPlayable ? 'dim' : ''} ${nuevo ? 'deal' : ''}`, html`style="${nuevo ? `animation-delay:${dealtCount++*70}ms` : ''}" data-card="${card}"`);
+    }));
     this.seen = new Set(mine);
     // Acciones (cantes y cambio del 7)
-    const actionButtons = this.sesion.game.cantesPosibles(this.sesion.mySeat).map(suitName => `<button class="btn" data-cante="${suitName}">Cantar las ${ReglasGuinote.valorCante(suitName, this.sesion.game.triunfo)} en ${suitName}</button>`);
-    if(this.sesion.game.puedeCambiarSiete(this.sesion.mySeat)) actionButtons.push(`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
-    this.el.acts.innerHTML = actionButtons.join('');
+    const actionButtons = this.sesion.game.cantesPosibles(this.sesion.mySeat).map(suitName => html`<button class="btn" data-cante="${suitName}">Cantar las ${ReglasGuinote.valorCante(suitName, this.sesion.game.triunfo)} en ${suitName}</button>`);
+    if(this.sesion.game.puedeCambiarSiete(this.sesion.mySeat)) actionButtons.push(html`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
+    pintar(this.el.acts, actionButtons);
   }
 
   renderTable({playerCount, four, team, otherTeam}){
     // Mazo con el triunfo girado debajo
     const deckCount = this.sesion.game.cartasEnMazo;
-    this.el.deck.innerHTML = (deckCount ? this.cardImg(this.sesion.game.cartaTriunfo,'tr') : '') + (deckCount > 1 ? back('bk') + (deckCount > 2 ? back('bk') : '') : '');
+    pintar(this.el.deck, [deckCount ? this.cardImg(this.sesion.game.cartaTriunfo,'tr') : '', deckCount > 1 ? [back('bk'), deckCount > 2 ? back('bk') : ''] : '']);
     // Cartas en la mesa (en 4: cada una en su lado, según el asiento relativo)
     this.el.play.className = four ? 'p4' : '';
-    this.el.play.innerHTML = this.sesion.game.mesa.map(entry => {
+    pintar(this.el.play, this.sesion.game.mesa.map(entry => {
       const nuevo = !this.prevTable.includes(entry.card.id), className = four ? 's' + ((entry.seat - this.sesion.mySeat + playerCount) % playerCount) : (entry.seat === this.sesion.mySeat ? 'mine' : 'theirs');
-      return this.face(entry.card, className, `data-tc="${colorOf(teamOf(entry.seat))}" style="${nuevo ? '' : 'animation:none'}"`);
-    }).join('');
+      return this.face(entry.card, className, html`data-tc="${this.color(teamOf(entry.seat))}" style="${nuevo ? '' : 'animation:none'}"`);
+    }));
     this.prevTable = this.sesion.game.mesa.map(entry => entry.card.id).join();
     // Montones de bazas (por equipo)
-    const pile = count => count ? Array.from({length:Math.min(count,5)}, (unused, index) => back('', `style="top:${index*-2}px"`)).join('') + `<span>${count} baza${count>1?'s':''}</span>` : '';
-    this.el.pMe.setAttribute('data-tc', colorOf(team)); this.el.pOpp.setAttribute('data-tc', colorOf(otherTeam));
-    this.el.pOpp.innerHTML = pile(this.sesion.game.marcador.bazasDe(otherTeam)); this.el.pMe.innerHTML = pile(this.sesion.game.marcador.bazasDe(team));
+    const pile = count => count ? html`${Array.from({length:Math.min(count,5)}, (unused, index) => back('', html`style="top:${index*-2}px"`))}<span>${count} baza${count>1?'s':''}</span>` : '';
+    this.el.pMe.setAttribute('data-tc', this.color(team)); this.el.pOpp.setAttribute('data-tc', this.color(otherTeam));
+    pintar(this.el.pOpp, pile(this.sesion.game.marcador.bazasDe(otherTeam))); pintar(this.el.pMe, pile(this.sesion.game.marcador.bazasDe(team)));
   }
 
   renderScore({team, otherTeam}){
     const partida = this.sesion.game, marcador = partida.marcador;
-    this.el.deckInfo.innerHTML = `<span class="tfs">★</span> Triunfo: ${partida.triunfo} · ${partida.cartasEnMazo}<span class="mz"> en el mazo</span>`;
+    pintar(this.el.deckInfo, html`<span class="tfs">★</span> Triunfo: ${partida.triunfo} · ${partida.cartasEnMazo}<span class="mz"> en el mazo</span>`);
     // Puntos acumulados: manos anteriores + mano en curso (al terminar la mano, el total ya incluye sus puntos)
-    this.el.score.innerHTML = (marcador.esNormal ? `M ${marcador.numeroMano} · ` : '') +
-      `<i class="dot" data-tc="${colorOf(team)}"></i> <b>${marcador.puntosAcumulados(team)}</b> – <i class="dot" data-tc="${colorOf(otherTeam)}"></i> <b>${marcador.puntosAcumulados(otherTeam)}</b>`;
+    pintar(this.el.score, html`${marcador.esNormal ? `M ${marcador.numeroMano} · ` : ''}<i class="dot" data-tc="${this.color(team)}"></i> <b>${marcador.puntosAcumulados(team)}</b> – <i class="dot" data-tc="${this.color(otherTeam)}"></i> <b>${marcador.puntosAcumulados(otherTeam)}</b>`);
     this.el.score.title = marcador.esNormal ? `Puntos acumulados (se juega a ${ReglasGuinote.META})` : 'Puntos de la mano';
   }
 
@@ -1887,7 +1836,7 @@ class Mesa{
     this.el.fin.hidden = !partida.manoTerminada;
     if(!partida.manoTerminada) return;
     const ownPoints = marcador.puntosDe(team), rivalPoints = marcador.puntosDe(otherTeam), ownTotal = marcador.totalDe(team), rivalTotal = marcador.totalDe(otherTeam), byMode = (twoPlayers, fourPlayers) => four ? fourPlayers : twoPlayers;
-    const ownLabel = four ? `Equipo ${colorOf(team)}` : 'Tú', rivalLabel = four ? `Equipo ${colorOf(otherTeam)}` : 'Rival';
+    const ownLabel = four ? `Equipo ${this.color(team)}` : 'Tú', rivalLabel = four ? `Equipo ${this.color(otherTeam)}` : 'Rival';
     const handWinner = marcador.ganadorMano();                      // equipo con más puntos en la mano (null = empate)
     if(!marcador.esNormal){
       this.el.finT.textContent = handWinner === team ? byMode('¡Has ganado!','¡Habéis ganado!') : handWinner === null ? 'Empate' : byMode('Has perdido','Habéis perdido');
@@ -1914,19 +1863,127 @@ class Mesa{
     this.renderNames(view); this.renderHands(view); this.renderTable(view); this.renderScore(view); this.renderStatus(view); this.renderFin(view);
   }
 }
-const mesa = new Mesa(sesion);
 
-/* Eventos */
-byId('me').addEventListener('click', event => { const card = event.target.dataset && event.target.dataset.card; if(card) play(sesion.mySeat, card); });
-byId('acts').addEventListener('click', event => {
-  if(event.target.dataset.cante) cantar(sesion.mySeat, event.target.dataset.cante);
-  if(event.target.id === 'bCamb') cambiar(sesion.mySeat);
-});
+/* ============ JUEGO (CONTROLADOR) ============ */
+/* Único sitio donde se crean y se conectan Sesion, Lobby y Mesa. Gestiona el ciclo de vida de la aplicación
+   (entrar, salir, cambios de sala, partida local), el HUD y los eventos del DOM. Nada de esto vive ya en el ámbito
+   global del módulo: el arranque es `new Juego(almacenFirebase).arrancar()`. */
+class Juego{
+  constructor(almacenFirebase){
+    this.almacenFirebase = almacenFirebase;      // null si no se pudo cargar la configuración
+    this.sesion = new Sesion();
+    this.mesa = new Mesa(this.sesion);
+    this.lobby = new Lobby(this.sesion, almacenFirebase, {
+      alEntrar: () => this.entrar(),
+      alJugarLocal: config => this.jugarContraBots(config),
+    });
+    this.movil = matchMedia('(max-width:640px)');
+    this.conectarEventos();
+    this.colocarHud();
+  }
 
-/* Arranque: reconectar a la sala guardada o mostrar el lobby */
-const saved = JSON.parse(sessionStorage.getItem('guinote') || 'null');
-if(saved && almacenFirebase){ sesion.code = saved.code; sesion.mySeat = saved.seat; enter(); }
-else lobby.vigilar();
+  /* Reconectar a la sala guardada o mostrar el lobby */
+  arrancar(){
+    const guardada = JSON.parse(sessionStorage.getItem('guinote') || 'null');
+    if(guardada && this.almacenFirebase){ this.sesion.code = guardada.code; this.sesion.mySeat = guardada.seat; this.entrar(); }
+    else this.lobby.vigilar();
+  }
+
+  /* ---- Ciclo de vida ---- */
+  entrar(){
+    const {sesion} = this;
+    sesion.almacen = this.almacenFirebase;
+    clearInterval(sesion.purgeTimer);
+    sesion.purgeTimer = setInterval(() => { if(sesion.room?.caducada(Date.now())) sesion.almacen.purgar(sesion.code); }, 15000);
+    sessionStorage.setItem('guinote', JSON.stringify({code: sesion.code, seat: sesion.mySeat}));
+    this.lobby.ocultar(); byId('game').hidden = false; byId('bNueva').hidden = false;
+    byId('room').textContent = 'Sala ' + sesion.code;
+    sesion.unsub = sesion.almacen.suscribir(sesion.code, sala => this.alCambiarSala(sala));
+  }
+
+  salir(){
+    const {sesion} = this;
+    if(sesion.unsub) sesion.unsub();
+    clearInterval(sesion.purgeTimer);
+    if(sesion.code && !sesion.game) sesion.almacen.abandonar(sesion.code, sesion.mySeat);   // la partida no ha empezado: el anfitrión cierra la sala y un invitado libera su asiento
+    sesion.reiniciar(); this.mesa.reiniciarAnimaciones(); sesion.unsub = null;
+    sessionStorage.removeItem('guinote');
+    document.body.classList.remove('p4'); byId('game').hidden = true; byId('fin').hidden = true; byId('bNueva').hidden = true;
+    this.lobby.mostrar();
+  }
+
+  /* Cambio en la sala (online o local): lo llama el almacén al suscribirse y tras cada cambio; null = la sala ya no existe */
+  alCambiarSala(sala){
+    const {sesion} = this;
+    if(sala === null){ this.salir(); this.lobby.error('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
+    sesion.room = sala; sesion.jugadores = sala.jugadores; sesion.game = sala.partida;
+    byId('room').textContent = sala.nombre ? (sesion.code ? `${sala.nombre} (${sesion.code})` : sala.nombre) : 'Sala ' + sesion.code;
+    if(sala.caducada(Date.now())) sesion.almacen.purgar(sesion.code);
+    if(!sesion.game && sesion.mySeat === 0 && sala.completa) return sesion.guardar(Partida.nueva(sala.numJugadores, sala.modo));   // el que no reparte empieza (mano = jugador 1)
+    this.despuesDelEstado();
+  }
+
+  despuesDelEstado(){
+    this.mesa.render();
+    this.sesion.programarResolucion(AJUSTES.resolverMs);
+    this.sesion.programarBot();
+  }
+
+  jugarContraBots({playerCount, botSeats, mode, teamColor: firstColor, ownName}){
+    const {sesion} = this;
+    clearInterval(sesion.purgeTimer);
+    sesion.reiniciar({local: true, mySeat: 0}); this.mesa.reiniciarAnimaciones();
+    const players = {}, {names: botNames, bots} = assignBots(botSeats, [ownName]);
+    range(playerCount).forEach(index => players[index] = Date.now());
+    const sala = new Sala({numJugadores: playerCount, modo: mode, nombre: playerCount === 2 ? 'Contra el bot' : 'Con bots', colorPrimerEquipo: firstColor,
+                           asientos: players, nombres: {0:ownName, ...botNames}, bots, partida: Partida.nueva(playerCount, mode)});
+    sesion.almacen = new AlmacenLocal(sala);
+    this.lobby.ocultar(); byId('game').hidden = false; byId('bNueva').hidden = false;
+    sesion.unsub = sesion.almacen.suscribir(undefined, sala => this.alCambiarSala(sala));       // avisa enseguida con la sala inicial
+  }
+
+  /* ---- HUD móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa ---- */
+  colocarHud(){
+    const menu = byId('menu'), mesaEl = byId('mesa'), topL = byId('topL');
+    if(this.movil.matches){
+      menu.prepend(byId('room')); menu.append(byId('bNueva'));
+      byId('topR').prepend(byId('score')); topL.append(byId('deckInfo'));
+      mesaEl.insertBefore(byId('names'), byId('row')); mesaEl.insertBefore(byId('msg'), byId('me'));
+    }else{
+      topL.prepend(byId('room')); byId('topR').append(byId('bNueva'));
+      byId('panel').append(byId('msg'), byId('names'), byId('score'), byId('deckInfo'));
+      menu.classList.remove('open');
+    }
+  }
+
+  /* ---- Eventos del DOM ---- */
+  conectarEventos(){
+    const {sesion} = this;
+    this.movil.addEventListener('change', () => this.colocarHud());
+    [byId('bAyuda'), byId('bAyuda2')].forEach(button => button.addEventListener('click', () => byId('ayuda').showModal()));
+    byId('bAyudaX').addEventListener('click', () => byId('ayuda').close());
+    byId('menuB').addEventListener('click', event => { event.stopPropagation(); byId('menu').classList.toggle('open'); });
+    byId('menu').addEventListener('click', event => { if(event.target.closest('button')) byId('menu').classList.remove('open'); });
+    document.addEventListener('click', event => { if(!byId('menu').contains(event.target)) byId('menu').classList.remove('open'); });
+    byId('ayuda').addEventListener('click', event => { if(event.target === event.currentTarget) event.currentTarget.close(); });
+
+    byId('bRe').addEventListener('click', () => {
+      const handNumber = sesion.game.marcador.numeroMano; this.mesa.reiniciarAnimaciones();
+      sesion.almacen.siguienteMano(sesion.code, handNumber).catch(console.error);
+    });
+    byId('bNueva').addEventListener('click', () => {
+      if(sesion.game && !sesion.game.manoTerminada && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
+      this.salir();
+    });
+    byId('me').addEventListener('click', event => { const card = event.target.dataset && event.target.dataset.card; if(card) sesion.jugar(sesion.mySeat, card); });
+    byId('acts').addEventListener('click', event => {
+      if(event.target.dataset.cante) sesion.cantar(sesion.mySeat, event.target.dataset.cante);
+      if(event.target.id === 'bCamb') sesion.cambiarSiete(sesion.mySeat);
+    });
+  }
+}
+
+new Juego(almacenFirebase).arrancar();
 </script>
 </body>
 </html>
