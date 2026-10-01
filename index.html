@@ -3497,7 +3497,7 @@
         /* ---------- Contrato de la partida ---------- */
 
         suscribir(codigo, alCambiar) {
-          return onValue(this.#ref(`salas/${codigo}`), (instantanea) => alCambiar(Sala.desdeDatos(instantanea.val())));
+          return onValue(this.#ref(`salas/${codigo}`), (instantanea) => alCambiar(Sala.desdeDatos(instantanea.val(), this.#juego)));
         }
 
         guardarPartida(codigo, partida) {
@@ -3560,7 +3560,7 @@
         /** La sala con ese código, o null si no existe. */
         async leerSala(codigo) {
           const instantanea = await get(this.#ref(`salas/${codigo}`));
-          return instantanea.exists() ? Sala.desdeDatos(instantanea.val()) : null;
+          return instantanea.exists() ? Sala.desdeDatos(instantanea.val(), this.#juego) : null;
         }
 
         /**
