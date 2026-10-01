@@ -452,7 +452,7 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/fireba
 import { getDatabase, ref, set, get, remove, onValue, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 /* ============ CLASES DEL DOMINIO ============ */
-/* Carta, Baraja, ReglasGuinote, Marcador, Partida, Jugador y Bot: sin DOM, sin Firebase y sin estado global. */
+/* Carta, Baraja, ReglasGuinote, Marcador, Partida, Jugador, Bot y Sala: sin DOM, sin Firebase y sin estado global. */
 
 /**
  * Una carta de la baraja española de 40 cartas (sin 8 ni 9).
@@ -1035,9 +1035,9 @@ class Jugador {
 
   /** Jugadores de una sala por asiento (null si el asiento está vacío). Único sitio donde se decide Jugador o Bot. */
   static lista(sala) {
-    return Array.from({ length: sala.playerCount }, (_, asiento) => {
-      if (!sala.players?.[asiento]) return null;
-      const nombre = sala.names?.[asiento];
+    return Array.from({ length: sala.numJugadores }, (_, asiento) => {
+      if (!sala.asientos?.[asiento]) return null;
+      const nombre = sala.nombres?.[asiento];
       return sala.bots?.[asiento] ? new Bot(asiento, nombre) : new Jugador(asiento, nombre);
     });
   }
@@ -1138,6 +1138,295 @@ class Bot extends Jugador {
   }
 }
 
+/**
+ * Una sala de juego: su configuración, los asientos ocupados, los nombres, los bots y la partida en curso.
+ *
+ * - Es un valor inmutable: conPartida() devuelve otra Sala y deja la original intacta.
+ * - No depende del DOM ni de Firebase. aDatos() y Sala.desdeDatos() la convierten desde y hacia el objeto
+ *   simple que guarda la base de datos, con los campos de siempre (playerCount, mode, name, firstTeamColor,
+ *   players, names, bots, passwordHash, game), de modo que las salas ya creadas siguen valiendo.
+ * - Asientos: `asientos` guarda la hora a la que se sentó cada jugador; el del asiento 0 (el anfitrión)
+ *   marca cuándo se creó la sala y, con ella, cuándo caduca.
+ */
+class Sala {
+  static DURACION_MS = 3600e3;       // duración máxima de una sala
+  static LONG_CODIGO = 4;            // letras del código de sala
+  static #LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+
+  #jugadores = null;
+
+  constructor({ numJugadores = 2, modo = 'normal', nombre = null, colorPrimerEquipo = 'azul', asientos = {},
+                nombres = {}, bots = {}, hashClave = null, partida = null } = {}) {
+    this.numJugadores = numJugadores;
+    this.modo = modo;
+    this.nombre = nombre;
+    this.colorPrimerEquipo = colorPrimerEquipo;     // color del equipo 0
+    this.asientos = Sala.#sinHuecos(asientos);        // asiento → hora a la que se sentó
+    this.nombres = Sala.#sinHuecos(nombres);          // asiento → nombre
+    this.bots = Sala.#sinHuecos(bots);                // asiento → true si lo ocupa un bot
+    this.hashClave = hashClave;                       // null = sala abierta
+    this.partida = partida;                           // Partida | null (aún no ha empezado)
+    Object.freeze(this);
+  }
+
+  /** Copia congelada sin los asientos vacíos: Firebase devuelve un array con huecos null cuando las claves son 0, 1, 2… */
+  static #sinHuecos(porAsiento) {
+    return Object.freeze(Object.fromEntries(Object.entries(porAsiento || {}).filter(([, valor]) => valor != null)));
+  }
+
+  /* ---------- Utilidades de sala (sin estado) ---------- */
+
+  /** Código aleatorio de LONG_CODIGO letras (sin I ni O). */
+  static codigoAleatorio(aleatorio = Math.random) {
+    return Array.from({ length: Sala.LONG_CODIGO }, () => Sala.#LETRAS[aleatorio() * Sala.#LETRAS.length | 0]).join('');
+  }
+
+  /** Hash de la contraseña ligado al código de sala (null si no hay contraseña). */
+  static async hashDe(clave, codigo) {
+    if (!clave) return null;
+    try {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('guinote:' + codigo + ':' + clave));
+      return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+    } catch (error) { return 'p:' + btoa(unescape(encodeURIComponent(clave))); }   // contexto no seguro (http)
+  }
+
+  /** Color del equipo 0 o 1, dado el color del equipo 0. */
+  static colorDeEquipo(equipo, primerColor) {
+    return equipo === 0 ? primerColor : (primerColor === 'azul' ? 'rojo' : 'azul');
+  }
+
+  /** Asientos ocupados entre los `numJugadores` primeros. */
+  static sentadosEn(asientos, numJugadores) {
+    let total = 0;
+    for (let asiento = 0; asiento < numJugadores; asiento++) if (asientos?.[asiento]) total++;
+    return total;
+  }
+
+  /** Asientos ocupados de una sala de 4 como texto de 4 cifras ('1010'): es lo que muestra el lobby. */
+  static mascara(asientos) {
+    return [0, 1, 2, 3].map(asiento => asientos?.[asiento] ? '1' : '0').join('');
+  }
+
+  /** La máscara con el asiento marcado como libre (null se deja como está). */
+  static mascaraSin(mascara, asiento) {
+    return mascara === null ? mascara : mascara.slice(0, asiento) + '0' + mascara.slice(asiento + 1);
+  }
+
+  /** Ocupa el primer asiento libre de `candidatos`: { asiento, asientos } con los asientos ya actualizados, o null si no hay ninguno libre. */
+  static ocuparAsiento(asientos, candidatos, ahora) {
+    const nuevos = { ...(asientos || {}) };
+    for (const asiento of candidatos) {
+      if (!nuevos[asiento]) { nuevos[asiento] = ahora; return { asiento, asientos: nuevos }; }
+    }
+    return null;
+  }
+
+  /* ---------- Conversión desde y hacia la base de datos ---------- */
+
+  /** Reconstruye una sala desde el objeto guardado (que descarta arrays vacíos y nulls); null si no hay datos. */
+  static desdeDatos(datos) {
+    if (!datos) return null;
+    return new Sala({
+      numJugadores: datos.playerCount ?? 2, modo: datos.mode ?? 'normal', nombre: datos.name ?? null,
+      colorPrimerEquipo: datos.firstTeamColor ?? 'azul', asientos: datos.players || {}, nombres: datos.names || {},
+      bots: datos.bots || {}, hashClave: datos.passwordHash || null, partida: Partida.desdeEstado(datos.game || null),
+    });
+  }
+
+  /** Objeto simple para guardar en Firebase. */
+  aDatos() {
+    const datos = { players: { ...this.asientos }, mode: this.modo, playerCount: this.numJugadores,
+                    firstTeamColor: this.colorPrimerEquipo, names: { ...this.nombres } };
+    if (this.nombre) datos.name = this.nombre;
+    if (Object.keys(this.bots).length) datos.bots = { ...this.bots };
+    if (this.hashClave) datos.passwordHash = this.hashClave;
+    if (this.partida) datos.game = this.partida.aEstado();
+    return datos;
+  }
+
+  /** Resumen público de la sala para la lista del lobby. */
+  aEntradaLobby(ahora) {
+    return {
+      createdAt: ahora, locked: this.tieneClave, seatedCount: this.sentados, mode: this.modo, name: this.nombre,
+      playerCount: this.numJugadores, firstTeamColor: this.colorPrimerEquipo,
+      occupiedSeats: this.numJugadores === 4 ? Sala.mascara(this.asientos) : null,
+    };
+  }
+
+  /* ---------- Consultas ---------- */
+
+  get sentados() { return Sala.sentadosEn(this.asientos, this.numJugadores); }
+  get completa() { return this.sentados >= this.numJugadores; }
+  get tieneClave() { return !!this.hashClave; }
+
+  /** Jugador o Bot de cada asiento (null = asiento vacío). */
+  get jugadores() { return this.#jugadores ??= Jugador.lista(this); }
+
+  ocupado(asiento) { return !!this.asientos[asiento]; }
+
+  sentadosEnEquipo(equipo) { return [equipo, equipo + 2].filter(asiento => this.ocupado(asiento)).length; }
+
+  /** Asientos entre los que elegir al unirse: todos, o los del equipo del color indicado (solo en salas de 4). */
+  asientosCandidatos(color = 'any') {
+    if (this.numJugadores === 4 && color !== 'any') {
+      const equipo = color === this.colorPrimerEquipo ? 0 : 1;
+      return [equipo, equipo + 2];
+    }
+    return Array.from({ length: this.numJugadores }, (_, asiento) => asiento);
+  }
+
+  /** ¿Ha pasado la duración máxima desde que se creó la sala? */
+  caducada(ahora) {
+    const creada = this.asientos[0];
+    return !!creada && ahora - creada >= Sala.DURACION_MS;
+  }
+
+  /** La misma sala con otra partida. */
+  conPartida(partida) {
+    return new Sala({
+      numJugadores: this.numJugadores, modo: this.modo, nombre: this.nombre, colorPrimerEquipo: this.colorPrimerEquipo,
+      asientos: this.asientos, nombres: this.nombres, bots: this.bots, hashClave: this.hashClave, partida,
+    });
+  }
+}
+
+/* ============ CAPA DE ALMACENAMIENTO ============ */
+/* Dónde viven la sala y la partida. AlmacenLocal (en memoria, partidas contra bots) y AlmacenFirebase (salas online)
+   cumplen el mismo contrato, así que el resto de la aplicación no sabe con cuál habla:
+     suscribir(codigo, alCambiar)      → función que cancela. alCambiar(sala) se llama con la Sala actual al suscribirse y tras
+                                          cada cambio; con null cuando la sala ya no existe
+     guardarPartida(codigo, partida)   → Promise
+     siguienteMano(codigo, numeroMano) → Promise: reparte la mano siguiente una sola vez aunque lo pidan varios a la vez
+     purgar(codigo)                    → Promise: elimina la sala
+   Lo que solo tiene sentido online (lista de salas, crear, unirse, abandonar) es exclusivo de AlmacenFirebase.
+   Ninguno toca el DOM. En las partidas locales `codigo` no se usa. */
+
+/** Partida contra bots: la sala vive en memoria y no hay base de datos. */
+class AlmacenLocal {
+  #sala;
+  #oyentes = new Set();
+
+  constructor(sala) { this.#sala = sala; }
+
+  /** Avisa enseguida con la sala actual (no espera a ningún cambio) y después tras cada guardado. */
+  suscribir(codigo, alCambiar) {
+    this.#oyentes.add(alCambiar);
+    alCambiar(this.#sala);
+    return () => this.#oyentes.delete(alCambiar);
+  }
+
+  guardarPartida(codigo, partida) {
+    this.#sala = this.#sala.conPartida(partida);
+    setTimeout(() => { for (const alCambiar of [...this.#oyentes]) alCambiar(this.#sala); }, 0);   // como Firebase: el aviso llega después
+    return Promise.resolve();
+  }
+
+  siguienteMano(codigo, numeroMano) {
+    const partida = this.#sala.partida;
+    if (!partida?.manoTerminada || partida.marcador.numeroMano !== numeroMano) return Promise.resolve();
+    return this.guardarPartida(codigo, partida.siguienteMano());
+  }
+
+  /** Nada que borrar: una partida local no caduca. */
+  purgar(codigo) { return Promise.resolve(); }
+}
+
+/** Salas online en Firebase Realtime Database: rooms/<código> (la sala y su partida) y lobby/<código> (resumen público). */
+class AlmacenFirebase {
+  #bd;
+
+  constructor(baseDeDatos) { this.#bd = baseDeDatos; }
+
+  #ref(ruta) { return ref(this.#bd, ruta); }
+
+  /* ---------- Contrato de la partida ---------- */
+
+  suscribir(codigo, alCambiar) {
+    return onValue(this.#ref(`rooms/${codigo}`), instantanea => alCambiar(Sala.desdeDatos(instantanea.val())));
+  }
+
+  guardarPartida(codigo, partida) {
+    return set(this.#ref(`rooms/${codigo}/game`), partida.aEstado());     // Firebase guarda el objeto simple (aEstado)
+  }
+
+  siguienteMano(codigo, numeroMano) {
+    return runTransaction(this.#ref(`rooms/${codigo}/game`), estado => {
+      if (estado === null) return estado;
+      const partida = Partida.desdeEstado(estado);
+      if (!partida.manoTerminada || partida.marcador.numeroMano !== numeroMano) return;   // ya lo ha pedido otro jugador
+      return partida.siguienteMano().aEstado();
+    });
+  }
+
+  purgar(codigo) {
+    return Promise.all([this.#ref(`rooms/${codigo}`), this.#ref(`lobby/${codigo}`)].map(referencia => remove(referencia).catch(() => {})));
+  }
+
+  /* ---------- Lobby: crear, listar, unirse y abandonar ---------- */
+
+  /**
+   * Lista de salas abiertas: alCambiar([[codigo, entrada], …], ahora), de la más reciente a la más antigua.
+   * Las salas caducadas se eliminan al verlas. Devuelve la función que cancela.
+   */
+  suscribirLobby(alCambiar, alFallar) {
+    return onValue(this.#ref('lobby'), instantanea => {
+      const entradas = Object.entries(instantanea.val() || {}), ahora = Date.now();
+      const caducada = ([, entrada]) => ahora - entrada.createdAt >= Sala.DURACION_MS;
+      entradas.filter(caducada).forEach(([codigo]) => this.purgar(codigo));
+      alCambiar(entradas.filter(entrada => !caducada(entrada)).sort((a, b) => b[1].createdAt - a[1].createdAt), ahora);
+    }, alFallar);
+  }
+
+  /** Un código de sala que no está en uso. */
+  async codigoLibre() {
+    let codigo;
+    do { codigo = Sala.codigoAleatorio(); } while ((await get(this.#ref(`rooms/${codigo}`))).exists());
+    return codigo;
+  }
+
+  async crearSala(codigo, sala) {
+    await set(this.#ref(`rooms/${codigo}`), sala.aDatos());
+    await set(this.#ref(`lobby/${codigo}`), sala.aEntradaLobby(Date.now()));
+  }
+
+  /** La sala con ese código, o null si no existe. */
+  async leerSala(codigo) {
+    const instantanea = await get(this.#ref(`rooms/${codigo}`));
+    return instantanea.exists() ? Sala.desdeDatos(instantanea.val()) : null;
+  }
+
+  /**
+   * Ocupa el primer asiento libre de `candidatos` y apunta el nombre y el lobby. `sala` es la sala tal y como se leyó antes
+   * de unirse; `generarNombre` se llama solo si hay asiento. Devuelve el asiento, o -1 si ya no queda ninguno libre.
+   */
+  async unirse(codigo, sala, candidatos, generarNombre) {
+    let asiento = -1;
+    const transaccion = await runTransaction(this.#ref(`rooms/${codigo}/players`), actuales => {     // primer asiento libre
+      const resultado = Sala.ocuparAsiento(actuales, candidatos, Date.now());
+      asiento = resultado ? resultado.asiento : -1;
+      return resultado?.asientos;                       // undefined: no hay asiento, se cancela
+    });
+    if (!transaccion.committed || asiento < 0) return -1;
+    const asientos = transaccion.snapshot.val();
+    await set(this.#ref(`rooms/${codigo}/names/${asiento}`), generarNombre());
+    await set(this.#ref(`lobby/${codigo}/seatedCount`), Sala.sentadosEn(asientos, sala.numJugadores));
+    if (sala.numJugadores === 4) await set(this.#ref(`lobby/${codigo}/occupiedSeats`), Sala.mascara(asientos));
+    return asiento;
+  }
+
+  /** Antes de empezar la partida: el anfitrión cierra la sala; un invitado libera su asiento. */
+  abandonar(codigo, asiento) {
+    if (asiento === 0) return this.purgar(codigo);
+    if (!(asiento > 0)) return Promise.resolve();
+    return Promise.all([
+      remove(this.#ref(`rooms/${codigo}/players/${asiento}`)),
+      runTransaction(this.#ref(`lobby/${codigo}/seatedCount`), actual => actual === null ? actual : Math.max(1, actual - 1)),
+      remove(this.#ref(`rooms/${codigo}/names/${asiento}`)),
+      runTransaction(this.#ref(`lobby/${codigo}/occupiedSeats`), mascara => Sala.mascaraSin(mascara, asiento)),
+    ].map(operacion => operacion.catch(() => {})));
+  }
+}
+
 /* Bandera global: true = lee config.dat (JSON codificado en base64);
    false = lee firebase-config.json en texto plano. */
 const CONFIG_EN_BASE64 = true;
@@ -1161,25 +1450,22 @@ try{
   document.getElementById('bUnir').disabled = true;
 }
 
+const almacenFirebase = database ? new AlmacenFirebase(database) : null;   // null si no se pudo cargar la configuración
+
 const CARD_EXT = 'webp';
 
 /* ============ AJUSTES DE LA APLICACIÓN ============ */
 /* Las reglas del juego (puntos, cantes, cartas legales…) viven en ReglasGuinote; aquí solo lo que no es regla. */
 const AJUSTES = {
-  longCodigo: 4,          // letras del código de sala
   resolverMs: 1500,       // pausa con la baza completa antes de recogerla
 };
-const colorOf = (teamIndex, firstColor = state.room.firstTeamColor) => teamIndex === 0 ? firstColor : (firstColor === 'azul' ? 'rojo' : 'azul');   // color del equipo t
+const colorOf = (teamIndex, firstColor = state.room.colorPrimerEquipo) => Sala.colorDeEquipo(teamIndex, firstColor);   // color del equipo t
 const capitalize = word => word[0].toUpperCase() + word.slice(1);
 const teamOf = Partida.equipoDe;                                 // equipo: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada uno el suyo)
 const range = count => [...Array(count).keys()];
-const nameOf = seat => state.jugadores[seat]?.nombre || (state.room.playerCount === 4 ? `Jugador ${seat + 1}` : 'Rival');
-const seats = room => range(room.playerCount).filter(index => room.players[index]).length;
-const seatMask = players => range(4).map(index => players[index] ? '1' : '0').join('');   // asientos ocupados de una sala de 4
+const nameOf = seat => state.jugadores[seat]?.nombre || (state.room.numJugadores === 4 ? `Jugador ${seat + 1}` : 'Rival');
 const checked = name => (document.querySelector(`input[name=${name}]:checked`) || {}).value;
 const FB_ERR = 'No se pudo conectar con Firebase. Revisa la configuración.';
-/* Valores por defecto: se aplican una sola vez, al leer de Firebase (que descarta arrays vacíos) */
-const normRoom = room => ({playerCount:2, mode:'normal', firstTeamColor:'azul', players:{}, names:{}, ...room});
 
 /* ============ ESTADO ============ */
 /* Estado de la sesión actual: sala, asiento y partida. newSession() da los valores iniciales;
@@ -1187,7 +1473,8 @@ const normRoom = room => ({playerCount:2, mode:'normal', firstTeamColor:'azul', 
 const newSession = () => ({
   code: undefined,        // código de la sala (undefined en partidas contra bots)
   mySeat: undefined,          // asiento propio
-  room: null,                // sala: np, mode, names, p, bots…
+  room: null,                // Sala actual (configuración, asientos, nombres, bots)
+  almacen: null,          // AlmacenFirebase (sala online) o AlmacenLocal (contra bots)
   jugadores: [],          // Jugador / Bot por asiento (null = asiento vacío), derivado de room
   game: null,                // partida en curso
   local: false,           // true = contra bots, sin base de datos
@@ -1210,12 +1497,9 @@ function resetSession(){
   Object.assign(state, newSession());
 }
 const byId = elementId => document.getElementById(elementId);
-const gameRef = () => ref(database, `rooms/${state.code}/game`);
-const save = partida => state.local ? localSave(partida) : set(gameRef(), partida.aEstado());     // Firebase guarda el objeto simple (aEstado)
-function localSave(partida){ state.game = partida; setTimeout(afterState, 0); return Promise.resolve(); }   // partida contra el bot: sin base de datos
+const save = partida => state.almacen.guardarPartida(state.code, partida);
 
 /* ---- Lobby ---- */
-const randomRoomCode = () => Array.from({length:AJUSTES.longCodigo}, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ'[Math.random()*24|0]).join('');
 const CIUDADES = ['Sevilla','Zaragoza','Valencia','Bilbao','Granada','Toledo','Cádiz','Vigo','León','Soria','Teruel','Huesca','Jaca','Segovia','Salamanca','Córdoba','Málaga','Oviedo','Burgos','Lisboa','París','Roma','Viena','Praga','Oslo','Lima','Quito','Bogotá','Kioto','Dublín','Atenas','Cuzco'];
 const TIEMPOS = ['con sol','con lluvia','con niebla','con nieve','con viento','con tormenta','con nubes','con granizo','con calima','con bruma','con rocío','con cielo claro'];
 const pickRandom = list => list[Math.random()*list.length|0];
@@ -1244,24 +1528,12 @@ function miNombre(usados){                                   // el escrito (úni
 try{ byId('inName').value = localStorage.getItem('guinote-nombre') || ''; }catch(error){}
 const nombreSala = () => `${pickRandom(CIUDADES)} ${pickRandom(TIEMPOS)}`;
 const escapeHtml = text => String(text).replace(/[&<>"']/g, character => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[character]));
-const HORA = 3600e3;   // duración máxima de una sala
-const purge = code => { remove(ref(database,`rooms/${code}`)).catch(()=>{}); remove(ref(database,`lobby/${code}`)).catch(()=>{}); };
 const lobbyErr = message => byId('err').textContent = message;
-async function hash(password, code){
-  if(!password) return null;
-  try{
-    const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode('guinote:' + code + ':' + password));
-    return [...new Uint8Array(digest)].map(byte => byte.toString(16).padStart(2,'0')).join('');
-  }catch(error){ return 'p:' + btoa(unescape(encodeURIComponent(password))); }   // contexto no seguro (http)
-}
 
 
 function watchLobby(){
-  if(state.unLobby || !database) return;
-  state.unLobby = onValue(ref(database,'lobby'), snapshot => {
-    const all = snapshot.val() || {}, now = Date.now();
-    Object.entries(all).filter(([,lobbyEntry]) => now - lobbyEntry.createdAt >= HORA).forEach(([code]) => purge(code));
-    const list = Object.entries(all).filter(([,lobbyEntry]) => now - lobbyEntry.createdAt < HORA).sort((first,second) => second[1].createdAt - first[1].createdAt);
+  if(state.unLobby || !almacenFirebase) return;
+  state.unLobby = almacenFirebase.suscribirLobby((list, now) => {
     state.hayLock = list.some(([,lobbyEntry]) => lobbyEntry.locked); if(byId('seatsBox').children.length) updatePasswordInput();
     byId('rooms').innerHTML = list.length ? list.map(([code,lobbyEntry]) => {
       const {playerCount = 2, seatedCount = 1, name = 'Sala', occupiedSeats = '1000', firstTeamColor = 'azul'} = lobbyEntry, full = seatedCount >= playerCount, minutes = Math.max(1, Math.round((now - lobbyEntry.createdAt)/60000));
@@ -1313,17 +1585,13 @@ byId('bCrear').addEventListener('click', async () => {
   if(botSeats.length === playerCount - 1) return jugarBot(playerCount, botSeats);          // todos bots: partida state.local, sin base de datos
   try{
     lobbyErr('');
-    do{ state.code = randomRoomCode(); } while((await get(ref(database,`rooms/${state.code}`))).exists());
+    state.code = await almacenFirebase.codigoLibre();
     state.mySeat = 0;
     const mode = checked('mode'), teamColor = playerCount === 4 ? checked('tc') : 'azul';
-    const passwordHash = await hash(byId('inPass').value, state.code), name = nombreSala(), ownName = miNombre([]);
+    const hashClave = await Sala.hashDe(byId('inPass').value, state.code), name = nombreSala(), ownName = miNombre([]);
     const {names: botNames, bots: botMarks} = assignBots(botSeats, [ownName]), players = {}, names = {0:ownName, ...botNames};
     [0, ...botSeats].forEach(index => players[index] = Date.now());
-    const room = {players, mode, name, playerCount, firstTeamColor: teamColor, names};
-    if(botSeats.length) room.bots = botMarks;
-    if(passwordHash) room.passwordHash = passwordHash;
-    await set(ref(database,`rooms/${state.code}`), room);
-    await set(ref(database,`lobby/${state.code}`), {createdAt:Date.now(), locked:!!passwordHash, seatedCount:seats(room), mode, name, playerCount, firstTeamColor:teamColor, occupiedSeats:playerCount === 4 ? seatMask(players) : null});
+    await almacenFirebase.crearSala(state.code, new Sala({numJugadores: playerCount, modo: mode, nombre: name, colorPrimerEquipo: teamColor, asientos: players, nombres: names, bots: botMarks, hashClave}));
     enter();
   }catch(error){ console.error(error); lobbyErr(FB_ERR); }
 });
@@ -1331,28 +1599,18 @@ byId('bCrear').addEventListener('click', async () => {
 async function unirse(code, color = 'any'){
   try{
     lobbyErr(''); state.code = (code || '').trim().toUpperCase();
-    if(state.code.length !== AJUSTES.longCodigo) return lobbyErr(`Escribe el código de ${AJUSTES.longCodigo} letras.`);
-    const snapshot = await get(ref(database,`rooms/${state.code}`));
-    if(!snapshot.exists()) return lobbyErr('Esa sala no existe.');
-    const room = normRoom(snapshot.val()), playerCount = room.playerCount;
-    if(seats(room) >= playerCount) return lobbyErr('La sala ya está completa.');
-    if(room.passwordHash){
+    if(state.code.length !== Sala.LONG_CODIGO) return lobbyErr(`Escribe el código de ${Sala.LONG_CODIGO} letras.`);
+    const room = await almacenFirebase.leerSala(state.code);
+    if(!room) return lobbyErr('Esa sala no existe.');
+    if(room.completa) return lobbyErr('La sala ya está completa.');
+    if(room.tieneClave){
       const enteredPassword = byId('inPass').value;
       if(!enteredPassword){ byId('inPass').focus(); return lobbyErr(`La sala ${state.code} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`); }
-      if(await hash(enteredPassword, state.code) !== room.passwordHash){ byId('inPass').focus(); return lobbyErr('Contraseña incorrecta.'); }
+      if(await Sala.hashDe(enteredPassword, state.code) !== room.hashClave){ byId('inPass').focus(); return lobbyErr('Contraseña incorrecta.'); }
     }
-    let seat = -1, candidateSeats = range(playerCount);
-    if(playerCount === 4 && color !== 'any'){ const teamIndex = color === room.firstTeamColor ? 0 : 1; candidateSeats = [teamIndex, teamIndex + 2]; }   // asientos de ese equipo
-    const transaction = await runTransaction(ref(database,`rooms/${state.code}/players`), currentPlayers => {     // primer asiento libre
-      seat = -1; const players = {...(currentPlayers || {})};
-      for(const index of candidateSeats) if(!players[index]){ seat = index; players[index] = Date.now(); return players; }
-    });
-    if(!transaction.committed || seat < 0) return lobbyErr(playerCount === 4 && color !== 'any' ? `El equipo ${color} ya está completo.` : 'La sala ya está completa.');
+    const seat = await almacenFirebase.unirse(state.code, room, room.asientosCandidatos(color), () => miNombre(Object.values(room.nombres).filter(Boolean)));
+    if(seat < 0) return lobbyErr(room.numJugadores === 4 && color !== 'any' ? `El equipo ${color} ya está completo.` : 'La sala ya está completa.');
     state.mySeat = seat;
-    await set(ref(database,`rooms/${state.code}/names/${seat}`), miNombre(Object.values(room.names).filter(Boolean)));
-    const seatsValue = transaction.snapshot.val();
-    await set(ref(database,`lobby/${state.code}/seatedCount`), seats({players: seatsValue, playerCount}));
-    if(playerCount === 4) await set(ref(database,`lobby/${state.code}/occupiedSeats`), seatMask(seatsValue));
     enter();
   }catch(error){ console.error(error); lobbyErr(FB_ERR); }
 }
@@ -1386,13 +1644,7 @@ byId('rooms').addEventListener('click', event => {
 
 byId('bRe').addEventListener('click', () => {
   const handNumber = state.game.marcador.numeroMano; state.seen = new Set(); state.prevTable = '';
-  if(state.local) return state.game.manoTerminada ? localSave(state.game.siguienteMano()) : undefined;
-  runTransaction(gameRef(), storedGame => {
-    if(storedGame === null) return storedGame;
-    const currentGame = Partida.desdeEstado(storedGame);
-    if(!currentGame.manoTerminada || currentGame.marcador.numeroMano !== handNumber) return;   // ya lo ha pulsado el otro jugador
-    return currentGame.siguienteMano().aEstado();
-  }).catch(console.error);
+  state.almacen.siguienteMano(state.code, handNumber).catch(console.error);
 });
 byId('bNueva').addEventListener('click', () => {
   if(state.game && !state.game.manoTerminada && !confirm('¿Volver a la pantalla de inicio? Abandonarás la partida actual.')) return;
@@ -1401,15 +1653,7 @@ byId('bNueva').addEventListener('click', () => {
 function salir(){
   if(state.unsub) state.unsub();
   clearInterval(state.purgeTimer);
-  if(state.code && !state.game){                                          // la partida no ha empezado
-    if(state.mySeat === 0) purge(state.code);                               // anfitrión: cerrar la sala
-    else if(state.mySeat > 0){                                        // invitado: liberar su asiento
-      remove(ref(database,`rooms/${state.code}/players/${state.mySeat}`)).catch(()=>{});
-      runTransaction(ref(database,`lobby/${state.code}/seatedCount`), current => current === null ? current : Math.max(1, current - 1)).catch(()=>{});
-      remove(ref(database,`rooms/${state.code}/names/${state.mySeat}`)).catch(()=>{});
-      const seatIndex = state.mySeat; runTransaction(ref(database,`lobby/${state.code}/occupiedSeats`), oldMask => oldMask === null ? oldMask : oldMask.slice(0, seatIndex) + '0' + oldMask.slice(seatIndex + 1)).catch(()=>{});
-    }
-  }
+  if(state.code && !state.game) state.almacen.abandonar(state.code, state.mySeat);   // la partida no ha empezado: el anfitrión cierra la sala y un invitado libera su asiento
   resetSession(); state.unsub = null;
   sessionStorage.removeItem('guinote');
   document.body.classList.remove('p4'); byId('game').hidden = true; byId('fin').hidden = true; byId('bNueva').hidden = true;
@@ -1418,24 +1662,27 @@ function salir(){
   watchLobby();
 }
 
+/* Cambio en la sala (online o local): lo llama el almacén al suscribirse y tras cada cambio; null = la sala ya no existe */
+function alCambiarSala(sala){
+  if(sala === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
+  state.room = sala; state.jugadores = sala.jugadores; state.game = sala.partida;
+  byId('room').textContent = sala.nombre ? (state.code ? `${sala.nombre} (${state.code})` : sala.nombre) : 'Sala ' + state.code;
+  if(sala.caducada(Date.now())) state.almacen.purgar(state.code);
+  if(!state.game && state.mySeat === 0 && sala.completa) return save(Partida.nueva(sala.numJugadores, sala.modo));   // el que no reparte empieza (mano = jugador 1)
+  afterState();
+}
 function enter(){
   unwatchLobby();
+  state.almacen = almacenFirebase;
   clearInterval(state.purgeTimer);
-  state.purgeTimer = setInterval(() => { if(state.room && state.room.players[0] && Date.now() - state.room.players[0] >= HORA) purge(state.code); }, 15000);
+  state.purgeTimer = setInterval(() => { if(state.room?.caducada(Date.now())) state.almacen.purgar(state.code); }, 15000);
   sessionStorage.setItem('guinote', JSON.stringify({code: state.code, seat: state.mySeat}));
   byId('lobby').hidden = true; byId('game').hidden = false; byId('bNueva').hidden = false;
   byId('room').textContent = 'Sala ' + state.code;
-  state.unsub = onValue(ref(database,`rooms/${state.code}`), snapshot => {
-    if(snapshot.val() === null){ salir(); lobbyErr('La sala ya no existe (las salas se eliminan a la hora de crearse).'); return; }
-    state.room = normRoom(snapshot.val()); state.jugadores = Jugador.lista(state.room); state.game = Partida.desdeEstado(state.room.game || null);
-    byId('room').textContent = state.room.name ? `${state.room.name} (${state.code})` : 'Sala ' + state.code;
-    if(state.room.players[0] && Date.now() - state.room.players[0] >= HORA) purge(state.code);
-    if(!state.game && state.mySeat === 0 && seats(state.room) >= state.room.playerCount) return save(Partida.nueva(state.room.playerCount, state.room.mode));   // el que no reparte empieza (mano = jugador 1)
-    afterState();
-  });
+  state.unsub = state.almacen.suscribir(state.code, alCambiarSala);
 }
 const saved = JSON.parse(sessionStorage.getItem('guinote') || 'null');
-if(saved && database){ state.code = saved.code; state.mySeat = saved.seat; enter(); }
+if(saved && almacenFirebase){ state.code = saved.code; state.mySeat = saved.seat; enter(); }
 else watchLobby();
 
 /* ---- Acciones del jugador ---- */
@@ -1482,12 +1729,11 @@ function jugarBot(playerCount = 2, botSeats = [1]){
   resetSession(); Object.assign(state, {local: true, mySeat: 0});
   const players = {}, {names: botNames, bots} = assignBots(botSeats, [ownName]);
   range(playerCount).forEach(index => players[index] = Date.now());
-  state.room = {playerCount, mode, name: playerCount === 2 ? 'Contra el bot' : 'Con bots', firstTeamColor: firstColor, players, names: {0:ownName, ...botNames}, bots};
-  state.jugadores = Jugador.lista(state.room);
-  state.game = Partida.nueva(playerCount, mode);
+  const sala = new Sala({numJugadores: playerCount, modo: mode, nombre: playerCount === 2 ? 'Contra el bot' : 'Con bots', colorPrimerEquipo: firstColor,
+                         asientos: players, nombres: {0:ownName, ...botNames}, bots, partida: Partida.nueva(playerCount, mode)});
+  state.almacen = new AlmacenLocal(sala);
   byId('lobby').hidden = true; byId('game').hidden = false; byId('bNueva').hidden = false;
-  byId('room').textContent = state.room.name;
-  afterState();
+  state.unsub = state.almacen.suscribir(undefined, alCambiarSala);       // avisa enseguida con la sala inicial
 }
 
 /* ============ RENDER ============ */
@@ -1518,10 +1764,10 @@ const backs = handCards => handCards.map(() => back()).join('');
 
 function renderWaiting(){
   if(!state.room) return;
-  const playerCount = state.room.playerCount, seatedCount = seats(state.room), seatedInTeam = teamIndex => [teamIndex, teamIndex + 2].filter(index => state.room.players[index]).length;
+  const playerCount = state.room.numJugadores, seatedCount = state.room.sentados, seatedInTeam = teamIndex => state.room.sentadosEnEquipo(teamIndex);
   setMsg(playerCount === 4 ? `Esperando jugadores (${seatedCount}/4)…` : 'Esperando rival…', 'wait', '', '',
     playerCount === 4 ? `Tu equipo: ${colorOf(teamOf(state.mySeat))} · ${colorOf(0)} ${seatedInTeam(0)}/2 · ${colorOf(1)} ${seatedInTeam(1)}/2 · Código ${state.code}` : `Comparte el código ${state.code}`);
-  byId('names').innerHTML = range(playerCount).filter(index => state.room.players[index]).map(index =>
+  byId('names').innerHTML = range(playerCount).filter(index => state.room.ocupado(index)).map(index =>
     `<span class="pn${index === state.mySeat ? ' on' : ''}" data-tc="${colorOf(teamOf(index))}"><i class="dot"></i>${escapeHtml(nameOf(index))}${index === state.mySeat ? ' (tú)' : ''}</span>`).join('');
   byId('score').textContent = ''; byId('deckInfo').textContent = '';
 }
