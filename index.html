@@ -5,11 +5,13 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Juego de cartas</title>
 <style>
-/* Hoja de estilos compartida. Los estilos del tapete de guiñote (cartas, manos, #opp/#me/.side, #deck, #play, #piles/.pile,
-   #acts, #row/#mid, triunfo .tf, body.p4 y equipos [data-tc]) viven aquí entremezclados con los del marco; los pinta VistaGuinote. */
-:root{--cw:clamp(80px,18.5vw,152px);--paño:#1f5a3a;--paño2:#12402a;--madera:#4a2c17;--crema:#f1e6c9;--oro:#e0b04a;
- --tinta:#2a1808;--velo:#0003;--borde:#fff4;--hw:clamp(60px,29.5vw,132px)}
-@supports (height:100dvh){:root{--hw:clamp(60px,min(29.5vw,15dvh),132px)}}
+/* Hoja de estilos compartida. Los estilos del tapete de guiñote (cartas, manos, #manoSuperior/#manoPropia/.side, #deck, #play, #piles/.pile,
+   #acciones, #row/#centroMesa, triunfo .triunfo, body.cuatroJugadores y equipos [data-color-equipo]) viven aquí entremezclados con los del marco; los pinta VistaGuinote. */
+/* Breakpoint móvil: 640px (y 641px para escritorio) en todos los @media de abajo. CSS no admite variables dentro de
+   @media, así que el valor se repite; debe coincidir con AJUSTES.anchoMaxMovilPx del script. */
+:root{--ancho-carta:clamp(80px,18.5vw,152px);--paño:#1f5a3a;--paño2:#12402a;--madera:#4a2c17;--crema:#f1e6c9;--oro:#e0b04a;
+ --tinta:#2a1808;--velo:#0003;--borde:#fff4;--ancho-carta-mano:clamp(60px,29.5vw,132px)}
+@supports (height:100dvh){:root{--ancho-carta-mano:clamp(60px,min(29.5vw,15dvh),132px)}}
 *{box-sizing:border-box}
 html,body{height:100%;margin:0}
 body{font-family:Georgia,"Palatino Linotype",serif;color:var(--crema);background:var(--madera);overflow:hidden;
@@ -59,7 +61,7 @@ button{font:inherit;cursor:pointer}
 #ayuda table{border-collapse:collapse;margin:.4rem 0;font-size:.9rem;max-width:100%;display:block;overflow-x:auto}
 #ayuda th,#ayuda td{border:1px solid #fff3;padding:.25em .55em;text-align:center}
 #ayuda th{text-align:left;color:var(--oro)}
-#err{color:#ffb4a0;min-height:1.4em}
+#mensajeError{color:#ffb4a0;min-height:1.4em}
 
 /* Mesa */
 #game{height:100%;display:flex;flex-direction:column;border:clamp(6px,1.4vw,14px) solid var(--madera);
@@ -68,166 +70,166 @@ button{font:inherit;cursor:pointer}
 #top{display:flex;justify-content:space-between;align-items:center;padding:.5rem .9rem;font-size:.95rem;gap:.5rem;flex-wrap:wrap}
 #room{margin-right:auto}
 #msg{display:flex;flex-direction:column;align-items:center;gap:.25rem;padding:.1rem .9rem .5rem;min-height:5.2rem;text-align:center;text-shadow:0 1px 3px #000c}
-#msg .st{font-size:clamp(1.15rem,3.4vw,1.5rem);font-weight:bold;padding:.15em 1em;border-radius:99px;background:#0006;border:1px solid #fff3;text-shadow:none;transition:background .2s,color .2s}
-#msg .st.mine{background:var(--oro);color:var(--tinta);border-color:var(--oro)}
-#msg .st.wait{color:#f1e6c9cc}
-#msg .ev{font-size:clamp(1rem,2.6vw,1.2rem);min-height:1.4em;line-height:1.3}
-#msg .ev.mine{color:#ffe08a}
-#msg .ev.rival{color:#fff}
-#msg .ev.pop{animation:pop .5s ease-out}
+#msg .estado{font-size:clamp(1.15rem,3.4vw,1.5rem);font-weight:bold;padding:.15em 1em;border-radius:99px;background:#0006;border:1px solid #fff3;text-shadow:none;transition:background .2s,color .2s}
+#msg .estado.mine{background:var(--oro);color:var(--tinta);border-color:var(--oro)}
+#msg .estado.wait{color:#f1e6c9cc}
+#msg .ultimoEvento{font-size:clamp(1rem,2.6vw,1.2rem);min-height:1.4em;line-height:1.3}
+#msg .ultimoEvento.mine{color:#ffe08a}
+#msg .ultimoEvento.rival{color:#fff}
+#msg .ultimoEvento.destacado{animation:destacar .5s ease-out}
 #msg .hint{font-size:clamp(.85rem,2.2vw,1rem);opacity:.85;min-height:1.2em;font-style:italic}
-@keyframes pop{from{transform:scale(1.12);opacity:.3}}
+@keyframes destacar{from{transform:scale(1.12);opacity:.3}}
 .chip{background:#0004;border-radius:99px;padding:.25em .8em;white-space:nowrap}
 #mesa{flex:1;display:grid;grid-template-rows:1fr auto auto;min-height:0;padding:0 .6rem .6rem}
-.card{width:var(--cw);height:auto;border-radius:calc(var(--cw)*.06);box-shadow:0 3px 8px #0009;user-select:none;-webkit-user-drag:none;background:#fff}
-.hand{display:flex;justify-content:center;min-height:calc(var(--cw)*1.6)}
-.hand .card+.card{margin-left:calc(var(--cw)*-.14)}
-#opp{transform:scale(.72);transform-origin:top center}
-#opp .card+.card{margin-left:calc(var(--cw)*-.4)}
-#me .card{position:relative;transition:transform .15s,filter .2s}
-#me .card.ok{cursor:pointer}
-#me.turno .card.ok:hover{transform:translateY(-18px)}
-#me .card.dim{filter:brightness(.5)}
-#me .card.deal{animation:deal .5s backwards}
-@keyframes deal{from{transform:translate(-40vw,-30vh) rotate(-30deg);opacity:0}}
-#mid{display:flex;align-items:center;justify-content:space-around;min-height:0;gap:.5rem}
-#deck{position:relative;width:calc(var(--cw)*1.75);height:calc(var(--cw)*1.6);flex:none}
+.card{width:var(--ancho-carta);height:auto;border-radius:calc(var(--ancho-carta)*.06);box-shadow:0 3px 8px #0009;user-select:none;-webkit-user-drag:none;background:#fff}
+.hand{display:flex;justify-content:center;min-height:calc(var(--ancho-carta)*1.6)}
+.hand .card+.card{margin-left:calc(var(--ancho-carta)*-.14)}
+#manoSuperior{transform:scale(.72);transform-origin:top center}
+#manoSuperior .card+.card{margin-left:calc(var(--ancho-carta)*-.4)}
+#manoPropia .card{position:relative;transition:transform .15s,filter .2s}
+#manoPropia .card.jugable{cursor:pointer}
+#manoPropia.turno .card.jugable:hover{transform:translateY(-18px)}
+#manoPropia .card.atenuada{filter:brightness(.5)}
+#manoPropia .card.repartida{animation:repartir .5s backwards}
+@keyframes repartir{from{transform:translate(-40vw,-30vh) rotate(-30deg);opacity:0}}
+#centroMesa{display:flex;align-items:center;justify-content:space-around;min-height:0;gap:.5rem}
+#deck{position:relative;width:calc(var(--ancho-carta)*1.75);height:calc(var(--ancho-carta)*1.6);flex:none}
 #deck .card{position:absolute}
-#deck .tr{left:calc(var(--cw)*.45);top:calc(var(--cw)*.3);transform:rotate(90deg);transform-origin:center}
-#deck .bk{left:0;top:calc(var(--cw)*.04)}
-#deck .bk+.bk{left:2px;top:calc(var(--cw)*.04 - 2px)}
-#play{position:relative;width:calc(var(--cw)*2.5);height:calc(var(--cw)*2.1);flex:none}
+#deck .cartaGirada{left:calc(var(--ancho-carta)*.45);top:calc(var(--ancho-carta)*.3);transform:rotate(90deg);transform-origin:center}
+#deck .reverso{left:0;top:calc(var(--ancho-carta)*.04)}
+#deck .reverso+.reverso{left:2px;top:calc(var(--ancho-carta)*.04 - 2px)}
+#play{position:relative;width:calc(var(--ancho-carta)*2.5);height:calc(var(--ancho-carta)*2.1);flex:none}
 #play .card{position:absolute}
-#play .mine{left:8%;top:38%;transform:rotate(-4deg);animation:up .35s ease-out}
-#play .theirs{left:38%;top:2%;transform:rotate(5deg);animation:down .35s ease-out}
-@keyframes up{from{transform:translateY(45vh) rotate(0);opacity:.4}}
-@keyframes down{from{transform:translateY(-40vh) rotate(0);opacity:.4}}
-#piles{display:flex;flex-direction:column;justify-content:space-between;align-items:center;align-self:stretch;padding:.3rem 0;flex:none;width:calc(var(--cw)*.9)}
-.pile{position:relative;width:calc(var(--cw)*.6);height:calc(var(--cw)*.95);font-size:.75rem;text-align:center}
-.pile .card{position:absolute;width:calc(var(--cw)*.6);left:0}
+#play .mine{left:8%;top:38%;transform:rotate(-4deg);animation:entraDeAbajo .35s ease-out}
+#play .theirs{left:38%;top:2%;transform:rotate(5deg);animation:entraDeArriba .35s ease-out}
+@keyframes entraDeAbajo{from{transform:translateY(45vh) rotate(0);opacity:.4}}
+@keyframes entraDeArriba{from{transform:translateY(-40vh) rotate(0);opacity:.4}}
+#piles{display:flex;flex-direction:column;justify-content:space-between;align-items:center;align-self:stretch;padding:.3rem 0;flex:none;width:calc(var(--ancho-carta)*.9)}
+.pile{position:relative;width:calc(var(--ancho-carta)*.6);height:calc(var(--ancho-carta)*.95);font-size:.75rem;text-align:center}
+.pile .card{position:absolute;width:calc(var(--ancho-carta)*.6);left:0}
 .pile span{position:absolute;bottom:-1.4em;left:0;right:0}
-#acts{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;min-height:2.6rem;align-items:center;padding:.3rem}
-#me{padding-top:.3rem}
+#acciones{display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap;min-height:2.6rem;align-items:center;padding:.3rem}
+#manoPropia{padding-top:.3rem}
 
 /* Fin */
 #fin{position:fixed;inset:0;background:#000b;display:grid;place-items:center;text-align:center;z-index:9}
 #fin .box{background:var(--madera);border:2px solid var(--oro);border-radius:12px;padding:1.6rem 2.2rem}
-#finS{white-space:pre-line;line-height:1.5}
+#finDetalle{white-space:pre-line;line-height:1.5}
 #fin h2{font-size:2.2rem;margin:0 0 .3em}
 /* Móvil: mano propia en dos filas (3 + 3) y mesa compacta */
 button,.card{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
 @media (max-width:640px){
- :root{--cw:clamp(54px,17vw,84px)}
+ :root{--ancho-carta:clamp(54px,17vw,84px)}
  html,body{-webkit-text-size-adjust:100%}
  @supports (height:100dvh){html,body{height:100dvh}}
  #game{border-width:5px}
- #acts{min-height:2.3rem;padding:.2rem;gap:.4rem}
- #acts .btn{font-size:.85rem;padding:.45em .8em}
+ #acciones{min-height:2.3rem;padding:.2rem;gap:.4rem}
+ #acciones .btn{font-size:.85rem;padding:.45em .8em}
  /* Mano propia: 3 cartas por fila, sin solapar */
- #me{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:4px;
-  width:calc(var(--hw)*3 + 8px + 2px);max-width:100%;margin:0 auto;min-height:0;padding-top:.2rem}
- #me .card{width:var(--hw);border-radius:calc(var(--hw)*.06)}
- #me .card+.card{margin-left:0}          /* sin solapes: 3 + 3 con un pequeño hueco */
- #me.turno .card.ok:hover{transform:none}
- #me.turno .card.ok:active{transform:translateY(-6px)}
+ #manoPropia{display:flex;flex-wrap:wrap;justify-content:center;align-content:flex-start;gap:4px;
+  width:calc(var(--ancho-carta-mano)*3 + 8px + 2px);max-width:100%;margin:0 auto;min-height:0;padding-top:.2rem}
+ #manoPropia .card{width:var(--ancho-carta-mano);border-radius:calc(var(--ancho-carta-mano)*.06)}
+ #manoPropia .card+.card{margin-left:0}          /* sin solapes: 3 + 3 con un pequeño hueco */
+ #manoPropia.turno .card.jugable:hover{transform:none}
+ #manoPropia.turno .card.jugable:active{transform:translateY(-6px)}
  #fin .box{margin:1rem;padding:1.2rem 1.4rem}
  #fin h2{font-size:1.8rem}
 }
 
 /* Nombres */
-#lobby #inName,#lobby #inPass{display:block;max-width:20rem;margin:.2em auto 1.2em;text-transform:none;font-size:1.1rem}
-#lobby #inPass{margin-top:-.6em}
-#topL{display:flex;flex-direction:column;align-items:flex-start;gap:.3rem;margin-right:auto}
+#lobby #campoNombre,#lobby #campoClave{display:block;max-width:20rem;margin:.2em auto 1.2em;text-transform:none;font-size:1.1rem}
+#lobby #campoClave{margin-top:-.6em}
+#topIzquierda{display:flex;flex-direction:column;align-items:flex-start;gap:.3rem;margin-right:auto}
 #names{display:flex;flex-direction:column;align-items:flex-start;gap:.05rem;font-size:.85rem;padding-left:.3rem;text-shadow:0 1px 3px #000c}
-.pn{display:flex;align-items:center;white-space:nowrap;opacity:.75}
-.pn.on{opacity:1;font-weight:bold;color:var(--oro)}
+.nombreJugador{display:flex;align-items:center;white-space:nowrap;opacity:.75}
+.nombreJugador.activo{opacity:1;font-weight:bold;color:var(--oro)}
 @media (max-width:640px){#msg .hint:empty{display:none}
- #opp,.side,body.p4 .side{display:none!important}   /* en móvil solo tus cartas y el tablero */
+ #manoSuperior,.side,body.cuatroJugadores .side{display:none!important}   /* en móvil solo tus cartas y el tablero */
 }
 
 /* Equipos (azul / rojo) */
-[data-tc=azul]{--tcol:#4a86e8}
-[data-tc=rojo]{--tcol:#e85a5a}
-[data-tc] .card,.card[data-tc]{box-shadow:0 0 0 3px var(--tcol),0 3px 8px #0009}
+[data-color-equipo=azul]{--color-equipo:#4a86e8}
+[data-color-equipo=rojo]{--color-equipo:#e85a5a}
+[data-color-equipo] .card,.card[data-color-equipo]{box-shadow:0 0 0 3px var(--color-equipo),0 3px 8px #0009}
 /* Triunfo: estrellas en las esquinas superior derecha e inferior izquierda (lejos de los números) */
-div.card.tf{position:relative}
-#play div.card.tf,#deck div.card.tf{position:absolute}
-div.card.tf>img{display:block;width:100%;height:auto;border-radius:inherit;pointer-events:none}
-div.card.tf::before,div.card.tf::after{content:"";position:absolute;width:15%;aspect-ratio:1;pointer-events:none;
+div.card.triunfo{position:relative}
+#play div.card.triunfo,#deck div.card.triunfo{position:absolute}
+div.card.triunfo>img{display:block;width:100%;height:auto;border-radius:inherit;pointer-events:none}
+div.card.triunfo::before,div.card.triunfo::after{content:"";position:absolute;width:15%;aspect-ratio:1;pointer-events:none;
   background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5l3 7.1 7.7.6-5.9 5 1.8 7.5L12 17.7 5.4 21.7l1.8-7.5-5.9-5 7.7-.6z' fill='%23e0b04a' stroke='%23422a06' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E") center/contain no-repeat;
   filter:drop-shadow(0 0 1.5px #fff)}
 /* Triunfo: conserva el margen de color del equipo, sin fondo blanco que asome alrededor de la imagen */
-[data-tc] div.card.tf,div.card.tf[data-tc]{background:none}
+[data-color-equipo] div.card.triunfo,div.card.triunfo[data-color-equipo]{background:none}
 /* La mano estira las cartas a lo alto de la fila; el triunfo (un div) hace lo mismo y su imagen rellena todo el div */
-div.card.tf{align-self:stretch;height:auto}
-div.card.tf>img{height:100%}
-div.card.tf::before{right:5%;top:3.5%}
-div.card.tf::after{left:5%;bottom:3.5%}
-.dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;margin-right:.4em;background:var(--tcol)}
+div.card.triunfo{align-self:stretch;height:auto}
+div.card.triunfo>img{height:100%}
+div.card.triunfo::before{right:5%;top:3.5%}
+div.card.triunfo::after{left:5%;bottom:3.5%}
+.dot{display:inline-block;width:.7em;height:.7em;border-radius:50%;margin-right:.4em;background:var(--color-equipo)}
 .modes.three{grid-template-columns:repeat(3,1fr)}
 div.room{cursor:default}
-.room4{flex-wrap:wrap}
-.tbs{display:flex;gap:.4rem}
-.tb{font:inherit;font-size:.8rem;border:0;border-radius:6px;padding:.35em .7em;color:#fff;font-weight:bold}
-.tb.tc-azul{background:#2f66c4}
-.tb.tc-rojo{background:#c43c3c}
-.tb:disabled{opacity:.4;cursor:default}
+.salaConEquipos{flex-wrap:wrap}
+.botonesEquipo{display:flex;gap:.4rem}
+.botonEquipo{font:inherit;font-size:.8rem;border:0;border-radius:6px;padding:.35em .7em;color:#fff;font-weight:bold}
+.botonEquipo.equipo-azul{background:#2f66c4}
+.botonEquipo.equipo-rojo{background:#c43c3c}
+.botonEquipo:disabled{opacity:.4;cursor:default}
 
 /* Partidas de 4 */
 #row{display:flex;align-items:stretch;min-height:0;gap:.3rem}
-#row #mid{flex:1;min-width:0}
-.side{--sw:calc(var(--cw)*.55);display:none;flex-direction:column;align-items:center;align-self:center;flex:none;width:var(--sw)}
-body.p4 .side{display:flex}
-.side .card{width:var(--sw)}
-.side .card+.card{margin-top:calc(var(--sw)*-1.05)}
-.act{filter:drop-shadow(0 0 7px var(--oro))}
-#play.p4{width:calc(var(--cw)*3);height:calc(var(--cw)*2.55)}
-#play.p4 .card{width:calc(var(--cw)*.92)}
-#play .s0{left:34.7%;top:43%;transform:rotate(-3deg);animation:up .35s ease-out}
-#play .s1{left:69.3%;top:22%;transform:rotate(4deg);animation:fromR .35s ease-out}
-#play .s2{left:34.7%;top:0;transform:rotate(3deg);animation:down .35s ease-out}
-#play .s3{left:0;top:22%;transform:rotate(-4deg);animation:fromL .35s ease-out}
-@keyframes fromR{from{transform:translateX(45vw) rotate(0);opacity:.4}}
-@keyframes fromL{from{transform:translateX(-45vw) rotate(0);opacity:.4}}
+#row #centroMesa{flex:1;min-width:0}
+.side{--ancho-carta-lateral:calc(var(--ancho-carta)*.55);display:none;flex-direction:column;align-items:center;align-self:center;flex:none;width:var(--ancho-carta-lateral)}
+body.cuatroJugadores .side{display:flex}
+.side .card{width:var(--ancho-carta-lateral)}
+.side .card+.card{margin-top:calc(var(--ancho-carta-lateral)*-1.05)}
+.activa{filter:drop-shadow(0 0 7px var(--oro))}
+#play.cuatroJugadores{width:calc(var(--ancho-carta)*3);height:calc(var(--ancho-carta)*2.55)}
+#play.cuatroJugadores .card{width:calc(var(--ancho-carta)*.92)}
+#play .posicion0{left:34.7%;top:43%;transform:rotate(-3deg);animation:entraDeAbajo .35s ease-out}
+#play .posicion1{left:69.3%;top:22%;transform:rotate(4deg);animation:entraDeDerecha .35s ease-out}
+#play .posicion2{left:34.7%;top:0;transform:rotate(3deg);animation:entraDeArriba .35s ease-out}
+#play .posicion3{left:0;top:22%;transform:rotate(-4deg);animation:entraDeIzquierda .35s ease-out}
+@keyframes entraDeDerecha{from{transform:translateX(45vw) rotate(0);opacity:.4}}
+@keyframes entraDeIzquierda{from{transform:translateX(-45vw) rotate(0);opacity:.4}}
 @media (min-width:641px){
- body.p4 #row{justify-content:center;gap:1rem}
- body.p4 #row #mid{max-width:calc(var(--cw)*9.5)}
- body.p4 .side{--sw:calc(var(--cw)*.65)}
- body.p4 #opp{transform:scale(.85);margin-bottom:calc(var(--cw)*-.25)}
+ body.cuatroJugadores #row{justify-content:center;gap:1rem}
+ body.cuatroJugadores #row #centroMesa{max-width:calc(var(--ancho-carta)*9.5)}
+ body.cuatroJugadores .side{--ancho-carta-lateral:calc(var(--ancho-carta)*.65)}
+ body.cuatroJugadores #manoSuperior{transform:scale(.85);margin-bottom:calc(var(--ancho-carta)*-.25)}
 }
 @media (max-width:640px){
- body.p4{--hw:clamp(56px,29.5vw,124px)}
- @supports (height:100dvh){body.p4{--hw:clamp(56px,min(29.5vw,12.4dvh),124px)}}
+ body.cuatroJugadores{--ancho-carta-mano:clamp(56px,29.5vw,124px)}
+ @supports (height:100dvh){body.cuatroJugadores{--ancho-carta-mano:clamp(56px,min(29.5vw,12.4dvh),124px)}}
  #row{gap:.15rem}
- body.p4 #mid{display:grid;grid-template-columns:1fr auto 1fr;align-content:space-around;align-items:center;gap:.3rem 0}
- body.p4 #play{grid-column:1 / -1;grid-row:1;justify-self:center}
+ body.cuatroJugadores #centroMesa{display:grid;grid-template-columns:1fr auto 1fr;align-content:space-around;align-items:center;gap:.3rem 0}
+ body.cuatroJugadores #play{grid-column:1 / -1;grid-row:1;justify-self:center}
 }
 
 /* HUD superior: sala, jugadores y estado de la partida */
-#topR{display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;flex:none}
+#topDerecha{display:flex;flex-direction:column;align-items:flex-end;gap:.3rem;flex:none}
 @media (min-width:641px){
- #me{gap:calc(var(--cw)*.06)}
- #me .card{width:calc(var(--cw)*1.06)}
- #me .card+.card{margin-left:0}
- #me{min-height:calc(var(--cw)*1.8)}
+ #manoPropia{gap:calc(var(--ancho-carta)*.06)}
+ #manoPropia .card{width:calc(var(--ancho-carta)*1.06)}
+ #manoPropia .card+.card{margin-left:0}
+ #manoPropia{min-height:calc(var(--ancho-carta)*1.8)}
  /* montones de bazas: uno arriba y otro abajo, en columnas distintas para que no se pisen */
- #piles{flex-direction:row;justify-content:center;align-items:stretch;gap:.7rem;width:calc(var(--cw)*1.5);padding:.3rem 0 1.6rem}
- #pOpp{align-self:flex-start}
- #pMe{align-self:flex-end}
+ #piles{flex-direction:row;justify-content:center;align-items:stretch;gap:.7rem;width:calc(var(--ancho-carta)*1.5);padding:.3rem 0 1.6rem}
+ #montonRival{align-self:flex-start}
+ #montonPropio{align-self:flex-end}
 }
 
 /* Mano del rival pegada al borde superior de la pantalla */
 #game{position:relative}
-#opp{position:absolute;top:.6rem;left:0;right:0;z-index:0;pointer-events:none;margin:0}
+#manoSuperior{position:absolute;top:.6rem;left:0;right:0;z-index:0;pointer-events:none;margin:0}
 #top{position:relative;z-index:2}
 #mesa{position:relative;z-index:1}
 
 #deckInfo:empty{display:none}
-#deckInfo .tfs{color:var(--oro)}
-#menuB,#menu,#panel{display:none}
+#deckInfo .estrellaTriunfo{color:var(--oro)}
+#bMenu,#menu,#panel{display:none}
 .seatrow{display:flex;align-items:center;gap:.6rem;margin-bottom:.5rem}
-.seatrow .sl{flex:0 0 7.4rem;text-align:left;font-size:.85rem;line-height:1.2}
-.seatrow .sl small{display:block;opacity:.7;font-size:.72rem}
+.seatrow .etiquetaAsiento{flex:0 0 7.4rem;text-align:left;font-size:.85rem;line-height:1.2}
+.seatrow .etiquetaAsiento small{display:block;opacity:.7;font-size:.72rem}
 .seatrow .modes{flex:1;margin:0;gap:.4rem}
 .seatrow .modes span{padding:.4em .3em;font-size:.85rem}
 #seatsBox{margin-bottom:.5rem}
@@ -236,59 +238,59 @@ body.p4 .side{display:flex}
  /* Barra superior de una línea: marcador · triunfo · menú */
  body:has(#game:not([hidden])) #bAyuda{display:none}
  #top{display:flex;flex-wrap:nowrap;align-items:center;gap:.4rem;padding:.3rem .45rem;font-size:.75rem}
- #topL{display:contents}
- #topR{order:1;flex:1 1 auto;min-width:0;flex-direction:row;align-items:center;margin:0}
+ #topIzquierda{display:contents}
+ #topDerecha{order:1;flex:1 1 auto;min-width:0;flex-direction:row;align-items:center;margin:0}
  #score.chip{display:block;min-width:0;overflow:hidden;text-overflow:ellipsis;font-size:.68rem;padding:.3em .65em}
  #deckInfo.chip{order:2;flex:none;font-size:.72rem;padding:.3em .7em;border:1px solid var(--oro);color:var(--oro);font-weight:bold;background:#0007}
- #deckInfo .mz{display:none}
- #menuB{display:block;order:3;flex:none;font-size:1.15rem;line-height:1;padding:.2em .55em}
+ #deckInfo .enElMazo{display:none}
+ #bMenu{display:block;order:3;flex:none;font-size:1.15rem;line-height:1;padding:.2em .55em}
  #menu.open{display:flex;flex-direction:column;align-items:stretch;gap:.4rem;position:absolute;top:100%;right:.4rem;z-index:5;
   background:var(--madera);border:1px solid var(--oro);border-radius:10px;padding:.6rem;box-shadow:0 6px 18px #000a}
  #menu .chip{text-align:center}
- #menu #bNueva,#menu #bAyuda2{font-size:.85rem;padding:.45em .8em}
+ #menu #bNueva,#menu #bAyudaMenu{font-size:.85rem;padding:.45em .8em}
  /* Nombres sobre la mesa y estado del turno sobre tu mano */
  #mesa{padding:0 .3rem .3rem;grid-template-rows:auto 1fr auto auto auto}
  #mesa #names{flex-direction:row;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:0 .8rem;font-size:.74rem;padding:.1rem .35rem .25rem}
  #mesa #msg{flex-direction:row;flex-wrap:wrap;justify-content:center;align-items:center;gap:.1rem .5rem;min-height:0;padding:.2rem .4rem}
- #mesa #msg .st{font-size:.9rem;padding:.12em .9em}
- #mesa #msg .ev{font-size:.78rem;min-height:0;line-height:1.2}
- #mesa #msg .ev:empty{display:none}
+ #mesa #msg .estado{font-size:.9rem;padding:.12em .9em}
+ #mesa #msg .ultimoEvento{font-size:.78rem;min-height:0;line-height:1.2}
+ #mesa #msg .ultimoEvento:empty{display:none}
  #mesa #msg .hint{flex:1 0 100%;font-size:.72rem;min-height:0;line-height:1.2}
 
  /* Tapete: sin mazo ni montones de bazas; la baza en juego ocupa el espacio libre */
- #deck,#piles,#pOpp,#pMe{display:none!important}
- body:not(.p4){--cw:clamp(56px,min(21vw,9.6dvh),92px);--pw:clamp(84px,min(37vw,17dvh),170px)}
- body:not(.p4) #mid{display:grid;grid-template-columns:1fr 1fr;align-content:space-evenly;align-items:center;justify-items:center;gap:.2rem .3rem}
- body:not(.p4) #play{--cw:var(--pw);grid-column:1 / -1;grid-row:1}
- body.p4{--cw:clamp(48px,min(21vw,9.5dvh),96px)}
- body.p4 #play{--cw:clamp(56px,min(26vw,12.5dvh),124px)}
+ #deck,#piles,#montonRival,#montonPropio{display:none!important}
+ body:not(.cuatroJugadores){--ancho-carta:clamp(56px,min(21vw,9.6dvh),92px);--ancho-carta-baza:clamp(84px,min(37vw,17dvh),170px)}
+ body:not(.cuatroJugadores) #centroMesa{display:grid;grid-template-columns:1fr 1fr;align-content:space-evenly;align-items:center;justify-items:center;gap:.2rem .3rem}
+ body:not(.cuatroJugadores) #play{--ancho-carta:var(--ancho-carta-baza);grid-column:1 / -1;grid-row:1}
+ body.cuatroJugadores{--ancho-carta:clamp(48px,min(21vw,9.5dvh),96px)}
+ body.cuatroJugadores #play{--ancho-carta:clamp(56px,min(26vw,12.5dvh),124px)}
 }
 @media (max-width:640px) and (max-height:700px){
- body:not(.p4){--cw:clamp(50px,8dvh,80px);--pw:clamp(66px,13.5dvh,140px)}
- :root{--hw:clamp(60px,min(29.5vw,14.4dvh),132px)}
+ body:not(.cuatroJugadores){--ancho-carta:clamp(50px,8dvh,80px);--ancho-carta-baza:clamp(66px,13.5dvh,140px)}
+ :root{--ancho-carta-mano:clamp(60px,min(29.5vw,14.4dvh),132px)}
 }
 @media (max-width:640px) and (max-height:600px){
- body:not(.p4){--pw:clamp(62px,12.5dvh,130px)}
- :root{--hw:clamp(56px,min(29.5vw,13.6dvh),132px)}
+ body:not(.cuatroJugadores){--ancho-carta-baza:clamp(62px,12.5dvh,130px)}
+ :root{--ancho-carta-mano:clamp(56px,min(29.5vw,13.6dvh),132px)}
 }
 
 /* ===== Escritorio: barra fina arriba + panel lateral (turno, jugadores, marcador, triunfo) ===== */
 @media (min-width:641px){
- :root{--panelw:clamp(12.5rem,21vw,18rem);--cw:clamp(56px,min(12.5vw,calc((100vh - 190px)/4.9),calc((100vw - var(--panelw) - 2.6rem)/6.95)),152px)}   /* nunca más ancho que la mesa */
- #game{display:grid;grid-template-columns:var(--panelw) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+ :root{--ancho-panel:clamp(12.5rem,21vw,18rem);--ancho-carta:clamp(56px,min(12.5vw,calc((100vh - 190px)/4.9),calc((100vw - var(--ancho-panel) - 2.6rem)/6.95)),152px)}   /* nunca más ancho que la mesa */
+ #game{display:grid;grid-template-columns:var(--ancho-panel) minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
  #top{grid-column:1 / -1;align-items:center;padding:.4rem 7rem .3rem .9rem}
- #topL,#topR{flex-direction:row;align-items:center;gap:.5rem}
+ #topIzquierda,#topDerecha{flex-direction:row;align-items:center;gap:.5rem}
  #panel{display:flex;flex-direction:column;gap:1rem;grid-column:1;grid-row:2;align-self:start;margin:.4rem 0 .6rem .6rem;padding:1rem;
   background:#0004;border:1px solid #fff2;border-radius:12px;position:relative;z-index:1}
- #mesa{grid-column:2;grid-row:2;padding-top:calc(var(--cw)*1.1 + .4rem)}
- body.p4 #mesa{padding-top:calc(var(--cw)*1.35 + .4rem)}
- body.p4{--cw:clamp(52px,min(11vw,calc((100vh - 170px)/5.8),calc((100vw - var(--panelw) - 3.6rem)/8.3)),150px)}   /* 4 jugadores: manos laterales + baza + mazo caben en la mesa */
- #opp{top:2.7rem;left:calc(var(--panelw) + .6rem)}
+ #mesa{grid-column:2;grid-row:2;padding-top:calc(var(--ancho-carta)*1.1 + .4rem)}
+ body.cuatroJugadores #mesa{padding-top:calc(var(--ancho-carta)*1.35 + .4rem)}
+ body.cuatroJugadores{--ancho-carta:clamp(52px,min(11vw,calc((100vh - 170px)/5.8),calc((100vw - var(--ancho-panel) - 3.6rem)/8.3)),150px)}   /* 4 jugadores: manos laterales + baza + mazo caben en la mesa */
+ #manoSuperior{top:2.7rem;left:calc(var(--ancho-panel) + .6rem)}
  #panel #msg{order:1;align-items:flex-start;text-align:left;min-height:0;padding:0;gap:.4rem}
- #panel #msg .st{font-size:1.15rem;border-radius:14px}
- #panel #msg .ev{font-size:.95rem;min-height:0}
+ #panel #msg .estado{font-size:1.15rem;border-radius:14px}
+ #panel #msg .ultimoEvento{font-size:.95rem;min-height:0}
  #panel #msg .hint{font-size:.85rem;min-height:0}
- #panel #msg .ev:empty,#panel #msg .hint:empty{display:none}
+ #panel #msg .ultimoEvento:empty,#panel #msg .hint:empty{display:none}
  #panel #names{order:2;font-size:1rem;gap:.35rem;padding:0}
  #panel #score{order:3;display:block;white-space:normal;border-radius:10px;padding:.5em .8em;line-height:1.35}
  #panel #deckInfo{order:4;white-space:normal;border-radius:10px;padding:.5em .8em;border:1px solid var(--oro);font-size:1rem}
@@ -298,7 +300,7 @@ body.p4 .side{display:flex}
 
 /* ===== Tablet vertical: panel en una fila arriba y mesa a todo el ancho ===== */
 @media (min-width:641px) and (orientation:portrait){
- :root{--panelw:0px}
+ :root{--ancho-panel:0px}
  #game{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto auto minmax(0,1fr)}
  #top{padding-right:7rem}
  #panel{grid-column:1;grid-row:2;flex-direction:row;flex-wrap:wrap;align-items:center;align-self:stretch;gap:.5rem 1rem;margin:.2rem .6rem;padding:.6rem .9rem}
@@ -306,8 +308,8 @@ body.p4 .side{display:flex}
  #panel #names{flex-direction:row;flex-wrap:wrap;gap:.2rem 1rem}
  #panel #names::before{display:none}
  #panel #score,#panel #deckInfo{padding:.35em .8em}
- #opp{position:static;grid-column:1;grid-row:3}
- #mesa,body.p4 #mesa{grid-column:1;grid-row:4;padding-top:.3rem}
+ #manoSuperior{position:static;grid-column:1;grid-row:3}
+ #mesa,body.cuatroJugadores #mesa{grid-column:1;grid-row:4;padding-top:.3rem}
 }
 @media (prefers-reduced-motion:reduce){*{animation:none!important}}
 </style>
@@ -315,17 +317,17 @@ body.p4 .side{display:flex}
 <body>
 
 <div id="lobby">
- <button class="btn alt small" id="bAyuda" type="button" aria-haspopup="dialog" aria-label="Ayuda">?<span class="ayt"> Ayuda</span></button>
+ <button class="btn alt small" id="bAyuda" type="button" aria-haspopup="dialog" aria-label="Ayuda">?<span class="textoAyuda"> Ayuda</span></button>
  <div class="box">
   <h1 id="tituloJuego"></h1>
   <p id="subtituloJuego"></p>
-  <input id="inName" maxlength="16" placeholder="Tu nombre (opcional)" autocomplete="off" aria-label="Tu nombre (opcional)">
-  <input id="inPass" type="password" placeholder="Contraseña" autocomplete="off" aria-label="Contraseña de la sala">
+  <input id="campoNombre" placeholder="Tu nombre (opcional)" autocomplete="off" aria-label="Tu nombre (opcional)">
+  <input id="campoClave" type="password" placeholder="Contraseña" autocomplete="off" aria-label="Contraseña de la sala">
   <div class="cols">
    <section class="col">
     <h3>Crear sala</h3>
-    <div class="modes" id="npBox"></div>
-    <div class="modes" id="tcBox" hidden></div>
+    <div class="modes" id="numJugadoresBox"></div>
+    <div class="modes" id="equipoCrearBox" hidden></div>
     <div id="seatsBox"></div>
     <div class="modes" id="modeBox"></div>
     <button class="btn" id="bCrear" style="width:100%">Jugar contra el bot</button>
@@ -333,39 +335,39 @@ body.p4 .side{display:flex}
    <section class="col">
     <h3>Unirse a una sala</h3>
     <div id="rooms"><em>Buscando salas…</em></div>
-    <div class="modes three" id="tpBox"></div>
-    <input id="inCode" maxlength="4" placeholder="CÓDIGO" autocomplete="off">
+    <div class="modes three" id="equipoUnirseBox"></div>
+    <input id="campoCodigo" placeholder="CÓDIGO" autocomplete="off">
     <button class="btn alt" id="bUnir" style="width:100%">Unirse con código</button>
    </section>
   </div>
-  <div id="err"></div>
+  <div id="mensajeError"></div>
  </div>
 </div>
 
 <div id="game" hidden>
  <div id="top">
-  <div id="topL">
+  <div id="topIzquierda">
    <span class="chip" id="room"></span>
    <span class="chip" id="deckInfo"></span>
    <div id="names"></div>
    <div id="msg" role="status" aria-live="polite">
-    <div class="st" id="st"></div>
-    <div class="ev" id="ev"></div>
+    <div class="estado" id="estado"></div>
+    <div class="ultimoEvento" id="ultimoEvento"></div>
     <div class="hint" id="hint"></div>
    </div>
   </div>
-  <div id="topR">
+  <div id="topDerecha">
    <span class="chip" id="score"></span>
    <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
   </div>
-  <button class="btn alt small" id="menuB" type="button" aria-label="Menú" aria-haspopup="true">☰</button>
-  <div id="menu"><button class="btn alt small" id="bAyuda2" type="button">? Ayuda</button></div>
+  <button class="btn alt small" id="bMenu" type="button" aria-label="Menú" aria-haspopup="true">☰</button>
+  <div id="menu"><button class="btn alt small" id="bAyudaMenu" type="button">? Ayuda</button></div>
  </div>
  <aside id="panel"></aside>
  <div id="mesa"></div>
 </div>
-<dialog id="ayuda" aria-labelledby="ayT">
- <h2 id="ayT"></h2>
+<dialog id="ayuda" aria-labelledby="ayudaTitulo">
+ <h2 id="ayudaTitulo"></h2>
  <div id="ayudaJuego"></div>
 
 
@@ -373,9 +375,9 @@ body.p4 .side{display:flex}
  <p>Crea una sala (con contraseña opcional) y elige el modo, o únete a una de la lista o con su código de 4 letras. Las salas se eliminan solas a la hora de crearse. El botón <b>Nueva partida</b> de la mesa te devuelve a esta pantalla.</p>
  <p>Antes de crear o unirte puedes escribir un <b>nombre</b> (opcional). Si lo dejas vacío, se te asigna uno automático de animal, como «Zorro veloz».</p>
 
- <p style="text-align:center;margin-bottom:0"><button class="btn" id="bAyudaX" type="button">Cerrar</button></p>
+ <p style="text-align:center;margin-bottom:0"><button class="btn" id="bAyudaCerrar" type="button">Cerrar</button></p>
 </dialog>
-<div id="fin" hidden><div class="box"><h2 id="finT"></h2><p id="finS"></p><button class="btn" id="bRe">Otra partida</button></div></div>
+<div id="fin" hidden><div class="box"><h2 id="finTitulo"></h2><p id="finDetalle"></p><button class="btn" id="bSiguienteMano">Otra partida</button></div></div>
 
 <script type="module">
 /* ============ CONFIGURACIÓN DE FIREBASE ============
@@ -660,6 +662,11 @@ class ReglasGuinote {
   static CANTE_TRIUNFO = 40;       // cante en el palo de triunfo
   static NUMERO_CAMBIO = 7;        // el 7 de triunfo se puede cambiar por la carta girada
   static MIN_MAZO_CAMBIO = 2;      // cartas mínimas en el mazo para poder cambiar el 7
+  static JUGADORES_DUELO = 2;      // partida de dos: cada uno por su cuenta
+  static JUGADORES_PAREJAS = 4;    // partida de cuatro: dos equipos de dos
+  static JUGADORES_POR_EQUIPO = 2;
+  /** Asiento de otro jugador respecto al propio en partidas de 4: el turno pasa al SIGUIENTE (a mi derecha) y la PAREJA es el opuesto. */
+  static DISTANCIA = Object.freeze({ SIGUIENTE: 1, PAREJA: 2, ANTERIOR: 3 });
 
   static #ORDEN_FUERZA = Object.freeze([2, 4, 5, 6, 7, 10, 11, 12, 3, 1]);   // de menor a mayor
   static #FUERZA = Object.freeze(Object.fromEntries(this.#ORDEN_FUERZA.map((numero, fuerza) => [numero, fuerza])));
@@ -1115,6 +1122,20 @@ class PartidaGuinote {
  * jugadas ya está en la partida). Acción: { tipo: 'jugar', carta } | { tipo: 'cantar', palo } | { tipo: 'cambiar' }
  */
 class BotGuinote extends Bot {
+  // Pesos de la heurística de «coste» de soltar una carta (menor = más barata de gastar)
+  static PESO_PUNTOS = 2;            // cada punto de la carta pesa el doble
+  static RECARGO_TRIUNFO = 14;       // gastar un triunfo es caro
+  static DIVISOR_FUERZA = 5;         // la fuerza solo desempata
+  static RECARGO_ROMPER_CANTE = 6;   // separar un rey y un caballo que aún se pueden cantar
+  static BAZA_VALIOSA = 10;          // puntos en la mesa a partir de los que merece fallar con triunfo
+  static BAZA_MEDIA = 3;             // puntos en la mesa a partir de los que merece ganar si la carta no vale nada
+  static VALOR_EXTREMO = 1e9;        // «infinito» del minimax del final exacto
+
+  static #costeBase(carta, triunfo) {
+    const { puntos, fuerza } = ReglasGuinote;
+    return puntos(carta) * BotGuinote.PESO_PUNTOS + (carta.palo === triunfo ? BotGuinote.RECARGO_TRIUNFO : 0) + fuerza(carta) / BotGuinote.DIVISOR_FUERZA;
+  }
+
   /** Qué hace ahora en `partida` (debe ser su turno): cambiar el 7, cantar o jugar una carta. */
   elegirJugada(partida) {
     const asiento = this.asiento;
@@ -1129,36 +1150,37 @@ class BotGuinote extends Bot {
   #elegirCarta(partida){
     const { puntos, fuerza } = ReglasGuinote;
     const seat = this.asiento, mesa = partida.mesa;
-    if(partida.jugadores === 2 && !partida.cartasEnMazo){ try{ const chosenCard = this.#finalExacto(partida); if(chosenCard) return chosenCard; }catch(error){ console.error(error); } }
+    if(partida.jugadores === ReglasGuinote.JUGADORES_DUELO && !partida.cartasEnMazo){ try{ const chosenCard = this.#finalExacto(partida); if(chosenCard) return chosenCard; }catch(error){ console.error(error); } }
     const handCards = partida.cartasDe(seat), allowed = partida.cartasLegales(seat), trump = partida.triunfo, sung = partida.cantados;
     const noTrump = cards => { const nonTrump = cards.filter(card => card.palo !== trump); return nonTrump.length ? nonTrump : cards; };
     // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+caballo cantable
     const cost = card => { const pareja = ReglasGuinote.parejaDeCante(card);
-      return puntos(card)*2 + (card.palo === trump ? 14 : 0) + fuerza(card)/5 +
-        (pareja && handCards.includes(pareja) && !sung.has(card.palo) ? 6 : 0); };
+      return BotGuinote.#costeBase(card, trump) +
+        (pareja && handCards.includes(pareja) && !sung.has(card.palo) ? BotGuinote.RECARGO_ROMPER_CANTE : 0); };
     const cheapest = cards => cards.reduce((currentBest,card) => cost(card) < cost(currentBest) ? card : currentBest);
     if(mesa.length === 0){
       if(partida.paloForzado || partida.cartasEnMazo) return cheapest(allowed);                // salir con lo más barato
       return noTrump(allowed).reduce((currentBest,card) => fuerza(card) > fuerza(currentBest) ? card : currentBest);      // arrastre: la carta más fuerte
     }
     const currentWinner = ReglasGuinote.ganadoraDeBaza(mesa, trump), bestCard = currentWinner.card, tablePoints = ReglasGuinote.puntosDeBaza(mesa);
-    if(partida.jugadores === 4 && ReglasGuinote.equipoDe(currentWinner.seat) === ReglasGuinote.equipoDe(seat)){                            // la pareja va ganando la baza
-      if(mesa.length < 3 || partida.cartasEnMazo === 0) return cheapest(allowed);
+    if(partida.jugadores === ReglasGuinote.JUGADORES_PAREJAS && ReglasGuinote.equipoDe(currentWinner.seat) === ReglasGuinote.equipoDe(seat)){                            // la pareja va ganando la baza
+      const soyUltimoEnJugar = mesa.length === partida.jugadores - 1;
+      if(!soyUltimoEnJugar || partida.cartasEnMazo === 0) return cheapest(allowed);
       return noTrump(allowed).reduce((currentBest,card) => puntos(card) > puntos(currentBest) || (puntos(card) === puntos(currentBest) && cost(card) < cost(currentBest)) ? card : currentBest);
     }
     const winningCards = allowed.filter(card => ReglasGuinote.superaA(card, bestCard, trump));
     if(partida.cartasEnMazo === 0) return winningCards.length ? cheapest(winningCards) : cheapest(allowed);   // en el arrastre ok ya cumple las obligaciones
     if(winningCards.length){
       const cheapestWinner = cheapest(winningCards), isRuff = cheapestWinner.palo === trump && bestCard.palo !== trump;
-      if(!isRuff || tablePoints >= 10 || (tablePoints >= 3 && puntos(cheapestWinner) === 0)) return cheapestWinner;          // no gastar triunfos por bazas sin valor
+      if(!isRuff || tablePoints >= BotGuinote.BAZA_VALIOSA || (tablePoints >= BotGuinote.BAZA_MEDIA && puntos(cheapestWinner) === 0)) return cheapestWinner;          // no gastar triunfos por bazas sin valor
     }
     return cheapest(allowed);
   }
 
   #finalExacto(partida){
-    const { puntos, fuerza } = ReglasGuinote;
+    const { puntos } = ReglasGuinote;
     const seat = this.asiento;
-    if(partida.jugadores !== 2 || partida.cartasEnMazo) return null;
+    if(partida.jugadores !== ReglasGuinote.JUGADORES_DUELO || partida.cartasEnMazo) return null;
     const mine = partida.cartasDe(seat), mesa = partida.mesa, leadEntry = mesa[0] || null, leadCardOnTable = leadEntry && leadEntry.card, trump = partida.triunfo;
     const known = new Set([...mine, ...partida.cartasJugadas, ...mesa.map(entry => entry.card)]);
     const rivalCards = Carta.todas().filter(card => !known.has(card));
@@ -1175,16 +1197,16 @@ class BotGuinote extends Bot {
       const key = [...botHand].sort().join() + '/' + [...opponentHand].sort().join() + lead;
       if(memo.has(key)) return memo.get(key);
       const leaderHand = lead === 0 ? botHand : opponentHand, otherHand = lead === 0 ? opponentHand : botHand;
-      let best = lead === 0 ? -1e9 : 1e9;
+      let best = lead === 0 ? -BotGuinote.VALOR_EXTREMO : BotGuinote.VALOR_EXTREMO;
       for(const leadCard of leaderHand){
-        let inner = lead === 0 ? 1e9 : -1e9;
+        let inner = lead === 0 ? BotGuinote.VALOR_EXTREMO : -BotGuinote.VALOR_EXTREMO;
         for(const replyCard of ReglasGuinote.cartasLegales(otherHand, [{card:leadCard}], 0, trump, null)){ const value = playTrick(botHand,opponentHand,lead,leadCard,replyCard); inner = lead === 0 ? Math.min(inner,value) : Math.max(inner,value); }
         best = lead === 0 ? Math.max(best,inner) : Math.min(best,inner);
       }
       memo.set(key,best); return best;
     }
-    const spendCost = card => puntos(card)*2 + (card.palo === trump ? 14 : 0) + fuerza(card)/5;     // desempate: gastar lo menos valioso
-    let bestCard = null, bestValue = -1e9;
+    const spendCost = card => BotGuinote.#costeBase(card, trump);     // desempate: gastar lo menos valioso
+    let bestCard = null, bestValue = -BotGuinote.VALOR_EXTREMO;
     for(const card of partida.cartasLegales(seat).sort((cardA,cardB) => spendCost(cardA) - spendCost(cardB))){
       const value = leadEntry ? playTrick(mine, rivalCardsWithLead, 1, leadCardOnTable, card)
                    : Math.min(...ReglasGuinote.cartasLegales(rivalCards, [{card}], 0, trump, null).map(replyCard => playTrick(mine, rivalCards, 0, card, replyCard)));
@@ -1201,29 +1223,33 @@ class BotGuinote extends Bot {
  * pasa a la sesión.
  */
 class VistaGuinote {
-  static IDS = ['me','opp','oR','oL','acts','deck','play','pMe','pOpp'];
+  static ESCALON_REPARTO_MS = 70;         // retraso entre carta y carta en la animación de reparto
+  static BAZAS_VISIBLES_EN_MONTON = 5;    // como mucho se dibujan 5 cartas en cada montón de bazas
+  static SOLAPE_MONTON_PX = 2;            // cuánto asoma cada carta del montón sobre la anterior
+  static REVERSOS_VISIBLES_MAZO = 2;      // reversos dibujados bajo la carta de triunfo
+  static IDS = ['manoPropia','manoSuperior','manoDerecha','manoIzquierda','acciones','deck','play','montonPropio','montonRival'];
   /* Tapete de guiñote: manos de los rivales, mazo, baza en juego, montones de bazas, acciones y mano propia.
      (Los estilos de estos elementos siguen en la hoja de estilos, marcados al principio de ella.) */
   static MARCADO = html`
    <div id="row">
-    <div id="oL" class="side"></div>
-    <div id="mid">
+    <div id="manoIzquierda" class="side"></div>
+    <div id="centroMesa">
      <div id="deck"></div>
      <div id="play"></div>
-     <div id="piles"><div class="pile" id="pOpp"></div><div class="pile" id="pMe"></div></div>
+     <div id="piles"><div class="pile" id="montonRival"></div><div class="pile" id="montonPropio"></div></div>
     </div>
-    <div id="oR" class="side"></div>
+    <div id="manoDerecha" class="side"></div>
    </div>
-   <div id="acts"></div>
-   <div id="me" class="hand"></div>`;
+   <div id="acciones"></div>
+   <div id="manoPropia" class="hand"></div>`;
 
   constructor(mesa){
     this.mesa = mesa;
     this.sesion = mesa.sesion;
     this.anclaNombres = 'row';       // el HUD móvil coloca los nombres antes de #row…
-    this.anclaEstado = 'me';         // …y el estado del turno antes de #me
-    const opp = document.createElement('div'); opp.id = 'opp'; opp.className = 'hand';   // la mano del rival va pegada al borde de la mesa
-    byId('game').prepend(opp);
+    this.anclaEstado = 'manoPropia';         // …y el estado del turno antes de #manoPropia
+    const manoSuperior = document.createElement('div'); manoSuperior.id = 'manoSuperior'; manoSuperior.className = 'hand';   // la mano del rival va pegada al borde de la mesa
+    byId('game').prepend(manoSuperior);
     pintar(mesa.el.mesa, VistaGuinote.MARCADO);
     this.el = {...mesa.el, ...Object.fromEntries(VistaGuinote.IDS.map(id => [id, byId(id)]))};
     this.reiniciarAnimaciones();
@@ -1234,29 +1260,29 @@ class VistaGuinote {
     this.seen = new Set();        // cartas de mi mano ya pintadas (animación de reparto)
     this.prevTable = '';          // baza pintada en el render anterior (animación de jugada)
   }
-  limpiar(){ document.body.classList.remove('p4'); }
+  limpiar(){ document.body.classList.remove('cuatroJugadores'); }
 
   conectarEventos(){
     const sesion = this.sesion;
-    this.el.me.addEventListener('click', event => { const card = event.target.dataset && event.target.dataset.card; if(card) sesion.aplicar(sesion.mySeat, {tipo: 'jugar', carta: card}); });
-    this.el.acts.addEventListener('click', event => {
+    this.el.manoPropia.addEventListener('click', event => { const card = event.target.dataset && event.target.dataset.card; if(card) sesion.aplicar(sesion.mySeat, {tipo: 'jugar', carta: card}); });
+    this.el.acciones.addEventListener('click', event => {
       if(event.target.dataset.cante) sesion.aplicar(sesion.mySeat, {tipo: 'cantar', palo: event.target.dataset.cante});
-      if(event.target.id === 'bCamb') sesion.aplicar(sesion.mySeat, {tipo: 'cambiar'});
+      if(event.target.id === 'bCambiarSiete') sesion.aplicar(sesion.mySeat, {tipo: 'cambiar'});
     });
   }
 
   // Carta boca arriba; las de triunfo van en un <div> para poder llevar marco y estrella
-  isTf(card){ const game = this.sesion.game; return !!game && Carta.de(card).palo === game.triunfo; }
+  esTriunfo(card){ const game = this.sesion.game; return !!game && Carta.de(card).palo === game.triunfo; }
   face(card, className, attrs=html``, ext=CARD_EXT){
-    return this.isTf(card)
-      ? html`<div class="card ${className} tf" ${attrs}><img src="cartas/${card}.${ext}" draggable="false" alt="${card}"></div>`
+    return this.esTriunfo(card)
+      ? html`<div class="card ${className} triunfo" ${attrs}><img src="cartas/${card}.${ext}" draggable="false" alt="${card}"></div>`
       : html`<img class="card ${className}" ${attrs} src="cartas/${card}.${ext}" draggable="false" alt="${card}">`;
   }
   cardImg(card, className=''){ return this.face(card, className, html`data-card="${card}"`); }
 
   evText(gameEvent){
     if(!gameEvent) return '';
-    const isMine = gameEvent.seat === this.sesion.mySeat, displayName = this.sesion.nombreDe(gameEvent.seat) + (this.sesion.game.jugadores === 4 && !isMine && ReglasGuinote.equipoDe(gameEvent.seat) === ReglasGuinote.equipoDe(this.sesion.mySeat) ? ' (tu pareja)' : '');
+    const isMine = gameEvent.seat === this.sesion.mySeat, displayName = this.sesion.nombreDe(gameEvent.seat) + (this.sesion.game.jugadores === ReglasGuinote.JUGADORES_PAREJAS && !isMine && ReglasGuinote.equipoDe(gameEvent.seat) === ReglasGuinote.equipoDe(this.sesion.mySeat) ? ' (tu pareja)' : '');
     if(gameEvent.type === 'baza') return `${isMine ? 'Te llevas' : displayName + ' se lleva'} la baza (${gameEvent.points} puntos)` + (gameEvent.lastTrickBonus ? ' y las diez de últimas' : '');
     if(gameEvent.type === 'cante') return `${isMine ? 'Cantas' : displayName + ' canta'} las ${gameEvent.points} en ${gameEvent.suit}`;
     if(gameEvent.type === 'cambio') return `${isMine ? 'Cambias' : displayName + ' cambia'} el siete de triunfo`;
@@ -1264,65 +1290,68 @@ class VistaGuinote {
   }
 
   renderHands({four, isMyTurn, relativeSeat, currentSeat}){
-    const setTeamColor = (elementId, seat) => this.el[elementId].setAttribute('data-tc', this.mesa.color(ReglasGuinote.equipoDe(seat)));   // contorno del color de cada jugador/equipo
-    setTeamColor('me', this.sesion.mySeat); setTeamColor('opp', four ? relativeSeat(2) : relativeSeat(1));
-    if(four){ setTeamColor('oR', relativeSeat(1)); setTeamColor('oL', relativeSeat(3)); }
+    const {SIGUIENTE, PAREJA, ANTERIOR} = ReglasGuinote.DISTANCIA;
+    const setTeamColor = (elementId, seat) => this.el[elementId].setAttribute('data-color-equipo', this.mesa.color(ReglasGuinote.equipoDe(seat)));   // contorno del color de cada jugador/equipo
+    setTeamColor('manoPropia', this.sesion.mySeat); setTeamColor('manoSuperior', four ? relativeSeat(PAREJA) : relativeSeat(SIGUIENTE));
+    if(four){ setTeamColor('manoDerecha', relativeSeat(SIGUIENTE)); setTeamColor('manoIzquierda', relativeSeat(ANTERIOR)); }
     // Rivales y pareja (en 4: pareja arriba, rivales a derecha e izquierda)
-    if(four){ pintar(this.el.opp, backs(this.sesion.game.cartasDe(relativeSeat(2)))); pintar(this.el.oR, backs(this.sesion.game.cartasDe(relativeSeat(1)))); pintar(this.el.oL, backs(this.sesion.game.cartasDe(relativeSeat(3)))); }
-    else{ pintar(this.el.opp, backs(this.sesion.game.cartasDe(1 - this.sesion.mySeat))); pintar(this.el.oR, ''); pintar(this.el.oL, ''); }
-    this.el.opp.classList.toggle('act', four && currentSeat === relativeSeat(2));
-    this.el.oR.classList.toggle('act', four && currentSeat === relativeSeat(1));
-    this.el.oL.classList.toggle('act', four && currentSeat === relativeSeat(3));
+    if(four){ pintar(this.el.manoSuperior, backs(this.sesion.game.cartasDe(relativeSeat(PAREJA)))); pintar(this.el.manoDerecha, backs(this.sesion.game.cartasDe(relativeSeat(SIGUIENTE)))); pintar(this.el.manoIzquierda, backs(this.sesion.game.cartasDe(relativeSeat(ANTERIOR)))); }
+    else{ pintar(this.el.manoSuperior, backs(this.sesion.game.cartasDe(1 - this.sesion.mySeat))); pintar(this.el.manoDerecha, ''); pintar(this.el.manoIzquierda, ''); }
+    this.el.manoSuperior.classList.toggle('activa', four && currentSeat === relativeSeat(PAREJA));
+    this.el.manoDerecha.classList.toggle('activa', four && currentSeat === relativeSeat(SIGUIENTE));
+    this.el.manoIzquierda.classList.toggle('activa', four && currentSeat === relativeSeat(ANTERIOR));
     // Mano propia, ordenada por palo y fuerza (el triunfo siempre a la izquierda)
     const suitOrder = card => card.palo === this.sesion.game.triunfo ? -1 : Carta.PALOS.indexOf(card.palo);
     const mine = this.sesion.game.cartasDe(this.sesion.mySeat).sort((first,second) => suitOrder(first) - suitOrder(second) || ReglasGuinote.fuerza(second) - ReglasGuinote.fuerza(first));
     const playable = isMyTurn ? this.sesion.game.cartasLegales(this.sesion.mySeat) : [];
     let dealtCount = 0;
-    this.el.me.className = 'hand' + (isMyTurn ? ' turno' : '');
-    pintar(this.el.me, mine.map(card => {
+    this.el.manoPropia.className = 'hand' + (isMyTurn ? ' turno' : '');
+    pintar(this.el.manoPropia, mine.map(card => {
       const nuevo = !this.seen.has(card), isPlayable = playable.includes(card);
-      return this.face(card, `${isPlayable ? 'ok' : ''} ${isMyTurn && !isPlayable ? 'dim' : ''} ${nuevo ? 'deal' : ''}`, html`style="${nuevo ? `animation-delay:${dealtCount++*70}ms` : ''}" data-card="${card}"`);
+      return this.face(card, `${isPlayable ? 'jugable' : ''} ${isMyTurn && !isPlayable ? 'atenuada' : ''} ${nuevo ? 'repartida' : ''}`, html`style="${nuevo ? `animation-delay:${dealtCount++*VistaGuinote.ESCALON_REPARTO_MS}ms` : ''}" data-card="${card}"`);
     }));
     this.seen = new Set(mine);
     // Acciones (cantes y cambio del 7)
     const actionButtons = this.sesion.game.cantesPosibles(this.sesion.mySeat).map(suitName => html`<button class="btn" data-cante="${suitName}">Cantar las ${ReglasGuinote.valorCante(suitName, this.sesion.game.triunfo)} en ${suitName}</button>`);
-    if(this.sesion.game.puedeCambiarSiete(this.sesion.mySeat)) actionButtons.push(html`<button class="btn alt" id="bCamb">Cambiar el 7 de triunfo</button>`);
-    pintar(this.el.acts, actionButtons);
+    if(this.sesion.game.puedeCambiarSiete(this.sesion.mySeat)) actionButtons.push(html`<button class="btn alt" id="bCambiarSiete">Cambiar el 7 de triunfo</button>`);
+    pintar(this.el.acciones, actionButtons);
   }
 
   renderTable({playerCount, four, team, otherTeam}){
     // Mazo con el triunfo girado debajo
     const deckCount = this.sesion.game.cartasEnMazo;
-    pintar(this.el.deck, [deckCount ? this.cardImg(this.sesion.game.cartaTriunfo,'tr') : '', deckCount > 1 ? [back('bk'), deckCount > 2 ? back('bk') : ''] : '']);
+    const reversos = Math.max(0, Math.min(deckCount - 1, VistaGuinote.REVERSOS_VISIBLES_MAZO));   // el triunfo es una de las cartas del mazo
+    pintar(this.el.deck, [deckCount ? this.cardImg(this.sesion.game.cartaTriunfo,'cartaGirada') : '', Array.from({length: reversos}, () => back('reverso'))]);
     // Cartas en la mesa (en 4: cada una en su lado, según el asiento relativo)
-    this.el.play.className = four ? 'p4' : '';
+    this.el.play.className = four ? 'cuatroJugadores' : '';
     pintar(this.el.play, this.sesion.game.mesa.map(entry => {
-      const nuevo = !this.prevTable.includes(entry.card.id), className = four ? 's' + ((entry.seat - this.sesion.mySeat + playerCount) % playerCount) : (entry.seat === this.sesion.mySeat ? 'mine' : 'theirs');
-      return this.face(entry.card, className, html`data-tc="${this.mesa.color(ReglasGuinote.equipoDe(entry.seat))}" style="${nuevo ? '' : 'animation:none'}"`);
+      const nuevo = !this.prevTable.includes(entry.card.id), className = four ? 'posicion' + ((entry.seat - this.sesion.mySeat + playerCount) % playerCount) : (entry.seat === this.sesion.mySeat ? 'mine' : 'theirs');
+      return this.face(entry.card, className, html`data-color-equipo="${this.mesa.color(ReglasGuinote.equipoDe(entry.seat))}" style="${nuevo ? '' : 'animation:none'}"`);
     }));
     this.prevTable = this.sesion.game.mesa.map(entry => entry.card.id).join();
     // Montones de bazas (por equipo)
-    const pile = count => count ? html`${Array.from({length:Math.min(count,5)}, (unused, index) => back('', html`style="top:${index*-2}px"`))}<span>${count} baza${count>1?'s':''}</span>` : '';
-    this.el.pMe.setAttribute('data-tc', this.mesa.color(team)); this.el.pOpp.setAttribute('data-tc', this.mesa.color(otherTeam));
-    pintar(this.el.pOpp, pile(this.sesion.game.marcador.bazasDe(otherTeam))); pintar(this.el.pMe, pile(this.sesion.game.marcador.bazasDe(team)));
+    const pile = count => count ? html`${Array.from({length:Math.min(count,VistaGuinote.BAZAS_VISIBLES_EN_MONTON)}, (unused, index) => back('', html`style="top:${-index*VistaGuinote.SOLAPE_MONTON_PX}px"`))}<span>${count} baza${count>1?'s':''}</span>` : '';
+    this.el.montonPropio.setAttribute('data-color-equipo', this.mesa.color(team)); this.el.montonRival.setAttribute('data-color-equipo', this.mesa.color(otherTeam));
+    pintar(this.el.montonRival, pile(this.sesion.game.marcador.bazasDe(otherTeam))); pintar(this.el.montonPropio, pile(this.sesion.game.marcador.bazasDe(team)));
   }
 
   renderScore({team, otherTeam}){
     const partida = this.sesion.game, marcador = partida.marcador;
-    pintar(this.el.deckInfo, html`<span class="tfs">★</span> Triunfo: ${partida.triunfo} · ${partida.cartasEnMazo}<span class="mz"> en el mazo</span>`);
+    pintar(this.el.deckInfo, html`<span class="estrellaTriunfo">★</span> Triunfo: ${partida.triunfo} · ${partida.cartasEnMazo}<span class="enElMazo"> en el mazo</span>`);
     // Puntos acumulados: manos anteriores + mano en curso (al terminar la mano, el total ya incluye sus puntos)
-    pintar(this.el.score, html`${marcador.esNormal ? `M ${marcador.numeroMano} · ` : ''}<i class="dot" data-tc="${this.mesa.color(team)}"></i> <b>${marcador.puntosAcumulados(team)}</b> – <i class="dot" data-tc="${this.mesa.color(otherTeam)}"></i> <b>${marcador.puntosAcumulados(otherTeam)}</b>`);
+    pintar(this.el.score, html`${marcador.esNormal ? `M ${marcador.numeroMano} · ` : ''}<i class="dot" data-color-equipo="${this.mesa.color(team)}"></i> <b>${marcador.puntosAcumulados(team)}</b> – <i class="dot" data-color-equipo="${this.mesa.color(otherTeam)}"></i> <b>${marcador.puntosAcumulados(otherTeam)}</b>`);
     this.el.score.title = marcador.esNormal ? `Puntos acumulados (se juega a ${ReglasGuinote.META})` : 'Puntos de la mano';
   }
 
   renderStatus({four, team, isMyTurn, relativeSeat}){
+    const {PAREJA} = ReglasGuinote.DISTANCIA;
     const partida = this.sesion.game, eventOwner = partida.ultimoEvento && ReglasGuinote.equipoDe(partida.ultimoEvento.seat) === team ? 'mine' : 'rival', eventMessage = this.evText(partida.ultimoEvento);
     if(partida.manoTerminada) this.mesa.setMsg('Mano terminada', 'wait', eventMessage, eventOwner);
     else if(partida.bazaCompleta) this.mesa.setMsg('Baza completa…', 'wait', eventMessage, eventOwner);
     else if(isMyTurn) this.mesa.setMsg('Tu turno', 'mine', eventMessage, eventOwner,
       partida.paloForzado ? `Cantaste: sal con el rey o el caballo de ${partida.paloForzado}` :
       partida.cartasEnMazo ? '' : 'Arrastre: asiste al palo y supera si puedes');
-    else this.mesa.setMsg('Turno de ' + this.sesion.nombreDe(partida.turno) + (four && partida.turno === relativeSeat(2) ? ' (tu pareja)' : ''), 'wait', eventMessage, eventOwner);
+    else this.mesa.setMsg('Turno de ' + this.sesion.nombreDe(partida.turno) + (four && partida.turno === relativeSeat(PAREJA) ? ' (tu pareja)' : ''), 'wait', eventMessage, eventOwner);
   }
 
   renderFin({four, team, otherTeam}){
@@ -1333,25 +1362,25 @@ class VistaGuinote {
     const ownLabel = four ? `Equipo ${this.mesa.color(team)}` : 'Tú', rivalLabel = four ? `Equipo ${this.mesa.color(otherTeam)}` : 'Rival';
     const handWinner = marcador.ganadorMano();                      // equipo con más puntos en la mano (null = empate)
     if(!marcador.esNormal){
-      this.el.finT.textContent = handWinner === team ? byMode('¡Has ganado!','¡Habéis ganado!') : handWinner === null ? 'Empate' : byMode('Has perdido','Habéis perdido');
-      this.el.finS.textContent = `${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}`;
-      this.el.bRe.textContent = 'Otra partida';
+      this.el.finTitulo.textContent = handWinner === team ? byMode('¡Has ganado!','¡Habéis ganado!') : handWinner === null ? 'Empate' : byMode('Has perdido','Habéis perdido');
+      this.el.finDetalle.textContent = `${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}`;
+      this.el.bSiguienteMano.textContent = 'Otra partida';
     }else if(partida.partidaTerminada){
-      this.el.finT.textContent = marcador.ganadorPartida() === team ? byMode('¡Has ganado la partida!','¡Habéis ganado la partida!') : byMode('Has perdido la partida','Habéis perdido la partida');
-      this.el.finS.textContent = `Última mano: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador final: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}`;
-      this.el.bRe.textContent = 'Nueva partida';
+      this.el.finTitulo.textContent = marcador.ganadorPartida() === team ? byMode('¡Has ganado la partida!','¡Habéis ganado la partida!') : byMode('Has perdido la partida','Habéis perdido la partida');
+      this.el.finDetalle.textContent = `Última mano: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador final: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}`;
+      this.el.bSiguienteMano.textContent = 'Nueva partida';
     }else{
-      this.el.finT.textContent = handWinner === team ? byMode('Ganas la mano','Ganáis la mano') : handWinner === null ? 'Mano empatada' : byMode('Pierdes la mano','Perdéis la mano');
-      this.el.finS.textContent = `Mano ${marcador.numeroMano}: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}\nSe juega a ${ReglasGuinote.META} puntos`;
-      this.el.bRe.textContent = 'Siguiente mano';
+      this.el.finTitulo.textContent = handWinner === team ? byMode('Ganas la mano','Ganáis la mano') : handWinner === null ? 'Mano empatada' : byMode('Pierdes la mano','Perdéis la mano');
+      this.el.finDetalle.textContent = `Mano ${marcador.numeroMano}: ${ownLabel} ${ownPoints} — ${rivalLabel} ${rivalPoints}\nMarcador: ${ownLabel} ${ownTotal} — ${rivalLabel} ${rivalTotal}\nSe juega a ${ReglasGuinote.META} puntos`;
+      this.el.bSiguienteMano.textContent = 'Siguiente mano';
     }
   }
 
   render(){
     const game = this.sesion.game, playerCount = game.jugadores, team = ReglasGuinote.equipoDe(this.sesion.mySeat);
-    const view = {playerCount, four: playerCount === 4, team, otherTeam: 1 - team, isMyTurn: game.esTurnoDe(this.sesion.mySeat), relativeSeat: offset => (this.sesion.mySeat + offset) % playerCount,
+    const view = {playerCount, four: playerCount === ReglasGuinote.JUGADORES_PAREJAS, team, otherTeam: 1 - team, isMyTurn: game.esTurnoDe(this.sesion.mySeat), relativeSeat: offset => (this.sesion.mySeat + offset) % playerCount,
                currentSeat: game.asientoActivo};   // currentSeat: de quién es el turno (para resaltar)
-    document.body.classList.toggle('p4', view.four);
+    document.body.classList.toggle('cuatroJugadores', view.four);
     this.renderHands(view); this.renderTable(view); this.renderScore(view); this.renderStatus(view); this.renderFin(view);
   }
 }
@@ -1413,8 +1442,8 @@ const JuegoGuinote = Object.freeze({
   ayuda: AYUDA_GUINOTE,
 
   opcionesJugadores: Object.freeze([
-    { valor: 2, titulo: '2 jugadores', detalle: 'uno contra uno' },
-    { valor: 4, titulo: '4 jugadores', detalle: 'por parejas' },
+    { valor: ReglasGuinote.JUGADORES_DUELO, titulo: '2 jugadores', detalle: 'uno contra uno' },
+    { valor: ReglasGuinote.JUGADORES_PAREJAS, titulo: '4 jugadores', detalle: 'por parejas' },
   ]),
   modos: Object.freeze([
     { valor: 'normal', titulo: 'Normal', detalle: `a ${ReglasGuinote.META} puntos, varias manos` },
@@ -1434,25 +1463,25 @@ const JuegoGuinote = Object.freeze({
       { valor: 'rojo', titulo: '🔴 Rojo', detalle: 'equipo' },
     ]),
     de: asiento => ReglasGuinote.equipoDe(asiento),
-    asientos: (equipo, numJugadores) => [equipo, equipo + 2].filter(asiento => asiento < numJugadores),
+    asientos: (equipo, numJugadores) => [equipo, equipo + ReglasGuinote.DISTANCIA.PAREJA].filter(asiento => asiento < numJugadores),
     colorDe: (equipo, colorEquipo0) => {
       const primero = COLORES_GUINOTE.includes(colorEquipo0) ? colorEquipo0 : COLORES_GUINOTE[0];
       return equipo === 0 ? primero : (primero === 'azul' ? 'rojo' : 'azul');
     },
-    seEligeColor: numJugadores => numJugadores === 4,
+    seEligeColor: numJugadores => numJugadores === ReglasGuinote.JUGADORES_PAREJAS,
   }),
 
   descripcionModo: modo => modo === 'rapida' ? 'Rápida' : 'Normal · ' + ReglasGuinote.META,
-  etiquetaAsiento: (numJugadores, asiento) => numJugadores === 4 && asiento === 2 ? 'tu pareja' : 'rival',
-  nombreAsiento: (numJugadores, asiento) => numJugadores === 4 ? `Jugador ${asiento + 1}` : 'Rival',
-  nombreSalaLocal: numJugadores => numJugadores === 2 ? 'Contra el bot' : 'Con bots',
-  textoCrearLocal: numJugadores => numJugadores === 2 ? 'Jugar contra el bot' : 'Jugar con bots',
+  etiquetaAsiento: (numJugadores, asiento) => numJugadores === ReglasGuinote.JUGADORES_PAREJAS && asiento === ReglasGuinote.DISTANCIA.PAREJA ? 'tu pareja' : 'rival',
+  nombreAsiento: (numJugadores, asiento) => numJugadores === ReglasGuinote.JUGADORES_PAREJAS ? `Jugador ${asiento + 1}` : 'Rival',
+  nombreSalaLocal: numJugadores => numJugadores === ReglasGuinote.JUGADORES_DUELO ? 'Contra el bot' : 'Con bots',
+  textoCrearLocal: numJugadores => numJugadores === ReglasGuinote.JUGADORES_DUELO ? 'Jugar contra el bot' : 'Jugar con bots',
   mensajeEspera({ sala, asiento, codigo }) {
-    if (sala.numJugadores !== 4) return { estado: 'Esperando rival…', pista: `Comparte el código ${codigo}` };
+    if (sala.numJugadores !== ReglasGuinote.JUGADORES_PAREJAS) return { estado: 'Esperando rival…', pista: `Comparte el código ${codigo}` };
     const color = equipo => sala.colorDeEquipo(equipo);
     return {
-      estado: `Esperando jugadores (${sala.sentados}/4)…`,
-      pista: `Tu equipo: ${color(ReglasGuinote.equipoDe(asiento))} · ${color(0)} ${sala.sentadosEnEquipo(0)}/2 · ${color(1)} ${sala.sentadosEnEquipo(1)}/2 · Código ${codigo}`,
+      estado: `Esperando jugadores (${sala.sentados}/${ReglasGuinote.JUGADORES_PAREJAS})…`,
+      pista: `Tu equipo: ${color(ReglasGuinote.equipoDe(asiento))} · ${color(0)} ${sala.sentadosEnEquipo(0)}/${ReglasGuinote.JUGADORES_POR_EQUIPO} · ${color(1)} ${sala.sentadosEnEquipo(1)}/${ReglasGuinote.JUGADORES_POR_EQUIPO} · Código ${codigo}`,
     };
   },
 
@@ -1480,8 +1509,10 @@ const JuegoGuinote = Object.freeze({
  *   marca cuándo se creó la sala y, con ella, cuándo caduca.
  */
 class Sala {
-  static DURACION_MS = 3600e3;       // duración máxima de una sala
+  static DURACION_MS = 60 * 60 * 1000;   // duración máxima de una sala (1 hora)
   static LONG_CODIGO = 4;            // letras del código de sala
+  static OCUPADO = '1';              // marca de asiento ocupado en la máscara del lobby
+  static LIBRE = '0';                // marca de asiento libre
   static #LETRAS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
 
   #jugadores = null;
@@ -1532,12 +1563,12 @@ class Sala {
 
   /** Asientos ocupados como texto de una cifra por asiento ('1010' en una sala de 4): es lo que muestra el lobby. */
   static mascara(asientos, numJugadores) {
-    return Array.from({ length: numJugadores }, (_, asiento) => asientos?.[asiento] ? '1' : '0').join('');
+    return Array.from({ length: numJugadores }, (_, asiento) => asientos?.[asiento] ? Sala.OCUPADO : Sala.LIBRE).join('');
   }
 
   /** La máscara con el asiento marcado como libre (null se deja como está). */
   static mascaraSin(mascara, asiento) {
-    return mascara === null ? mascara : mascara.slice(0, asiento) + '0' + mascara.slice(asiento + 1);
+    return mascara === null ? mascara : mascara.slice(0, asiento) + Sala.LIBRE + mascara.slice(asiento + 1);
   }
 
   /** Ocupa el primer asiento libre de `candidatos`: { asiento, asientos } con los asientos ya actualizados, o null si no hay ninguno libre. */
@@ -1744,7 +1775,7 @@ class AlmacenFirebase {
     const asientos = transaccion.snapshot.val();
     await set(this.#ref(`rooms/${codigo}/names/${asiento}`), generarNombre());
     await set(this.#ref(`lobby/${codigo}/seatedCount`), Sala.sentadosEn(asientos, sala.numJugadores));
-    if (sala.numJugadores === 4) await set(this.#ref(`lobby/${codigo}/occupiedSeats`), Sala.mascara(asientos));
+    if (sala.eligeEquipo) await set(this.#ref(`lobby/${codigo}/occupiedSeats`), Sala.mascara(asientos));
     return asiento;
   }
 
@@ -1784,7 +1815,7 @@ try{
   database = getDatabase(initializeApp(config));
 }catch(error){
   console.error(error);
-  document.getElementById('err').textContent = `No se pudo cargar ${CONFIG_FILE} (sírvelo con un servidor web, no con file://). Jugar contra bots sigue disponible.`;
+  document.getElementById('mensajeError').textContent = `No se pudo cargar ${CONFIG_FILE} (sírvelo con un servidor web, no con file://). Jugar contra bots sigue disponible.`;
   document.getElementById('bUnir').disabled = true;
 }
 
@@ -1793,8 +1824,14 @@ const almacenFirebase = database ? new AlmacenFirebase(database, JUEGO) : null; 
 /* ============ AJUSTES DE LA APLICACIÓN ============ */
 /* Las reglas del juego viven en la sección de cada juego (para el guiñote, ReglasGuinote); aquí solo lo que no es regla. */
 const AJUSTES = {
-  resolverMs: 1500,       // pausa antes de resolver el paso pendiente de la partida (en guiñote, recoger la baza completa)
+  resolverMs: 1500,           // pausa antes de resolver el paso pendiente de la partida (en guiñote, recoger la baza completa)
+  purgaCadaMs: 15000,         // cada cuánto se comprueba si la sala ha caducado para eliminarla
+  longMaxNombre: 16,          // letras máximas del nombre de jugador
+  reservaSufijoNombre: 3,     // letras que se dejan libres al final del nombre para desambiguarlo (« 2» … « 99»)
+  intentosNombreAuto: 60,     // intentos de dar con un nombre automático que no esté ya en la sala
+  anchoMaxMovilPx: 640,       // ancho hasta el que se usa el diseño móvil; debe coincidir con los @media de la hoja de estilos
 };
+const MS_POR_MINUTO = 60 * 1000;
 const capitalize = word => word[0].toUpperCase() + word.slice(1);
 const range = count => [...Array(count).keys()];
 const FB_ERR = 'No se pudo conectar con Firebase. Revisa la configuración.';
@@ -1872,13 +1909,14 @@ const ANIMALES = [['zorro','m'],['búho','m'],['lince','m'],['lobo','m'],['oso',
 const ADJETIVOS = [['veloz','veloz'],['astuto','astuta'],['valiente','valiente'],['sabio','sabia'],['sigiloso','sigilosa'],['audaz','audaz'],['ágil','ágil'],['travieso','traviesa'],
   ['tranquilo','tranquila'],['feroz','feroz'],['curioso','curiosa'],['elegante','elegante'],['sereno','serena'],['bravo','brava'],['pícaro','pícara'],['sagaz','sagaz'],
   ['risueño','risueña'],['noble','noble'],['rápido','rápida'],['atrevido','atrevida']];
-const cleanName = text => String(text || '').replace(/\s+/g,' ').trim().slice(0,16);
+const numeroDeDosCifras = () => 10 + (Math.random() * 90 | 0);   // 10..99
+const cleanName = text => String(text || '').replace(/\s+/g,' ').trim().slice(0, AJUSTES.longMaxNombre);
 function nombreAuto(usados){
-  for(let index = 0; index < 60; index++){
+  for(let index = 0; index < AJUSTES.intentosNombreAuto; index++){
     const [animal,gender] = pickRandom(ANIMALES), name = capitalize(animal) + ' ' + pickRandom(ADJETIVOS)[gender === 'm' ? 0 : 1];
     if(!usados.includes(name)) return name;
   }
-  return capitalize(pickRandom(ANIMALES)[0]) + ' ' + (10 + Math.random()*90|0);
+  return capitalize(pickRandom(ANIMALES)[0]) + ' ' + numeroDeDosCifras();
 }
 const nombreSala = () => `${pickRandom(CIUDADES)} ${pickRandom(TIEMPOS)}`;
 /* ============ LOBBY ============ */
@@ -1886,7 +1924,7 @@ const nombreSala = () => `${pickRandom(CIUDADES)} ${pickRandom(TIEMPOS)}`;
    avisa con alEntrar() (sala online lista) o alJugarLocal(config) (todos los asientos son bots). Guarda el estado
    que es solo suyo: la suscripción a la lista de salas y si hay alguna con contraseña. */
 class Lobby{
-  static IDS = ['lobby','inName','inCode','inPass','rooms','npBox','modeBox','seatsBox','tcBox','tpBox','err','bCrear','bUnir'];
+  static IDS = ['lobby','campoNombre','campoCodigo','campoClave','rooms','numJugadoresBox','modeBox','seatsBox','equipoCrearBox','equipoUnirseBox','mensajeError','bCrear','bUnir'];
 
   constructor(sesion, almacen, {alEntrar, alJugarLocal}){
     this.sesion = sesion;
@@ -1898,30 +1936,32 @@ class Lobby{
     this.unLobby = null;               // cancela la suscripción a la lista de salas
     this.hayLock = false;              // ¿hay alguna sala con contraseña en la lista?
     this.el = Object.fromEntries(Lobby.IDS.map(id => [id, byId(id)]));
-    try{ this.el.inName.value = localStorage.getItem(this.claveNombre) || ''; }catch(error){}
+    this.el.campoNombre.maxLength = AJUSTES.longMaxNombre;
+    this.el.campoCodigo.maxLength = Sala.LONG_CODIGO;
+    try{ this.el.campoNombre.value = localStorage.getItem(this.claveNombre) || ''; }catch(error){}
     this.construirFormulario();
-    document.querySelectorAll('input[name=np]').forEach(radio => radio.addEventListener('change', () => this.construirAsientos()));
+    document.querySelectorAll('input[name=numJugadores]').forEach(radio => radio.addEventListener('change', () => this.construirAsientos()));
     this.el.bCrear.addEventListener('click', () => this.crear());
-    this.el.bUnir.addEventListener('click', () => this.unirse(this.el.inCode.value, this.elegido('tp')));
+    this.el.bUnir.addEventListener('click', () => this.unirse(this.el.campoCodigo.value, this.elegido('equipoUnirse')));
     this.el.rooms.addEventListener('click', event => this.alPulsarSala(event));
     this.construirAsientos();
   }
 
   /* ---- Pantalla ---- */
-  mostrar(){ this.el.inCode.value = ''; this.el.inPass.value = ''; this.error(''); this.el.lobby.hidden = false; this.vigilar(); }
+  mostrar(){ this.el.campoCodigo.value = ''; this.el.campoClave.value = ''; this.error(''); this.el.lobby.hidden = false; this.vigilar(); }
   ocultar(){ this.dejarDeVigilar(); this.el.lobby.hidden = true; }
-  error(message){ this.el.err.textContent = message; }
+  error(message){ this.el.mensajeError.textContent = message; }
 
   /* ---- Formulario ---- */
   elegido(name){ return (document.querySelector(`input[name=${name}]:checked`) || {}).value; }
-  get numJugadores(){ return +this.elegido('np'); }
+  get numJugadores(){ return +this.elegido('numJugadores'); }
   botsElegidos(playerCount = this.numJugadores){ return range(playerCount - 1).map(index => this.elegido(`seat${index+1}`) !== 'humano'); }   // asientos 1..playerCount-1: true = bot
   miNombre(usados){                                   // el escrito (único en la sala) o uno automático
-    let playerName = cleanName(this.el.inName.value);
+    let playerName = cleanName(this.el.campoNombre.value);
     try{ localStorage.setItem(this.claveNombre, playerName); }catch(error){}
     if(!playerName) return nombreAuto(usados);
     const base = playerName; let suffix = 2;
-    while(usados.some(used => used.toLowerCase() === playerName.toLowerCase())) playerName = base.slice(0,13) + ' ' + suffix++;
+    while(usados.some(used => used.toLowerCase() === playerName.toLowerCase())) playerName = base.slice(0, AJUSTES.longMaxNombre - AJUSTES.reservaSufijoNombre) + ' ' + suffix++;
     return playerName;
   }
 
@@ -1929,25 +1969,25 @@ class Lobby{
   construirFormulario(){
     const {opcionesJugadores, modos, equipos} = this.juego;
     const radios = (name, opciones) => opciones.map((opcion, indice) => html`<label><input type="radio" name="${name}" value="${opcion.valor}" ${indice === 0 ? 'checked' : ''}><span>${opcion.titulo}<small>${opcion.detalle}</small></span></label>`);
-    pintar(this.el.npBox, radios('np', opcionesJugadores));
+    pintar(this.el.numJugadoresBox, radios('numJugadores', opcionesJugadores));
     pintar(this.el.modeBox, radios('mode', modos));
-    pintar(this.el.tcBox, radios('tc', equipos.opcionesCrear));
-    pintar(this.el.tpBox, radios('tp', equipos.opcionesUnirse));
+    pintar(this.el.equipoCrearBox, radios('equipoCrear', equipos.opcionesCrear));
+    pintar(this.el.equipoUnirseBox, radios('equipoUnirse', equipos.opcionesUnirse));
   }
 
   construirAsientos(){
     const playerCount = this.numJugadores;
     const seatLabel = index => this.juego.etiquetaAsiento(playerCount, index);
     pintar(this.el.seatsBox, range(playerCount - 1).map(offset => { const index = offset + 1;
-      return html`<div class="seatrow"><div class="sl">Jugador ${index + 1}<small>${seatLabel(index)}</small></div><div class="modes">
+      return html`<div class="seatrow"><div class="etiquetaAsiento">Jugador ${index + 1}<small>${seatLabel(index)}</small></div><div class="modes">
         <label><input type="radio" name="seat${index}" value="bot" checked><span>🤖 Bot</span></label>
         <label><input type="radio" name="seat${index}" value="humano"><span>👤 Humano</span></label></div></div>`; }));
     this.el.seatsBox.querySelectorAll('input').forEach(input => input.addEventListener('change', () => this.actualizarBotonCrear()));
-    this.el.tcBox.hidden = !this.juego.equipos.seEligeColor(playerCount); this.actualizarBotonCrear();
+    this.el.equipoCrearBox.hidden = !this.juego.equipos.seEligeColor(playerCount); this.actualizarBotonCrear();
   }
 
   actualizarClave(){
-    const allBot = this.botsElegidos(this.numJugadores).every(Boolean), enabled = !allBot || this.hayLock, passwordInput = this.el.inPass;
+    const allBot = this.botsElegidos(this.numJugadores).every(Boolean), enabled = !allBot || this.hayLock, passwordInput = this.el.campoClave;
     passwordInput.disabled = !enabled;
     passwordInput.placeholder = enabled ? 'Contraseña' : 'Contraseña (no necesaria)';
   }
@@ -1964,13 +2004,13 @@ class Lobby{
     this.unLobby = this.almacen.suscribirLobby((list, now) => {
       this.hayLock = list.some(([,lobbyEntry]) => lobbyEntry.locked); if(this.el.seatsBox.children.length) this.actualizarClave();
       pintar(this.el.rooms, list.length ? list.map(([code,lobbyEntry]) => {
-        const {equipos} = this.juego, {playerCount = this.juego.opcionesJugadores[0].valor, seatedCount = 1, name = 'Sala', occupiedSeats = '1000', firstTeamColor = equipos.colores[0]} = lobbyEntry, full = seatedCount >= playerCount, minutes = Math.max(1, Math.round((now - lobbyEntry.createdAt)/60000));
+        const {equipos} = this.juego, {playerCount = this.juego.opcionesJugadores[0].valor, seatedCount = 1, name = 'Sala', occupiedSeats = Sala.mascara({0: true}, playerCount), firstTeamColor = equipos.colores[0]} = lobbyEntry, full = seatedCount >= playerCount, minutes = Math.max(1, Math.round((now - lobbyEntry.createdAt)/MS_POR_MINUTO));
         const info = html`<span><b>${name}</b><i>(${code})</i><small>${playerCount} jugadores (${seatedCount}/${playerCount}) · ${this.juego.descripcionModo(lobbyEntry.mode)} · ${lobbyEntry.locked ? '🔒 con contraseña' : 'abierta'} · hace ${minutes} min</small></span>`;
         if(equipos.seEligeColor(playerCount)){
-          const free = teamIndex => equipos.asientos(teamIndex, playerCount).filter(index => occupiedSeats[index] !== '1').length;
+          const free = teamIndex => equipos.asientos(teamIndex, playerCount).filter(index => occupiedSeats[index] !== Sala.OCUPADO).length;
           const teamButtonHtml = teamIndex => { const col = equipos.colorDe(teamIndex, firstTeamColor), freeSeats = free(teamIndex);
-            return html`<button type="button" class="tb tc-${col}" data-team="${col}" ${freeSeats ? '' : 'disabled'}>${capitalize(col)} · ${freeSeats ? freeSeats + (freeSeats > 1 ? ' libres' : ' libre') : 'completo'}</button>`; };
-          return html`<div class="room room4" data-code="${code}">${info}<span class="tbs">${teamButtonHtml(0)}${teamButtonHtml(1)}</span></div>`;
+            return html`<button type="button" class="botonEquipo equipo-${col}" data-team="${col}" ${freeSeats ? '' : 'disabled'}>${capitalize(col)} · ${freeSeats ? freeSeats + (freeSeats > 1 ? ' libres' : ' libre') : 'completo'}</button>`; };
+          return html`<div class="room salaConEquipos" data-code="${code}">${info}<span class="botonesEquipo">${teamButtonHtml(0)}${teamButtonHtml(1)}</span></div>`;
         }
         return html`<button class="room" data-code="${code}" ${full ? 'disabled' : ''}>${info}<span>${full ? 'En juego' : 'Unirse'}</span></button>`;
       }) : html`<em>No hay salas ahora mismo. Crea una.</em>`);
@@ -1979,8 +2019,8 @@ class Lobby{
   dejarDeVigilar(){ if(this.unLobby) this.unLobby(); this.unLobby = null; }
   alPulsarSala(event){
     const teamButton = event.target.closest('[data-team]');
-    if(teamButton){ const row = teamButton.closest('.room'); this.el.inCode.value = row.dataset.code; return this.unirse(row.dataset.code, teamButton.dataset.team); }
-    const button = event.target.closest('button.room'); if(button){ this.el.inCode.value = button.dataset.code; this.unirse(button.dataset.code); }
+    if(teamButton){ const row = teamButton.closest('.room'); this.el.campoCodigo.value = row.dataset.code; return this.unirse(row.dataset.code, teamButton.dataset.team); }
+    const button = event.target.closest('button.room'); if(button){ this.el.campoCodigo.value = button.dataset.code; this.unirse(button.dataset.code); }
   }
 
   /* ---- Crear y unirse ---- */
@@ -1988,7 +2028,7 @@ class Lobby{
     this.error('');
     this.alJugarLocal({playerCount, botSeats, mode: this.elegido('mode'), teamColor: this.colorElegido(playerCount), ownName: this.miNombre([])});
   }
-  colorElegido(playerCount){ return this.juego.equipos.seEligeColor(playerCount) ? this.elegido('tc') : this.juego.equipos.colores[0]; }
+  colorElegido(playerCount){ return this.juego.equipos.seEligeColor(playerCount) ? this.elegido('equipoCrear') : this.juego.equipos.colores[0]; }
   async crear(){
     const playerCount = this.numJugadores, bots = this.botsElegidos(playerCount), botSeats = range(playerCount - 1).filter(index => bots[index]).map(index => index + 1);
     if(botSeats.length === playerCount - 1) return this.jugarLocal(playerCount, botSeats);          // todos bots: partida local, sin base de datos
@@ -1997,7 +2037,7 @@ class Lobby{
       this.sesion.code = await this.almacen.codigoLibre();
       this.sesion.mySeat = 0;
       const mode = this.elegido('mode'), teamColor = this.colorElegido(playerCount);
-      const hashClave = await Sala.hashDe(this.el.inPass.value, this.sesion.code, this.juego.id), name = nombreSala(), ownName = this.miNombre([]);
+      const hashClave = await Sala.hashDe(this.el.campoClave.value, this.sesion.code, this.juego.id), name = nombreSala(), ownName = this.miNombre([]);
       const {names: botNames, bots: botMarks} = assignBots(botSeats, [ownName]), players = {}, names = {0:ownName, ...botNames};
       [0, ...botSeats].forEach(index => players[index] = Date.now());
       await this.almacen.crearSala(this.sesion.code, new Sala({juego: this.juego, numJugadores: playerCount, modo: mode, nombre: name, colorPrimerEquipo: teamColor, asientos: players, nombres: names, bots: botMarks, hashClave}));
@@ -2013,9 +2053,9 @@ class Lobby{
       if(!room) return this.error('Esa sala no existe.');
       if(room.completa) return this.error('La sala ya está completa.');
       if(room.tieneClave){
-        const enteredPassword = this.el.inPass.value;
-        if(!enteredPassword){ this.el.inPass.focus(); return this.error(`La sala ${this.sesion.code} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`); }
-        if(await Sala.hashDe(enteredPassword, this.sesion.code, this.juego.id) !== room.hashClave){ this.el.inPass.focus(); return this.error('Contraseña incorrecta.'); }
+        const enteredPassword = this.el.campoClave.value;
+        if(!enteredPassword){ this.el.campoClave.focus(); return this.error(`La sala ${this.sesion.code} tiene contraseña: escríbela en el campo de contraseña de arriba y vuelve a pulsar.`); }
+        if(await Sala.hashDe(enteredPassword, this.sesion.code, this.juego.id) !== room.hashClave){ this.el.campoClave.focus(); return this.error('Contraseña incorrecta.'); }
       }
       const seat = await this.almacen.unirse(this.sesion.code, room, room.asientosCandidatos(color), () => this.miNombre(Object.values(room.nombres).filter(Boolean)));
       if(seat < 0) return this.error(room.eligeEquipo && color !== 'any' ? `El equipo ${color} ya está completo.` : 'La sala ya está completa.');
@@ -2034,7 +2074,7 @@ function assignBots(seatList, used){                       // nombre automático
 /* El marco de la pantalla de juego: mensaje de estado, lista de jugadores y sala de espera. Lo que depende del juego
    (tapete, manos, marcador, fin de mano) lo pinta la vista que aporta el juego (juego.crearVista). */
 class Mesa{
-  static IDS = ['mesa','st','ev','hint','names','score','deckInfo','fin','finT','finS','bRe','bNueva'];
+  static IDS = ['mesa','estado','ultimoEvento','hint','names','score','deckInfo','fin','finTitulo','finDetalle','bSiguienteMano','bNueva'];
 
   constructor(sesion){
     this.sesion = sesion;
@@ -2048,9 +2088,9 @@ class Mesa{
   limpiar(){ this.vista.limpiar(); }
 
   setMsg(statusText, statusClass = '', eventText = '', eventClass = '', hint = ''){
-    this.el.st.textContent = statusText; this.el.st.className = 'st ' + statusClass;
-    const eventElement = this.el.ev, changed = eventElement.textContent !== eventText;
-    eventElement.textContent = eventText; eventElement.className = 'ev ' + eventClass + (changed && eventText ? ' pop' : '');
+    this.el.estado.textContent = statusText; this.el.estado.className = 'estado ' + statusClass;
+    const eventElement = this.el.ultimoEvento, changed = eventElement.textContent !== eventText;
+    eventElement.textContent = eventText; eventElement.className = 'ultimoEvento ' + eventClass + (changed && eventText ? ' destacado' : '');
     this.el.hint.textContent = hint;
   }
 
@@ -2060,13 +2100,13 @@ class Mesa{
     const {estado, pista} = this.juego.mensajeEspera({sala: room, asiento: mySeat, codigo: code});
     this.setMsg(estado, 'wait', '', '', pista);
     pintar(this.el.names, range(room.numJugadores).filter(index => room.ocupado(index)).map(index =>
-      html`<span class="pn${index === mySeat ? ' on' : ''}" data-tc="${this.color(this.equipoDe(index))}"><i class="dot"></i>${this.sesion.nombreDe(index)}${index === mySeat ? ' (tú)' : ''}</span>`));
+      html`<span class="nombreJugador${index === mySeat ? ' activo' : ''}" data-color-equipo="${this.color(this.equipoDe(index))}"><i class="dot"></i>${this.sesion.nombreDe(index)}${index === mySeat ? ' (tú)' : ''}</span>`));
     this.el.score.textContent = ''; this.el.deckInfo.textContent = '';
   }
 
   renderNames(playerCount, currentSeat){
     pintar(this.el.names, range(playerCount).map(offset => { const seat = (this.sesion.mySeat + offset) % playerCount;
-      return html`<span class="pn${currentSeat === seat ? ' on' : ''}" data-tc="${this.color(this.equipoDe(seat))}"><i class="dot"></i>${this.sesion.nombreDe(seat)}${seat === this.sesion.mySeat ? ' (tú)' : ''}</span>`; }));
+      return html`<span class="nombreJugador${currentSeat === seat ? ' activo' : ''}" data-color-equipo="${this.color(this.equipoDe(seat))}"><i class="dot"></i>${this.sesion.nombreDe(seat)}${seat === this.sesion.mySeat ? ' (tú)' : ''}</span>`; }));
   }
 
   render(){
@@ -2092,7 +2132,7 @@ class Juego{
       alEntrar: () => this.entrar(),
       alJugarLocal: config => this.jugarContraBots(config),
     });
-    this.movil = matchMedia('(max-width:640px)');
+    this.movil = matchMedia(`(max-width:${AJUSTES.anchoMaxMovilPx}px)`);
     this.pintarTextos();
     this.conectarEventos();
     this.colocarHud();
@@ -2103,7 +2143,7 @@ class Juego{
     document.title = this.juego.nombre;
     byId('tituloJuego').textContent = this.juego.nombre;
     byId('subtituloJuego').textContent = this.juego.subtitulo;
-    byId('ayT').textContent = this.juego.tituloAyuda;
+    byId('ayudaTitulo').textContent = this.juego.tituloAyuda;
     pintar(byId('ayudaJuego'), this.juego.ayuda);
   }
 
@@ -2119,7 +2159,7 @@ class Juego{
     const {sesion} = this;
     sesion.almacen = this.almacenFirebase;
     clearInterval(sesion.purgeTimer);
-    sesion.purgeTimer = setInterval(() => { if(sesion.room?.caducada(Date.now())) sesion.almacen.purgar(sesion.code); }, 15000);
+    sesion.purgeTimer = setInterval(() => { if(sesion.room?.caducada(Date.now())) sesion.almacen.purgar(sesion.code); }, AJUSTES.purgaCadaMs);
     sessionStorage.setItem(this.juego.id, JSON.stringify({code: sesion.code, seat: sesion.mySeat}));
     this.lobby.ocultar(); byId('game').hidden = false; byId('bNueva').hidden = false;
     byId('room').textContent = 'Sala ' + sesion.code;
@@ -2169,13 +2209,13 @@ class Juego{
 
   /* ---- HUD móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa ---- */
   colocarHud(){
-    const menu = byId('menu'), mesaEl = byId('mesa'), topL = byId('topL');
+    const menu = byId('menu'), mesaEl = byId('mesa'), topIzquierda = byId('topIzquierda');
     if(this.movil.matches){
       menu.prepend(byId('room')); menu.append(byId('bNueva'));
-      byId('topR').prepend(byId('score')); topL.append(byId('deckInfo'));
+      byId('topDerecha').prepend(byId('score')); topIzquierda.append(byId('deckInfo'));
       mesaEl.insertBefore(byId('names'), byId(this.mesa.vista.anclaNombres)); mesaEl.insertBefore(byId('msg'), byId(this.mesa.vista.anclaEstado));
     }else{
-      topL.prepend(byId('room')); byId('topR').append(byId('bNueva'));
+      topIzquierda.prepend(byId('room')); byId('topDerecha').append(byId('bNueva'));
       byId('panel').append(byId('msg'), byId('names'), byId('score'), byId('deckInfo'));
       menu.classList.remove('open');
     }
@@ -2185,14 +2225,14 @@ class Juego{
   conectarEventos(){
     const {sesion} = this;
     this.movil.addEventListener('change', () => this.colocarHud());
-    [byId('bAyuda'), byId('bAyuda2')].forEach(button => button.addEventListener('click', () => byId('ayuda').showModal()));
-    byId('bAyudaX').addEventListener('click', () => byId('ayuda').close());
-    byId('menuB').addEventListener('click', event => { event.stopPropagation(); byId('menu').classList.toggle('open'); });
+    [byId('bAyuda'), byId('bAyudaMenu')].forEach(button => button.addEventListener('click', () => byId('ayuda').showModal()));
+    byId('bAyudaCerrar').addEventListener('click', () => byId('ayuda').close());
+    byId('bMenu').addEventListener('click', event => { event.stopPropagation(); byId('menu').classList.toggle('open'); });
     byId('menu').addEventListener('click', event => { if(event.target.closest('button')) byId('menu').classList.remove('open'); });
     document.addEventListener('click', event => { if(!byId('menu').contains(event.target)) byId('menu').classList.remove('open'); });
     byId('ayuda').addEventListener('click', event => { if(event.target === event.currentTarget) event.currentTarget.close(); });
 
-    byId('bRe').addEventListener('click', () => {
+    byId('bSiguienteMano').addEventListener('click', () => {
       const handNumber = sesion.game.numeroMano; this.mesa.reiniciarAnimaciones();
       sesion.almacen.siguienteMano(sesion.code, handNumber).catch(console.error);
     });
