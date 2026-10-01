@@ -22,6 +22,19 @@
         --tinta: #2a1808;
         --velo: #0003;
         --borde: #fff4;
+        --borde-suave: #fff3;
+        --velo-medio: #0004;
+        --sombra: #0009;
+        --sombra-fuerte: #000a;
+        --sombra-texto: #000c;
+        --fondo-modal: #000b;
+        --oro-velo: #e0b04a26;
+        --oro-sombra: #8a6420;
+        --paño-claro: #2b7449;
+        --equipo-azul: #4a86e8;
+        --equipo-rojo: #e85a5a;
+        --boton-azul: #2f66c4;
+        --boton-rojo: #c43c3c;
         --ancho-carta-mano: clamp(60px, 29.5vw, 132px);
       }
       @supports (height: 100dvh) {
@@ -58,7 +71,7 @@
         border-radius: 6px;
         padding: 0.55em 1.1em;
         font-weight: bold;
-        box-shadow: 0 2px 0 #8a6420;
+        box-shadow: 0 2px 0 var(--oro-sombra);
       }
       .btn:active {
         transform: translateY(2px);
@@ -115,11 +128,6 @@
         color: var(--crema);
         margin: 0.6em 0;
       }
-      #lobby .row {
-        display: flex;
-        gap: 0.6rem;
-        justify-content: center;
-      }
       #lobby h3 {
         margin: 0.2em 0 0.7em;
         font-weight: normal;
@@ -173,16 +181,12 @@
       }
       .modes input:checked + span {
         border-color: var(--oro);
-        background: #e0b04a26;
+        background: var(--oro-velo);
         box-shadow: 0 0 0 1px var(--oro);
       }
       .modes input:focus-visible + span {
         outline: 2px solid var(--crema);
         outline-offset: 2px;
-      }
-      .hint {
-        font-size: 0.85rem;
-        margin: 0 0 1rem !important;
       }
       @media (max-width: 640px) {
         .cols {
@@ -220,7 +224,7 @@
         gap: 0.6rem;
         background: var(--velo);
         color: var(--crema);
-        border: 1px solid #fff3;
+        border: 1px solid var(--borde-suave);
         border-radius: 8px;
         padding: 0.6em 0.9em;
         text-align: left;
@@ -268,7 +272,7 @@
         line-height: 1.5;
       }
       #ayuda::backdrop {
-        background: #000b;
+        background: var(--fondo-modal);
       }
       #ayuda h2 {
         margin: 0 0 0.6rem;
@@ -294,7 +298,7 @@
       }
       #ayuda th,
       #ayuda td {
-        border: 1px solid #fff3;
+        border: 1px solid var(--borde-suave);
         padding: 0.25em 0.55em;
         text-align: center;
       }
@@ -315,11 +319,11 @@
         border: clamp(6px, 1.4vw, 14px) solid var(--madera);
         background: radial-gradient(
           ellipse at 50% 45%,
-          #2b7449 0%,
+          var(--paño-claro) 0%,
           var(--paño) 45%,
           var(--paño2) 100%
         );
-        box-shadow: inset 0 0 60px #000a;
+        box-shadow: inset 0 0 60px var(--sombra-fuerte);
       }
       #top {
         display: flex;
@@ -341,7 +345,7 @@
         padding: 0.1rem 0.9rem 0.5rem;
         min-height: 5.2rem;
         text-align: center;
-        text-shadow: 0 1px 3px #000c;
+        text-shadow: 0 1px 3px var(--sombra-texto);
       }
       #msg .estado {
         font-size: clamp(1.15rem, 3.4vw, 1.5rem);
@@ -349,7 +353,7 @@
         padding: 0.15em 1em;
         border-radius: 99px;
         background: #0006;
-        border: 1px solid #fff3;
+        border: 1px solid var(--borde-suave);
         text-shadow: none;
         transition:
           background 0.2s,
@@ -390,7 +394,7 @@
         }
       }
       .chip {
-        background: #0004;
+        background: var(--velo-medio);
         border-radius: 99px;
         padding: 0.25em 0.8em;
         white-space: nowrap;
@@ -406,7 +410,7 @@
         width: var(--ancho-carta);
         height: auto;
         border-radius: calc(var(--ancho-carta) * 0.06);
-        box-shadow: 0 3px 8px #0009;
+        box-shadow: 0 3px 8px var(--sombra);
         user-select: none;
         -webkit-user-drag: none;
         background: #fff;
@@ -493,23 +497,20 @@
         left: 8%;
         top: 38%;
         transform: rotate(-4deg);
-        animation: entraDeAbajo 0.35s ease-out;
+        --dy: 45vh;
+        animation: entra 0.35s ease-out;
       }
       #play .theirs {
         left: 38%;
         top: 2%;
         transform: rotate(5deg);
-        animation: entraDeArriba 0.35s ease-out;
+        --dy: -40vh;
+        animation: entra 0.35s ease-out;
       }
-      @keyframes entraDeAbajo {
+      /* Entrada de una carta en la mesa: cada posición fija de dónde viene con --dx / --dy */
+      @keyframes entra {
         from {
-          transform: translateY(45vh) rotate(0);
-          opacity: 0.4;
-        }
-      }
-      @keyframes entraDeArriba {
-        from {
-          transform: translateY(-40vh) rotate(0);
+          transform: translate(var(--dx, 0), var(--dy, 0)) rotate(0);
           opacity: 0.4;
         }
       }
@@ -558,7 +559,7 @@
       #fin {
         position: fixed;
         inset: 0;
-        background: #000b;
+        background: var(--fondo-modal);
         display: grid;
         place-items: center;
         text-align: center;
@@ -671,7 +672,7 @@
         gap: 0.05rem;
         font-size: 0.85rem;
         padding-left: 0.3rem;
-        text-shadow: 0 1px 3px #000c;
+        text-shadow: 0 1px 3px var(--sombra-texto);
       }
       .nombreJugador {
         display: flex;
@@ -697,29 +698,37 @@
 
       /* Equipos (azul / rojo) */
       [data-color-equipo="azul"] {
-        --color-equipo: #4a86e8;
+        --color-equipo: var(--equipo-azul);
       }
       [data-color-equipo="rojo"] {
-        --color-equipo: #e85a5a;
+        --color-equipo: var(--equipo-rojo);
       }
       [data-color-equipo] .card,
       .card[data-color-equipo] {
         box-shadow:
           0 0 0 3px var(--color-equipo),
-          0 3px 8px #0009;
+          0 3px 8px var(--sombra);
       }
-      /* Triunfo: estrellas en las esquinas superior derecha e inferior izquierda (lejos de los números) */
+      /* Triunfo: carta en un <div> con marco de equipo y estrellas en las esquinas superior derecha e inferior izquierda (lejos de los números).
+   La mano estira las cartas a lo alto de la fila; el div hace lo mismo y su imagen rellena todo el div. */
       div.card.triunfo {
         position: relative;
+        align-self: stretch;
+        height: auto;
       }
       #play div.card.triunfo,
       #deck div.card.triunfo {
         position: absolute;
       }
+      /* Conserva el margen de color del equipo, sin fondo blanco que asome alrededor de la imagen */
+      [data-color-equipo] div.card.triunfo,
+      div.card.triunfo[data-color-equipo] {
+        background: none;
+      }
       div.card.triunfo > img {
         display: block;
         width: 100%;
-        height: auto;
+        height: 100%;
         border-radius: inherit;
         pointer-events: none;
       }
@@ -733,19 +742,6 @@
         background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M12 1.5l3 7.1 7.7.6-5.9 5 1.8 7.5L12 17.7 5.4 21.7l1.8-7.5-5.9-5 7.7-.6z' fill='%23e0b04a' stroke='%23422a06' stroke-width='1.6' stroke-linejoin='round'/%3E%3C/svg%3E")
           center/contain no-repeat;
         filter: drop-shadow(0 0 1.5px #fff);
-      }
-      /* Triunfo: conserva el margen de color del equipo, sin fondo blanco que asome alrededor de la imagen */
-      [data-color-equipo] div.card.triunfo,
-      div.card.triunfo[data-color-equipo] {
-        background: none;
-      }
-      /* La mano estira las cartas a lo alto de la fila; el triunfo (un div) hace lo mismo y su imagen rellena todo el div */
-      div.card.triunfo {
-        align-self: stretch;
-        height: auto;
-      }
-      div.card.triunfo > img {
-        height: 100%;
       }
       div.card.triunfo::before {
         right: 5%;
@@ -786,10 +782,10 @@
         font-weight: bold;
       }
       .botonEquipo.equipo-azul {
-        background: #2f66c4;
+        background: var(--boton-azul);
       }
       .botonEquipo.equipo-rojo {
-        background: #c43c3c;
+        background: var(--boton-rojo);
       }
       .botonEquipo:disabled {
         opacity: 0.4;
@@ -839,37 +835,29 @@
         left: 34.7%;
         top: 43%;
         transform: rotate(-3deg);
-        animation: entraDeAbajo 0.35s ease-out;
+        --dy: 45vh;
+        animation: entra 0.35s ease-out;
       }
       #play .posicion1 {
         left: 69.3%;
         top: 22%;
         transform: rotate(4deg);
-        animation: entraDeDerecha 0.35s ease-out;
+        --dx: 45vw;
+        animation: entra 0.35s ease-out;
       }
       #play .posicion2 {
         left: 34.7%;
         top: 0;
         transform: rotate(3deg);
-        animation: entraDeArriba 0.35s ease-out;
+        --dy: -40vh;
+        animation: entra 0.35s ease-out;
       }
       #play .posicion3 {
         left: 0;
         top: 22%;
         transform: rotate(-4deg);
-        animation: entraDeIzquierda 0.35s ease-out;
-      }
-      @keyframes entraDeDerecha {
-        from {
-          transform: translateX(45vw) rotate(0);
-          opacity: 0.4;
-        }
-      }
-      @keyframes entraDeIzquierda {
-        from {
-          transform: translateX(-45vw) rotate(0);
-          opacity: 0.4;
-        }
+        --dx: -45vw;
+        animation: entra 0.35s ease-out;
       }
       @media (min-width: 641px) {
         body.cuatroJugadores #row {
@@ -1080,7 +1068,7 @@
           border: 1px solid var(--oro);
           border-radius: 10px;
           padding: 0.6rem;
-          box-shadow: 0 6px 18px #000a;
+          box-shadow: 0 6px 18px var(--sombra-fuerte);
         }
         #menu .chip {
           text-align: center;
@@ -1220,7 +1208,7 @@
           align-self: start;
           margin: 0.4rem 0 0.6rem 0.6rem;
           padding: 1rem;
-          background: #0004;
+          background: var(--velo-medio);
           border: 1px solid #fff2;
           border-radius: 12px;
           position: relative;
@@ -1296,15 +1284,13 @@
           font-size: 1rem;
         }
         #panel #names::before {
+          content: "Jugadores";
           display: block;
           font-size: 0.7rem;
           letter-spacing: 0.1em;
           text-transform: uppercase;
           color: var(--oro);
           margin-bottom: 0.25rem;
-        }
-        #panel #names::before {
-          content: "Jugadores";
         }
       }
 
@@ -2950,103 +2936,92 @@
           return this.cara(carta, className, html`data-card="${carta}"`);
         }
 
+        /* Nombre de un asiento; en partidas de 4, el de tu pareja lleva «(tu pareja)» */
+        nombreConPareja(asiento) {
+          const { sesion } = this,
+            esPareja =
+              sesion.partida.jugadores === ReglasGuinote.JUGADORES_PAREJAS &&
+              asiento !== sesion.miAsiento &&
+              ReglasGuinote.equipoDe(asiento) ===
+                ReglasGuinote.equipoDe(sesion.miAsiento);
+          return sesion.nombreDe(asiento) + (esPareja ? " (tu pareja)" : "");
+        }
+
         textoDeEvento(evento) {
           if (!evento) return "";
           const esMia = evento.asiento === this.sesion.miAsiento,
-            nombreMostrado =
-              this.sesion.nombreDe(evento.asiento) +
-              (this.sesion.partida.jugadores ===
-                ReglasGuinote.JUGADORES_PAREJAS &&
-              !esMia &&
-              ReglasGuinote.equipoDe(evento.asiento) ===
-                ReglasGuinote.equipoDe(this.sesion.miAsiento)
-                ? " (tu pareja)"
-                : "");
-          if (evento.tipo === "baza")
-            return (
-              `${esMia ? "Te llevas" : nombreMostrado + " se lleva"} la baza (${evento.puntos} puntos)` +
-              (evento.bonusUltimas ? " y las diez de últimas" : "")
-            );
-          if (evento.tipo === "cante")
-            return `${esMia ? "Cantas" : nombreMostrado + " canta"} las ${evento.puntos} en ${evento.palo}`;
-          if (evento.tipo === "cambio")
-            return `${esMia ? "Cambias" : nombreMostrado + " cambia"} el siete de triunfo`;
-          return "";
+            quien = (verboPropio, verboAjeno) =>
+              esMia
+                ? verboPropio
+                : `${this.nombreConPareja(evento.asiento)} ${verboAjeno}`;
+          switch (evento.tipo) {
+            case "baza":
+              return (
+                `${quien("Te llevas", "se lleva")} la baza (${evento.puntos} puntos)` +
+                (evento.bonusUltimas ? " y las diez de últimas" : "")
+              );
+            case "cante":
+              return `${quien("Cantas", "canta")} las ${evento.puntos} en ${evento.palo}`;
+            case "cambio":
+              return `${quien("Cambias", "cambia")} el siete de triunfo`;
+            default:
+              return "";
+          }
         }
 
-        dibujarManos({ cuatro, esMiTurno, asientoRelativo, asientoActual }) {
+        /* Contorno del color del equipo del asiento en el elemento indicado */
+        colorearEquipo(idElemento, asiento) {
+          this.el[idElemento].setAttribute(
+            "data-color-equipo",
+            this.mesa.color(ReglasGuinote.equipoDe(asiento)),
+          );
+        }
+
+        dibujarManos(contexto) {
+          this.dibujarRivales(contexto);
+          this.dibujarManoPropia(contexto);
+          this.dibujarAcciones();
+        }
+
+        /* En 4: la pareja arriba y los rivales a derecha e izquierda; en 2: el rival arriba. Se resalta al que tiene el turno. */
+        dibujarRivales({ cuatro, asientoRelativo, asientoActual }) {
           const { SIGUIENTE, PAREJA, ANTERIOR } = ReglasGuinote.DISTANCIA;
-          const setTeamColor = (idElemento, asiento) =>
-            this.el[idElemento].setAttribute(
-              "data-color-equipo",
-              this.mesa.color(ReglasGuinote.equipoDe(asiento)),
-            ); // contorno del color de cada jugador/equipo
-          setTeamColor("manoPropia", this.sesion.miAsiento);
-          setTeamColor(
-            "manoSuperior",
-            cuatro ? asientoRelativo(PAREJA) : asientoRelativo(SIGUIENTE),
-          );
-          if (cuatro) {
-            setTeamColor("manoDerecha", asientoRelativo(SIGUIENTE));
-            setTeamColor("manoIzquierda", asientoRelativo(ANTERIOR));
+          const lados = {
+            manoSuperior: cuatro ? PAREJA : SIGUIENTE,
+            manoDerecha: cuatro ? SIGUIENTE : null,
+            manoIzquierda: cuatro ? ANTERIOR : null,
+          }; // null = lado sin jugador
+          for (const [id, distancia] of Object.entries(lados)) {
+            const asiento =
+              distancia === null ? null : asientoRelativo(distancia);
+            pintar(
+              this.el[id],
+              asiento === null
+                ? ""
+                : imagenesReverso(this.sesion.partida.cartasDe(asiento)),
+            );
+            this.el[id].classList.toggle(
+              "activa",
+              cuatro && asiento === asientoActual,
+            );
+            if (asiento !== null) this.colorearEquipo(id, asiento);
           }
-          // Rivales y pareja (en 4: pareja arriba, rivales a derecha e izquierda)
-          if (cuatro) {
-            pintar(
-              this.el.manoSuperior,
-              imagenesReverso(
-                this.sesion.partida.cartasDe(asientoRelativo(PAREJA)),
-              ),
-            );
-            pintar(
-              this.el.manoDerecha,
-              imagenesReverso(
-                this.sesion.partida.cartasDe(asientoRelativo(SIGUIENTE)),
-              ),
-            );
-            pintar(
-              this.el.manoIzquierda,
-              imagenesReverso(
-                this.sesion.partida.cartasDe(asientoRelativo(ANTERIOR)),
-              ),
-            );
-          } else {
-            pintar(
-              this.el.manoSuperior,
-              imagenesReverso(
-                this.sesion.partida.cartasDe(1 - this.sesion.miAsiento),
-              ),
-            );
-            pintar(this.el.manoDerecha, "");
-            pintar(this.el.manoIzquierda, "");
-          }
-          this.el.manoSuperior.classList.toggle(
-            "activa",
-            cuatro && asientoActual === asientoRelativo(PAREJA),
-          );
-          this.el.manoDerecha.classList.toggle(
-            "activa",
-            cuatro && asientoActual === asientoRelativo(SIGUIENTE),
-          );
-          this.el.manoIzquierda.classList.toggle(
-            "activa",
-            cuatro && asientoActual === asientoRelativo(ANTERIOR),
-          );
-          // Mano propia, ordenada por palo y fuerza (el triunfo siempre a la izquierda)
+        }
+
+        /* Mano propia, ordenada por palo y fuerza (el triunfo siempre a la izquierda) */
+        dibujarManoPropia({ esMiTurno }) {
+          const { partida, miAsiento } = this.sesion;
+          this.colorearEquipo("manoPropia", miAsiento);
           const ordenPalo = (carta) =>
-            carta.palo === this.sesion.partida.triunfo
-              ? -1
-              : Carta.PALOS.indexOf(carta.palo);
-          const propias = this.sesion.partida
-            .cartasDe(this.sesion.miAsiento)
+            carta.palo === partida.triunfo ? -1 : Carta.PALOS.indexOf(carta.palo);
+          const propias = partida
+            .cartasDe(miAsiento)
             .sort(
               (primera, segunda) =>
                 ordenPalo(primera) - ordenPalo(segunda) ||
                 ReglasGuinote.fuerza(segunda) - ReglasGuinote.fuerza(primera),
             );
-          const jugables = esMiTurno
-            ? this.sesion.partida.cartasLegales(this.sesion.miAsiento)
-            : [];
+          const jugables = esMiTurno ? partida.cartasLegales(miAsiento) : [];
           let repartidas = 0;
           this.el.manoPropia.className = "hand" + (esMiTurno ? " turno" : "");
           pintar(
@@ -3063,24 +3038,26 @@
             }),
           );
           this.vistas = new Set(propias);
-          // Acciones (cantes y cambio del 7)
-          const botonesAccion = this.sesion.partida
-            .cantesPosibles(this.sesion.miAsiento)
-            .map(
-              (nombrePalo) =>
-                html`<button class="btn" data-cante="${nombrePalo}">
-                  Cantar las
-                  ${ReglasGuinote.valorCante(nombrePalo, this.sesion.partida.triunfo)}
-                  en ${nombrePalo}
-                </button>`,
-            );
-          if (this.sesion.partida.puedeCambiarSiete(this.sesion.miAsiento))
-            botonesAccion.push(
+        }
+
+        /* Botones de cante y de cambio del 7 */
+        dibujarAcciones() {
+          const { partida, miAsiento } = this.sesion;
+          const botones = partida.cantesPosibles(miAsiento).map(
+            (nombrePalo) =>
+              html`<button class="btn" data-cante="${nombrePalo}">
+                Cantar las
+                ${ReglasGuinote.valorCante(nombrePalo, partida.triunfo)} en
+                ${nombrePalo}
+              </button>`,
+          );
+          if (partida.puedeCambiarSiete(miAsiento))
+            botones.push(
               html`<button class="btn alt" id="bCambiarSiete">
                 Cambiar el 7 de triunfo
               </button>`,
             );
-          pintar(this.el.acciones, botonesAccion);
+          pintar(this.el.acciones, botones);
         }
 
         dibujarMesa({ numJugadores, cuatro, equipo, equipoRival }) {
@@ -3179,101 +3156,105 @@
             : "Puntos de la mano";
         }
 
-        dibujarEstado({ cuatro, equipo, esMiTurno, asientoRelativo }) {
-          const { PAREJA } = ReglasGuinote.DISTANCIA;
+        dibujarEstado({ equipo, esMiTurno }) {
           const partida = this.sesion.partida,
             propietarioEvento =
               partida.ultimoEvento &&
               ReglasGuinote.equipoDe(partida.ultimoEvento.asiento) === equipo
                 ? "mine"
-                : "rival",
-            mensajeEvento = this.textoDeEvento(partida.ultimoEvento);
-          if (partida.manoTerminada)
-            this.mesa.mostrarMensaje(
-              "Mano terminada",
-              "wait",
-              mensajeEvento,
-              propietarioEvento,
-            );
-          else if (partida.bazaCompleta)
-            this.mesa.mostrarMensaje(
-              "Baza completa…",
-              "wait",
-              mensajeEvento,
-              propietarioEvento,
-            );
-          else if (esMiTurno)
-            this.mesa.mostrarMensaje(
-              "Tu turno",
-              "mine",
-              mensajeEvento,
-              propietarioEvento,
-              partida.paloForzado
-                ? `Cantaste: sal con el rey o el caballo de ${partida.paloForzado}`
-                : partida.cartasEnMazo
-                  ? ""
-                  : "Arrastre: asiste al palo y supera si puedes",
-            );
-          else
-            this.mesa.mostrarMensaje(
-              "Turno de " +
-                this.sesion.nombreDe(partida.turno) +
-                (cuatro && partida.turno === asientoRelativo(PAREJA)
-                  ? " (tu pareja)"
-                  : ""),
-              "wait",
-              mensajeEvento,
-              propietarioEvento,
-            );
+                : "rival";
+          let estado,
+            claseEstado = "wait",
+            pista = "";
+          if (partida.manoTerminada) estado = "Mano terminada";
+          else if (partida.bazaCompleta) estado = "Baza completa…";
+          else if (esMiTurno) {
+            estado = "Tu turno";
+            claseEstado = "mine";
+            pista = partida.paloForzado
+              ? `Cantaste: sal con el rey o el caballo de ${partida.paloForzado}`
+              : partida.cartasEnMazo
+                ? ""
+                : "Arrastre: asiste al palo y supera si puedes";
+          } else estado = "Turno de " + this.nombreConPareja(partida.turno);
+          this.mesa.mostrarMensaje(
+            estado,
+            claseEstado,
+            this.textoDeEvento(partida.ultimoEvento),
+            propietarioEvento,
+            pista,
+          );
         }
 
-        dibujarFin({ cuatro, equipo, equipoRival }) {
-          const partida = this.sesion.partida,
-            marcador = partida.marcador;
+        dibujarFin(contexto) {
+          const { partida } = this.sesion;
           this.el.fin.hidden = !partida.manoTerminada;
           if (!partida.manoTerminada) return;
-          const puntosPropios = marcador.puntosDe(equipo),
-            puntosRival = marcador.puntosDe(equipoRival),
-            totalPropio = marcador.totalDe(equipo),
-            totalRival = marcador.totalDe(equipoRival),
-            byMode = (dosJugadores, cuatroJugadores) =>
-              cuatro ? cuatroJugadores : dosJugadores;
-          const etiquetaPropia = cuatro
-              ? `Equipo ${this.mesa.color(equipo)}`
-              : "Tú",
-            etiquetaRival = cuatro
-              ? `Equipo ${this.mesa.color(equipoRival)}`
-              : "Rival";
-          const ganadorDeMano = marcador.ganadorMano(); // equipo con más puntos en la mano (null = empate)
-          if (!marcador.esNormal) {
-            this.el.finTitulo.textContent =
+          const { titulo, detalle, boton } = this.textoFin(contexto);
+          this.el.finTitulo.textContent = titulo;
+          this.el.finDetalle.textContent = detalle;
+          this.el.bSiguienteMano.textContent = boton;
+        }
+
+        /* Título, detalle y texto del botón del diálogo de fin de mano, según el modo y si la partida ha terminado */
+        textoFin({ cuatro, equipo, equipoRival }) {
+          const { partida } = this.sesion,
+            { marcador } = partida;
+          const segunModo = (dosJugadores, cuatroJugadores) =>
+              cuatro ? cuatroJugadores : dosJugadores,
+            etiqueta = (equipoDeLinea, nombreEnDuelo) =>
+              cuatro
+                ? `Equipo ${this.mesa.color(equipoDeLinea)}`
+                : nombreEnDuelo,
+            linea = (valorDe) =>
+              `${etiqueta(equipo, "Tú")} ${valorDe(equipo)} — ${etiqueta(equipoRival, "Rival")} ${valorDe(equipoRival)}`,
+            puntosMano = linea((equipoDeLinea) =>
+              marcador.puntosDe(equipoDeLinea),
+            ),
+            totales = linea((equipoDeLinea) =>
+              marcador.totalDe(equipoDeLinea),
+            );
+          const ganadorDeMano = marcador.ganadorMano(), // equipo con más puntos en la mano (null = empate)
+            segunGanadorDeMano = (gana, empata, pierde) =>
               ganadorDeMano === equipo
-                ? byMode("¡Has ganado!", "¡Habéis ganado!")
+                ? gana
                 : ganadorDeMano === null
-                  ? "Empate"
-                  : byMode("Has perdido", "Habéis perdido");
-            this.el.finDetalle.textContent = `${etiquetaPropia} ${puntosPropios} — ${etiquetaRival} ${puntosRival}`;
-            this.el.bSiguienteMano.textContent = "Otra partida";
-          } else if (partida.partidaTerminada) {
-            this.el.finTitulo.textContent =
-              marcador.ganadorPartida() === equipo
-                ? byMode(
-                    "¡Has ganado la partida!",
-                    "¡Habéis ganado la partida!",
-                  )
-                : byMode("Has perdido la partida", "Habéis perdido la partida");
-            this.el.finDetalle.textContent = `Última mano: ${etiquetaPropia} ${puntosPropios} — ${etiquetaRival} ${puntosRival}\nMarcador final: ${etiquetaPropia} ${totalPropio} — ${etiquetaRival} ${totalRival}`;
-            this.el.bSiguienteMano.textContent = "Nueva partida";
-          } else {
-            this.el.finTitulo.textContent =
-              ganadorDeMano === equipo
-                ? byMode("Ganas la mano", "Ganáis la mano")
-                : ganadorDeMano === null
-                  ? "Mano empatada"
-                  : byMode("Pierdes la mano", "Perdéis la mano");
-            this.el.finDetalle.textContent = `Mano ${marcador.numeroMano}: ${etiquetaPropia} ${puntosPropios} — ${etiquetaRival} ${puntosRival}\nMarcador: ${etiquetaPropia} ${totalPropio} — ${etiquetaRival} ${totalRival}\nSe juega a ${ReglasGuinote.META} puntos`;
-            this.el.bSiguienteMano.textContent = "Siguiente mano";
-          }
+                  ? empata
+                  : pierde;
+          if (!marcador.esNormal)
+            return {
+              titulo: segunGanadorDeMano(
+                segunModo("¡Has ganado!", "¡Habéis ganado!"),
+                "Empate",
+                segunModo("Has perdido", "Habéis perdido"),
+              ),
+              detalle: puntosMano,
+              boton: "Otra partida",
+            };
+          if (partida.partidaTerminada)
+            return {
+              titulo:
+                marcador.ganadorPartida() === equipo
+                  ? segunModo(
+                      "¡Has ganado la partida!",
+                      "¡Habéis ganado la partida!",
+                    )
+                  : segunModo(
+                      "Has perdido la partida",
+                      "Habéis perdido la partida",
+                    ),
+              detalle: `Última mano: ${puntosMano}\nMarcador final: ${totales}`,
+              boton: "Nueva partida",
+            };
+          return {
+            titulo: segunGanadorDeMano(
+              segunModo("Ganas la mano", "Ganáis la mano"),
+              "Mano empatada",
+              segunModo("Pierdes la mano", "Perdéis la mano"),
+            ),
+            detalle: `Mano ${marcador.numeroMano}: ${puntosMano}\nMarcador: ${totales}\nSe juega a ${ReglasGuinote.META} puntos`,
+            boton: "Siguiente mano",
+          };
         }
 
         dibujar() {
@@ -3647,6 +3628,47 @@
           return null;
         }
 
+        /**
+         * Sala nueva con el anfitrión en el asiento 0 y los asientos de bot indicados ya ocupados (con nombre automático
+         * y marca de bot). Los demás asientos quedan libres para humanos. `partida` es opcional (las locales nacen con ella).
+         */
+        static nueva({
+          juego,
+          numJugadores,
+          modo,
+          nombre,
+          colorPrimerEquipo,
+          nombrePropio,
+          asientosBot = [],
+          hashClave = null,
+          partida = null,
+          ahora = Date.now(),
+        }) {
+          const usados = [nombrePropio],
+            asientos = { 0: ahora },
+            nombres = { 0: nombrePropio },
+            bots = {};
+          for (const asiento of asientosBot) {
+            const nombreBot = nombreAuto(usados);
+            usados.push(nombreBot);
+            asientos[asiento] = ahora;
+            nombres[asiento] = Bot.PREFIJO + nombreBot;
+            bots[asiento] = true;
+          }
+          return new Sala({
+            juego,
+            numJugadores,
+            modo,
+            nombre,
+            colorPrimerEquipo,
+            asientos,
+            nombres,
+            bots,
+            hashClave,
+            partida,
+          });
+        }
+
         /* ---------- Conversión desde y hacia la base de datos ---------- */
 
         /** Reconstruye una sala del `juego` desde el objeto guardado (que descarta arrays vacíos y nulls); null si no hay datos. */
@@ -3781,6 +3803,12 @@
    Lo que solo tiene sentido online (lista de salas, crear, unirse, abandonar) es exclusivo de AlmacenFirebase.
    Ninguno toca el DOM. En las partidas locales `codigo` no se usa. */
 
+      /** Partida de la mano siguiente si `partida` ha terminado su mano `numeroMano`; null si no toca (ya la pidió otro jugador). */
+      const avanzarMano = (partida, numeroMano) =>
+        partida?.manoTerminada && partida.numeroMano === numeroMano
+          ? partida.siguienteMano()
+          : null;
+
       /** Partida contra bots: la sala vive en memoria y no hay base de datos. */
       class AlmacenLocal {
         #sala;
@@ -3806,13 +3834,10 @@
         }
 
         siguienteMano(codigo, numeroMano) {
-          const partida = this.#sala.partida;
-          if (
-            !partida?.manoTerminada ||
-            partida.marcador.numeroMano !== numeroMano
-          )
-            return Promise.resolve();
-          return this.guardarPartida(codigo, partida.siguienteMano());
+          const siguiente = avanzarMano(this.#sala.partida, numeroMano);
+          return siguiente
+            ? this.guardarPartida(codigo, siguiente)
+            : Promise.resolve();
         }
 
         /** Nada que borrar: una partida local no caduca. */
@@ -3824,9 +3849,11 @@
       /** Salas online en Firebase Realtime Database: salas/<código> (la sala y su partida) y lobby/<código> (resumen público). */
       class AlmacenFirebase {
         #bd;
+        #juego;
 
-        constructor(baseDeDatos) {
+        constructor(baseDeDatos, juego) {
           this.#bd = baseDeDatos;
+          this.#juego = juego; // para reconstruir la partida sin conocer sus reglas
         }
 
         #ref(ruta) {
@@ -3850,13 +3877,11 @@
             this.#ref(`salas/${codigo}/partida`),
             (estado) => {
               if (estado === null) return estado;
-              const partida = Partida.desdeEstado(estado);
-              if (
-                !partida.manoTerminada ||
-                partida.marcador.numeroMano !== numeroMano
-              )
-                return; // ya lo ha pedido otro jugador
-              return partida.siguienteMano().aEstado();
+              const siguiente = avanzarMano(
+                this.#juego.partidaDesdeEstado(estado),
+                numeroMano,
+              );
+              return siguiente?.aEstado(); // undefined: ya lo ha pedido otro jugador, se cancela
             },
           );
         }
@@ -4604,26 +4629,16 @@
               ),
               nombre = nombreSala(),
               nombrePropio = this.miNombre([]);
-            const { names: nombresBots, bots: marcasBot } = asignarBots(
-                asientosBot,
-                [nombrePropio],
-              ),
-              asientos = {},
-              nombres = { 0: nombrePropio, ...nombresBots };
-            [0, ...asientosBot].forEach(
-              (indice) => (asientos[indice] = Date.now()),
-            );
             await this.almacen.crearSala(
               this.sesion.codigo,
-              new Sala({
+              Sala.nueva({
                 juego: this.juego,
                 numJugadores,
                 modo,
                 nombre,
                 colorPrimerEquipo: colorEquipo,
-                asientos,
-                nombres,
-                bots: marcasBot,
+                nombrePropio,
+                asientosBot,
                 hashClave,
               }),
             );
@@ -4684,19 +4699,6 @@
           }
         }
       }
-      function asignarBots(listaAsientos, usado) {
-        // nombre automático y marca de bot para cada asiento
-        const nombres = {},
-          bots = {};
-        listaAsientos.forEach((indice) => {
-          const nombreBot = nombreAuto(usado);
-          usado.push(nombreBot);
-          nombres[indice] = Bot.PREFIJO + nombreBot;
-          bots[indice] = true;
-        });
-        return { names: nombres, bots };
-      }
-
       /* ============ MESA (MARCO GENÉRICO) ============ */
       /* El marco de la pantalla de juego: mensaje de estado, lista de jugadores y sala de espera. Lo que depende del juego
    (tapete, manos, marcador, fin de mano) lo pinta la vista que aporta el juego (juego.crearVista). */
@@ -4933,22 +4935,14 @@
           clearInterval(sesion.temporizadorPurga);
           sesion.reiniciar({ local: true, miAsiento: 0 });
           this.mesa.reiniciarAnimaciones();
-          const asientos = {},
-            { names: nombresBots, bots } = asignarBots(asientosBot, [
-              nombrePropio,
-            ]);
-          rango(numJugadores).forEach(
-            (indice) => (asientos[indice] = Date.now()),
-          );
-          const sala = new Sala({
+          const sala = Sala.nueva({
             juego: this.juego,
             numJugadores,
             modo,
             nombre: this.juego.nombreSalaLocal(numJugadores),
             colorPrimerEquipo: colorPrimero,
-            asientos,
-            nombres: { 0: nombrePropio, ...nombresBots },
-            bots,
+            nombrePropio,
+            asientosBot,
             partida: this.juego.nuevaPartida(numJugadores, modo),
           });
           sesion.almacen = new AlmacenLocal(sala);
