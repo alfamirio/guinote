@@ -1844,12 +1844,6 @@
           return ReglasGuinote.#PUNTOS[Carta.de(carta).numero] || 0;
         }
 
-        /** ¿Es rey o sota? (las dos cartas del cante). */
-        static esReyOSota(carta) {
-          const { numero } = Carta.de(carta);
-          return numero === 12 || numero === 10;
-        }
-
         /** Rey ↔ sota del mismo palo (la pareja del cante); null para el resto de cartas. */
         static parejaDeCante(carta) {
           const { palo, numero } = Carta.de(carta);
@@ -1884,25 +1878,27 @@
 
         /**
          * Cartas que `mano` puede jugar ahora.
-         *  - Salida: cualquiera, salvo tras un cante (`paloForzado`), que obliga a salir con rey o sota de ese palo.
+         *  - Salida: cualquiera.
          *  - Respuesta con mazo: cualquiera.
          *  - Respuesta en el arrastre (sin mazo): asistir al palo de salida, superar si se puede, o fallar con triunfo.
+         *    Si va ganando tu pareja, no estás obligado a superarla (ir a favor), pero sí a asistir o fallar.
+         *  `asiento` es el de quien responde; sin él (o si la mesa no trae asientos) se supone que ganan los rivales.
          */
-        static cartasLegales(mano, mesa, cartasEnMazo, triunfo, paloForzado = null) {
+        static cartasLegales(mano, mesa, cartasEnMazo, triunfo, asiento = null) {
           const cartas = mano.map((carta) => Carta.de(carta));
-          if (!mesa.length) {
-            return paloForzado
-              ? cartas.filter((c) => c.palo === paloForzado && ReglasGuinote.esReyOSota(c))
-              : cartas;
-          }
-          if (cartasEnMazo) return cartas;
+          if (!mesa.length || cartasEnMazo) return cartas;
 
           const paloSalida = Carta.de(mesa[0].carta).palo;
-          const ganadora = Carta.de(ReglasGuinote.ganadoraDeBaza(mesa, triunfo).carta);
+          const entradaGanadora = ReglasGuinote.ganadoraDeBaza(mesa, triunfo);
+          const ganadora = Carta.de(entradaGanadora.carta);
+          const vaAFavor =
+            asiento !== null &&
+            entradaGanadora.asiento !== undefined &&
+            ReglasGuinote.equipoDe(entradaGanadora.asiento) === ReglasGuinote.equipoDe(asiento);
           const asistir = (palo) => {
             const delPalo = cartas.filter((c) => c.palo === palo);
             if (!delPalo.length) return null;
-            return ganadora.palo === palo ? ReglasGuinote.#superar(delPalo, ganadora) : delPalo;
+            return ganadora.palo === palo && !vaAFavor ? ReglasGuinote.#superar(delPalo, ganadora) : delPalo;
           };
           return asistir(paloSalida) || asistir(triunfo) || cartas;
         }
@@ -2093,7 +2089,7 @@
         #turno; // asiento al que le toca, o -1 con la baza completa esperando a recogerse
         #jugadorMano; // quien sale primero en esta mano
         #cantados; // Set de palos ya cantados
-        #paloForzado; // tras un cante: palo con el que hay que salir (rey o sota)
+        #paloForzado; // palo cantado en la salida actual (impide cantar otra vez antes de jugar carta); no obliga a nada más
         #ultimoEvento; // { tipo: 'baza' | 'cante' | 'cambio', asiento, … } para mostrar en pantalla
         #jugadas; // Carta[] de las bazas ya recogidas (memoria para el bot)
         #marcador;
@@ -2358,7 +2354,7 @@
             this.#mesa,
             this.#mazo.restantes,
             this.#triunfo,
-            this.#paloForzado,
+            asiento,
           );
         }
 
@@ -2538,7 +2534,7 @@
           const masBarata = (cartas) =>
             cartas.reduce((mejorActual, carta) => (coste(carta) < coste(mejorActual) ? carta : mejorActual));
           if (mesa.length === 0) {
-            if (partida.paloForzado || partida.cartasEnMazo) return masBarata(permitidas); // salir con lo más barato
+            if (partida.cartasEnMazo) return masBarata(permitidas); // salir con lo más barato
             return sinTriunfos(permitidas).reduce((mejorActual, carta) =>
               fuerza(carta) > fuerza(mejorActual) ? carta : mejorActual,
             ); // arrastre: la carta más fuerte
@@ -2940,11 +2936,7 @@
           else if (esMiTurno) {
             estado = "Tu turno";
             claseEstado = "mine";
-            pista = partida.paloForzado
-              ? `Cantaste: sal con el rey o la sota de ${partida.paloForzado}`
-              : partida.cartasEnMazo
-                ? ""
-                : "Arrastre: asiste al palo y supera si puedes";
+            pista = partida.cartasEnMazo ? "" : "Arrastre: asiste al palo y supera si puedes";
           } else estado = "Turno de " + this.nombreConPareja(partida.turno);
           this.mesa.mostrarMensaje(
             estado,
@@ -3083,15 +3075,15 @@
         <h3>El arrastre (mazo agotado)</h3>
         <p>
           Cuando ya no hay mazo, tienes que: <b>1)</b> asistir al palo de salida; <b>2)</b> superar la carta del rival
-          si puedes; <b>3)</b> si no tienes ese palo, fallar con un triunfo si lo tienes. Las cartas que no puedes jugar
-          se ven atenuadas.
+          si puedes; <b>3)</b> si no tienes ese palo, fallar con un triunfo si lo tienes. Si tu pareja va ganando la baza no
+          estás obligado a superarla (<b>ir a favor</b>), pero sí a asistir. Las cartas que no puedes jugar se ven
+          atenuadas.
         </p>
 
         <h3>Cantes</h3>
         <p>
           Si ya has ganado alguna baza y te toca salir, puedes <b>cantar</b> si tienes el <b>rey y la sota</b> del
-          mismo palo: <b>20 puntos</b>, o <b>40</b> si es el palo de triunfo. Después debes salir con el rey o la
-          sota de ese palo. Cada palo solo se canta una vez.
+          mismo palo: <b>20 puntos</b>, o <b>40</b> si es el palo de triunfo. Cada palo solo se canta una vez.
         </p>
 
         <h3>Cambiar el 7</h3>
