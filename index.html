@@ -3133,7 +3133,7 @@
           pareja se sienta enfrente). Quien crea la sala elige el color de su equipo; quien se une elige equipo (o
           "cualquiera") y cada equipo tiene 2 plazas. Cada uno recibe 6 cartas y cada baza es de 4 cartas; se juega en
           sentido antihorario. Los puntos, las bazas y los cantes son <b>del equipo</b>: puedes cantar o cambiar el 7 si
-          tu equipo ya ha ganado alguna baza. En el arrastre hay que superar la carta ganadora aunque sea de tu pareja.
+          tu equipo ya ha ganado alguna baza. En el arrastre, si va ganando tu pareja no tienes que superar su carta (pero sí asistir al palo o fallar con triunfo); si van ganando los rivales, tienes que superar la carta ganadora siempre que puedas.
           No hay señas.
         </p>
 
@@ -3772,6 +3772,21 @@
       /* Bandera global: true = lee config.dat (JSON codificado en base64);
    false = lee firebase-config.json en texto plano. */
       const CONFIG_EN_BASE64 = true;
+
+      /* Bandera global: true = al arrancar se descargan en segundo plano las 40 cartas y el reverso, para que no
+   haya parpadeo al robar o jugar una carta; false = se cargan solo cuando hacen falta. */
+      const PRECARGAR_CARTAS = true;
+      const imagenesPrecargadas = []; // referencias para que el navegador no descarte las imágenes
+      function precargarCartas() {
+        if (!PRECARGAR_CARTAS) return;
+        const urls = [`cartas/reverso.${EXT_CARTA}`, ...Carta.todas().map((carta) => `cartas/${carta}.${EXT_CARTA}`)];
+        for (const url of urls) {
+          const imagen = new Image();
+          imagen.decoding = "async";
+          imagen.src = url;
+          imagenesPrecargadas.push(imagen);
+        }
+      }
       const ARCHIVO_CONFIG = CONFIG_EN_BASE64 ? "config.dat" : "firebase-config.json";
 
       let baseDeDatos;
@@ -4707,6 +4722,7 @@
         }
       }
 
+      precargarCartas();
       new Juego(JUEGO, almacenFirebase, historial).arrancar();
     </script>
   </body>
