@@ -61,3 +61,17 @@ Si recargas la página, vuelves automáticamente a tu sala.
 - **Cambiar el 7:** quien tiene una baza ganada y sale puede cambiar el 7 de triunfo por la carta vista, mientras queden al menos 2 cartas en el mazo.
 - **Diez de últimas:** quien gane la última baza suma 10 puntos.
 - Solo ves tus propios puntos durante la partida. Al terminar se muestran los dos y gana quien tenga más.
+
+## Créditos y Licencias de las Imágenes
+
+Los recursos gráficos incluidos en este repositorio provienen de Wikimedia Commons y están bajo licencia libre:
+
+1. **Baraja Española Completa (PNG):**
+   * **Autor:** [Basquetteur](https://commons.wikimedia.org/wiki/User:Basquetteur) (basado en el trabajo original de Germarquezm).
+   * **Fuente:** [Wikimedia Commons - File:Baraja_española_completa.png](https://commons.wikimedia.org/wiki/File:Baraja_espa%C3%B1ola_completa.png)
+   * **Licencia:** [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)
+
+2. **Baraja Española (SVG):**
+   * **Autor:** [Germarquezm](https://commons.wikimedia.org/wiki/File:Baraja_espa%C3%B1ola.svg)
+   * **Fuente:** [Wikimedia Commons - File:Baraja_española.svg](https://commons.wikimedia.org/wiki/File:Baraja_espa%C3%B1ola.svg)
+   * **Licencia:** [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0/)
