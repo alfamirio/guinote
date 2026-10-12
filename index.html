@@ -1844,15 +1844,16 @@
           return ReglasGuinote.#PUNTOS[Carta.de(carta).numero] || 0;
         }
 
-        static esReyOCaballo(carta) {
+        /** ¿Es rey o sota? (las dos cartas del cante). */
+        static esReyOSota(carta) {
           const { numero } = Carta.de(carta);
-          return numero === 12 || numero === 11;
+          return numero === 12 || numero === 10;
         }
 
-        /** Rey ↔ caballo del mismo palo (la pareja del cante); null para el resto de cartas. */
+        /** Rey ↔ sota del mismo palo (la pareja del cante); null para el resto de cartas. */
         static parejaDeCante(carta) {
           const { palo, numero } = Carta.de(carta);
-          return numero === 12 ? Carta.crear(palo, 11) : numero === 11 ? Carta.crear(palo, 12) : null;
+          return numero === 12 ? Carta.crear(palo, 10) : numero === 10 ? Carta.crear(palo, 12) : null;
         }
 
         /** Equipo de un asiento: asientos 0 y 2 contra 1 y 3 (en 2 jugadores, cada jugador es un equipo). */
@@ -1883,7 +1884,7 @@
 
         /**
          * Cartas que `mano` puede jugar ahora.
-         *  - Salida: cualquiera, salvo tras un cante (`paloForzado`), que obliga a salir con rey o caballo de ese palo.
+         *  - Salida: cualquiera, salvo tras un cante (`paloForzado`), que obliga a salir con rey o sota de ese palo.
          *  - Respuesta con mazo: cualquiera.
          *  - Respuesta en el arrastre (sin mazo): asistir al palo de salida, superar si se puede, o fallar con triunfo.
          */
@@ -1891,7 +1892,7 @@
           const cartas = mano.map((carta) => Carta.de(carta));
           if (!mesa.length) {
             return paloForzado
-              ? cartas.filter((c) => c.palo === paloForzado && ReglasGuinote.esReyOCaballo(c))
+              ? cartas.filter((c) => c.palo === paloForzado && ReglasGuinote.esReyOSota(c))
               : cartas;
           }
           if (cartasEnMazo) return cartas;
@@ -1912,13 +1913,13 @@
           return mayores.length ? mayores : cartas;
         }
 
-        /** Palos en los que `mano` tiene rey y caballo y aún no se ha cantado. */
+        /** Palos en los que `mano` tiene rey y sota y aún no se ha cantado. */
         static cantesPosibles(mano, cantados = []) {
           const cartas = mano.map((carta) => Carta.de(carta));
           const yaCantados = new Set(cantados);
           return Carta.PALOS.filter(
             (palo) =>
-              !yaCantados.has(palo) && cartas.includes(Carta.crear(palo, 11)) && cartas.includes(Carta.crear(palo, 12)),
+              !yaCantados.has(palo) && cartas.includes(Carta.crear(palo, 10)) && cartas.includes(Carta.crear(palo, 12)),
           );
         }
 
@@ -2092,7 +2093,7 @@
         #turno; // asiento al que le toca, o -1 con la baza completa esperando a recogerse
         #jugadorMano; // quien sale primero en esta mano
         #cantados; // Set de palos ya cantados
-        #paloForzado; // tras un cante: palo con el que hay que salir (rey o caballo)
+        #paloForzado; // tras un cante: palo con el que hay que salir (rey o sota)
         #ultimoEvento; // { tipo: 'baza' | 'cante' | 'cambio', asiento, … } para mostrar en pantalla
         #jugadas; // Carta[] de las bazas ya recogidas (memoria para el bot)
         #marcador;
@@ -2475,7 +2476,7 @@
         static PESO_PUNTOS = 2; // cada punto de la carta pesa el doble
         static RECARGO_TRIUNFO = 14; // gastar un triunfo es caro
         static DIVISOR_FUERZA = 5; // la fuerza solo desempata
-        static RECARGO_ROMPER_CANTE = 6; // separar un rey y un caballo que aún se pueden cantar
+        static RECARGO_ROMPER_CANTE = 6; // separar un rey y una sota que aún se pueden cantar
         static BAZA_VALIOSA = 10; // puntos en la mesa a partir de los que merece fallar con triunfo
         static BAZA_MEDIA = 3; // puntos en la mesa a partir de los que merece ganar si la carta no vale nada
         static VALOR_EXTREMO = 1e9; // «infinito» del minimax del final exacto
@@ -2524,7 +2525,7 @@
             const noTriunfos = cartas.filter((carta) => carta.palo !== triunfo);
             return noTriunfos.length ? noTriunfos : cartas;
           };
-          // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+caballo cantable
+          // "coste" de soltar una carta: puntos, triunfo, fuerza y romper una pareja rey+sota cantable
           const coste = (carta) => {
             const pareja = ReglasGuinote.parejaDeCante(carta);
             return (
@@ -2940,7 +2941,7 @@
             estado = "Tu turno";
             claseEstado = "mine";
             pista = partida.paloForzado
-              ? `Cantaste: sal con el rey o el caballo de ${partida.paloForzado}`
+              ? `Cantaste: sal con el rey o la sota de ${partida.paloForzado}`
               : partida.cartasEnMazo
                 ? ""
                 : "Arrastre: asiste al palo y supera si puedes";
@@ -3088,9 +3089,9 @@
 
         <h3>Cantes</h3>
         <p>
-          Si ya has ganado alguna baza y te toca salir, puedes <b>cantar</b> si tienes el <b>rey y el caballo</b> del
-          mismo palo: <b>20 puntos</b>, o <b>40</b> si es el palo de triunfo. Después debes salir con el rey o el
-          caballo de ese palo. Cada palo solo se canta una vez.
+          Si ya has ganado alguna baza y te toca salir, puedes <b>cantar</b> si tienes el <b>rey y la sota</b> del
+          mismo palo: <b>20 puntos</b>, o <b>40</b> si es el palo de triunfo. Después debes salir con el rey o la
+          sota de ese palo. Cada palo solo se canta una vez.
         </p>
 
         <h3>Cambiar el 7</h3>
