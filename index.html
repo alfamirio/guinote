@@ -2980,6 +2980,7 @@
         reiniciarAnimaciones() {
           this.vistas = new Set(); // cartas de mi mano ya pintadas (animación de reparto)
           this.mesaPrevia = ""; // baza pintada en el dibujado anterior (animación de jugada)
+          this.celebrado = null; // claves de celebraciones ya lanzadas (null = aún no se ha pintado: el primer dibujado solo las anota)
         }
         limpiar() {
           document.body.classList.remove("cuatroJugadores");
@@ -3268,6 +3269,51 @@
           };
         }
 
+        /* Confeti en cada cante (más grande con las 40) y cuando gana tu equipo la partida. Cada celebración se lanza una sola vez;
+           al reconectar a una partida en curso solo se anotan las que ya estaban, sin lanzarlas. */
+        celebrar({ equipo }) {
+          const { partida } = this.sesion,
+            evento = partida.ultimoEvento,
+            celebraciones = [];
+          if (evento?.tipo === "cante")
+            celebraciones.push([`cante-${partida.numeroMano}-${evento.palo}`, () => this.confetiCante(evento.puntos)]);
+          if (partida.partidaTerminada && partida.marcador.ganadorPartida() === equipo)
+            celebraciones.push([`fin-${partida.inicio}-${partida.numeroMano}`, () => this.confetiVictoria()]);
+          const primera = this.celebrado === null;
+          this.celebrado ??= new Set();
+          for (const [clave, lanzar] of celebraciones) {
+            if (this.celebrado.has(clave)) continue;
+            this.celebrado.add(clave);
+            if (!primera) lanzar();
+          }
+        }
+
+        confetiCante(puntos) {
+          const grande = puntos >= ReglasGuinote.CANTE_TRIUNFO;
+          cargaConfeti.then((confetti) =>
+            confetti?.({
+              particleCount: grande ? 150 : 50,
+              spread: grande ? 110 : 60,
+              startVelocity: grande ? 48 : 35,
+              origin: { y: 0.65 },
+              colors: ["#e0b04a", "#ffe08a", "#f1e6c9"],
+              disableForReducedMotion: true,
+            }),
+          );
+        }
+
+        confetiVictoria() {
+          cargaConfeti.then((confetti) => {
+            if (!confetti) return;
+            const fin = Date.now() + 2500;
+            (function fotograma() {
+              for (const [angle, x] of [[60, 0], [120, 1]])
+                confetti({ particleCount: 4, angle, spread: 65, origin: { x, y: 0.8 }, disableForReducedMotion: true });
+              if (Date.now() < fin) requestAnimationFrame(fotograma);
+            })();
+          });
+        }
+
         dibujar() {
           const partida = this.sesion.partida,
             numJugadores = partida.jugadores,
@@ -3287,6 +3333,7 @@
           this.dibujarMarcador(contexto);
           this.dibujarEstado(contexto);
           this.dibujarFin(contexto);
+          this.celebrar(contexto);
         }
       }
 
@@ -4010,6 +4057,11 @@
       /* ============ JUEGO ACTIVO ============
    Único sitio fuera de la sección «JUEGO: GUIÑOTE» que nombra el juego. Para jugar a otra cosa, apuntar aquí a su descriptor. */
       const JUEGO = JuegoGuinote;
+
+      /* Confeti (canvas-confetti desde CDN). Se carga en segundo plano; si falla, el juego sigue sin él (resuelve a null). */
+      const cargaConfeti = import("https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm")
+        .then((modulo) => modulo.default)
+        .catch(() => null);
 
       const imagenesPrecargadas = []; // referencias para que el navegador no descarte las imágenes
       function precargarCartas() {
