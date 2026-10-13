@@ -986,6 +986,15 @@
       #deckInfo:empty {
         display: none;
       }
+      #reloj {
+        font-variant-numeric: tabular-nums;
+      }
+      @media (max-width: 640px) {
+        #reloj {
+          font-size: 0.68rem;
+          padding: 0.3em 0.65em;
+        }
+      }
       #deckInfo .estrellaTriunfo {
         color: var(--oro);
       }
@@ -1454,6 +1463,7 @@
           </div>
         </div>
         <div id="topDerecha">
+          <span class="chip" id="reloj" title="Duración de la partida" hidden></span>
           <span class="chip" id="score"></span>
           <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
         </div>
@@ -2328,6 +2338,8 @@
         #paloForzado; // palo cantado en la salida actual (impide cantar otra vez antes de jugar carta); no obliga a nada más
         #ultimoEvento; // { tipo: 'baza' | 'cante' | 'cambio', asiento, … } para mostrar en pantalla
         #jugadas; // Carta[] de las bazas ya recogidas (memoria para el bot)
+        #inicio; // ms (Date.now) en que empezó la partida (la fija quien reparte la primera mano)
+        #fin; // ms en que terminó la partida, o null si sigue en curso
         #marcador;
 
         constructor({
@@ -2344,8 +2356,12 @@
           ultimoEvento,
           jugadas,
           marcador,
+          inicio,
+          fin,
         }) {
           this.#jugadores = jugadores;
+          this.#inicio = inicio ?? null;
+          this.#fin = fin ?? null;
           this.#triunfo = triunfo;
           this.#cartaTriunfo = Carta.de(cartaTriunfo);
           this.#mazo = mazo;
@@ -2374,7 +2390,7 @@
         static nueva(
           jugadores,
           modo = "normal",
-          { baraja = Baraja.barajada(), jugadorMano = 1, marcador = new MarcadorGuinote({ modo }) } = {},
+          { baraja = Baraja.barajada(), jugadorMano = 1, marcador = new MarcadorGuinote({ modo }), inicio = Date.now() } = {},
         ) {
           const manos = Array.from({ length: jugadores }, () => baraja.repartir(ReglasGuinote.CARTAS_MANO));
           const cartaTriunfo = baraja.cartaDelFondo;
@@ -2392,6 +2408,8 @@
             ultimoEvento: null,
             jugadas: [],
             marcador,
+            inicio,
+            fin: null,
           });
         }
 
@@ -2415,6 +2433,8 @@
             paloForzado: estado.paloForzado,
             ultimoEvento: estado.ultimoEvento ?? null,
             jugadas: estado.jugadas || [],
+            inicio: estado.inicio ?? null,
+            fin: estado.fin ?? null,
             marcador: new MarcadorGuinote({
               modo: estado.modo,
               puntosMano: estado.puntosMano,
@@ -2446,6 +2466,8 @@
             haGanadoBaza: m.haGanadoBaza,
             bazas: m.bazas,
             jugadas: this.#jugadas.map((carta) => carta.id),
+            inicio: this.#inicio,
+            fin: this.#fin,
             cantados: [...this.#cantados].map((palo) => palo + ",").join(""),
             paloForzado: this.#paloForzado,
             ultimoEvento: this.#ultimoEvento,
@@ -2477,6 +2499,8 @@
             ultimoEvento: this.#ultimoEvento,
             jugadas: this.#jugadas,
             marcador: this.#marcador.clonar(),
+            inicio: this.#inicio,
+            fin: this.#fin,
           });
         }
 
@@ -2508,6 +2532,14 @@
         }
         get marcador() {
           return this.#marcador;
+        }
+        /** Momento (ms) en que empezó la partida, o null si no se conoce. */
+        get inicio() {
+          return this.#inicio;
+        }
+        /** Momento (ms) en que terminó la partida, o null si sigue en curso. */
+        get fin() {
+          return this.#fin;
         }
         /** Cartas sobre la mesa en la baza actual (no modificar). */
         get mesa() {
@@ -2684,6 +2716,7 @@
           }
           if (siguiente.#manos.every((mano) => !mano.length)) {
             siguiente.#marcador.cerrarMano(equipo);
+            if (siguiente.#marcador.partidaTerminada) siguiente.#fin = Date.now();
             siguiente.#ultimoEvento.bonusUltimas = true;
           }
           return siguiente;
@@ -2695,6 +2728,7 @@
           return PartidaGuinote.nueva(this.#jugadores, this.#marcador.modo, {
             jugadorMano: (this.#jugadorMano + 1) % this.#jugadores,
             marcador: this.#marcador.siguienteMano(),
+            inicio: this.partidaTerminada ? undefined : (this.#inicio ?? undefined), // el reloj sigue entre manos; una partida nueva lo reinicia
           });
         }
       }
@@ -4545,6 +4579,7 @@
           this.pintarTextos();
           this.conectarEventos();
           this.colocarHud();
+          setInterval(() => this.actualizarReloj(), 1000);
         }
 
         /* Textos del juego en la página: título, subtítulo del lobby y ayuda */
@@ -4599,6 +4634,7 @@
           sessionStorage.removeItem(this.juego.id);
           this.mesa.limpiar();
           porId("game").hidden = true;
+          this.actualizarReloj();
           porId("fin").hidden = true;
           porId("bNueva").hidden = true;
           this.lobby.mostrar();
@@ -4627,7 +4663,24 @@
           this.despuesDelEstado();
         }
 
+        /* Reloj de la partida: cuenta desde el inicio y se congela al terminar */
+        actualizarReloj() {
+          const partida = this.sesion.partida,
+            reloj = porId("reloj");
+          if (!partida || partida.inicio == null || porId("game").hidden) {
+            reloj.hidden = true;
+            return;
+          }
+          const segundos = Math.max(0, Math.floor(((partida.fin ?? Date.now()) - partida.inicio) / 1000)),
+            dos = (n) => String(n).padStart(2, "0"),
+            horas = Math.floor(segundos / 3600),
+            minutos = Math.floor((segundos % 3600) / 60);
+          reloj.textContent = `⏱ ${horas ? horas + ":" + dos(minutos) : minutos}:${dos(segundos % 60)}`;
+          reloj.hidden = false;
+        }
+
         despuesDelEstado() {
+          this.actualizarReloj();
           this.mesa.dibujar();
           this.sesion.programarResolucion(AJUSTES.resolverMs);
           this.sesion.programarBot();
