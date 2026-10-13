@@ -289,17 +289,26 @@
       #historial p {
         margin: 0.2rem 0;
       }
+      #ayuda table,
       #historial table {
         border-collapse: collapse;
-        margin: 0.6rem 0;
-        font-size: 0.85rem;
-        width: 100%;
         display: block;
         overflow-x: auto;
+        max-width: 100%;
       }
+      #ayuda th,
+      #ayuda td,
       #historial th,
       #historial td {
         border: 1px solid var(--borde-suave);
+      }
+      #historial table {
+        margin: 0.6rem 0;
+        font-size: 0.85rem;
+        width: 100%;
+      }
+      #historial th,
+      #historial td {
         padding: 0.3em 0.55em;
         text-align: left;
         vertical-align: top;
@@ -316,16 +325,11 @@
         font-weight: bold;
       }
       #ayuda table {
-        border-collapse: collapse;
         margin: 0.4rem 0;
         font-size: 0.9rem;
-        max-width: 100%;
-        display: block;
-        overflow-x: auto;
       }
       #ayuda th,
       #ayuda td {
-        border: 1px solid var(--borde-suave);
         padding: 0.25em 0.55em;
         text-align: center;
       }
@@ -340,6 +344,7 @@
 
       /* Mesa */
       #game {
+        position: relative;
         height: 100%;
         display: flex;
         flex-direction: column;
@@ -348,6 +353,8 @@
         box-shadow: inset 0 0 60px var(--sombra-fuerte);
       }
       #top {
+        position: relative;
+        z-index: 2;
         display: flex;
         justify-content: space-between;
         align-items: center;
@@ -422,6 +429,8 @@
         white-space: nowrap;
       }
       #mesa {
+        position: relative;
+        z-index: 1;
         flex: 1;
         display: grid;
         grid-template-rows: 1fr auto auto;
@@ -514,20 +523,19 @@
       }
       #play .card {
         position: absolute;
+        animation: entra 0.35s ease-out;
       }
       #play .mine {
         left: 8%;
         top: 38%;
         transform: rotate(-4deg);
         --dy: 45vh;
-        animation: entra 0.35s ease-out;
       }
       #play .theirs {
         left: 38%;
         top: 2%;
         transform: rotate(5deg);
         --dy: -40vh;
-        animation: entra 0.35s ease-out;
       }
       /* Entrada de una carta en la mesa: cada posición fija de dónde viene con --dx / --dy */
       @keyframes entra {
@@ -858,28 +866,24 @@
         top: 43%;
         transform: rotate(-3deg);
         --dy: 45vh;
-        animation: entra 0.35s ease-out;
       }
       #play .posicion1 {
         left: 69.3%;
         top: 22%;
         transform: rotate(4deg);
         --dx: 45vw;
-        animation: entra 0.35s ease-out;
       }
       #play .posicion2 {
         left: 34.7%;
         top: 0;
         transform: rotate(3deg);
         --dy: -40vh;
-        animation: entra 0.35s ease-out;
       }
       #play .posicion3 {
         left: 0;
         top: 22%;
         transform: rotate(-4deg);
         --dx: -45vw;
-        animation: entra 0.35s ease-out;
       }
       @media (min-width: 641px) {
         body.cuatroJugadores #row {
@@ -962,9 +966,6 @@
       }
 
       /* Mano del rival pegada al borde superior de la pantalla */
-      #game {
-        position: relative;
-      }
       #manoSuperior {
         position: absolute;
         top: 0.6rem;
@@ -974,15 +975,6 @@
         pointer-events: none;
         margin: 0;
       }
-      #top {
-        position: relative;
-        z-index: 2;
-      }
-      #mesa {
-        position: relative;
-        z-index: 1;
-      }
-
       #deckInfo:empty {
         display: none;
       }
@@ -1835,6 +1827,30 @@
         elemento.innerHTML = String(contenido instanceof Html ? contenido : html`${contenido}`);
       };
 
+      /* localStorage tolerante a fallos (modo privado, cuota llena, bloqueado…) */
+      const leerLocal = (clave) => {
+        try {
+          return localStorage.getItem(clave);
+        } catch (error) {
+          return null;
+        }
+      };
+      const guardarLocal = (clave, valor) => {
+        try {
+          localStorage.setItem(clave, valor);
+        } catch (error) {}
+      };
+
+      /* Diálogo modal: botones que lo abren, botón de cerrar y cierre al pulsar el fondo */
+      function conectarDialogo(id, botonesAbrir, botonCerrar, alAbrir = () => porId(id).showModal()) {
+        const dialogo = porId(id);
+        botonesAbrir.forEach((idBoton) => porId(idBoton).addEventListener("click", alAbrir));
+        porId(botonCerrar).addEventListener("click", () => dialogo.close());
+        dialogo.addEventListener("click", (evento) => {
+          if (evento.target === dialogo) dialogo.close();
+        });
+      }
+
       /* Imágenes de la baraja española (cartas/<palo>_<número>.webp y reverso). Las usa cualquier juego que juegue con ella. */
       const imagenReverso = (className = "", atributos = html``, ext = EXT_CARTA) =>
         html`<img class="card ${className}" ${atributos} src="cartas/reverso.${ext}" draggable="false" alt="" />`;
@@ -2326,65 +2342,40 @@
        * - Las cartas de la mesa son entradas { asiento, carta } con carta: Carta (el formato que usa ReglasGuinote).
        */
       class PartidaGuinote {
-        #jugadores;
-        #triunfo;
-        #cartaTriunfo; // la carta girada; sigue siendo la del triunfo aunque el mazo se agote
-        #mazo; // Baraja: la carta del fondo es la del triunfo mientras queden cartas
-        #manos; // array por asiento de Carta[]
-        #mesa; // [{ asiento, carta }] en orden de juego
-        #turno; // asiento al que le toca, o -1 con la baza completa esperando a recogerse
-        #jugadorMano; // quien sale primero en esta mano
-        #cantados; // Set de palos ya cantados
-        #paloForzado; // palo cantado en la salida actual (impide cantar otra vez antes de jugar carta); no obliga a nada más
-        #ultimoEvento; // { tipo: 'baza' | 'cante' | 'cambio', asiento, … } para mostrar en pantalla
-        #jugadas; // Carta[] de las bazas ya recogidas (memoria para el bot)
-        #inicio; // ms (Date.now) en que empezó la partida (la fija quien reparte la primera mano)
-        #fin; // ms en que terminó la partida, o null si sigue en curso
-        #marcador;
+        /* Todo el estado vive en un único objeto (#e) para que el constructor y clonar no tengan que enumerarlo campo a campo:
+             jugadores, triunfo,
+             cartaTriunfo   la carta girada; sigue siendo la del triunfo aunque el mazo se agote
+             mazo           Baraja: la carta del fondo es la del triunfo mientras queden cartas
+             manos          array por asiento de Carta[]
+             mesa           [{ asiento, carta }] en orden de juego
+             turno          asiento al que le toca, o -1 con la baza completa esperando a recogerse
+             jugadorMano    quien sale primero en esta mano
+             cantados       Set de palos ya cantados
+             paloForzado    palo cantado en la salida actual (impide cantar otra vez antes de jugar carta); no obliga a nada más
+             ultimoEvento   { tipo: 'baza' | 'cante' | 'cambio', asiento, … } para mostrar en pantalla
+             jugadas        Carta[] de las bazas ya recogidas (memoria para el bot)
+             inicio, fin    ms (Date.now) en que empezó y terminó la partida (fin es null mientras sigue en curso)
+             marcador       MarcadorGuinote */
+        #e;
 
-        constructor({
-          jugadores,
-          triunfo,
-          cartaTriunfo,
-          mazo,
-          manos,
-          mesa,
-          turno,
-          jugadorMano,
-          cantados,
-          paloForzado,
-          ultimoEvento,
-          jugadas,
-          marcador,
-          inicio,
-          fin,
-        }) {
-          this.#jugadores = jugadores;
-          this.#inicio = inicio ?? null;
-          this.#fin = fin ?? null;
-          this.#triunfo = triunfo;
-          this.#cartaTriunfo = Carta.de(cartaTriunfo);
-          this.#mazo = mazo;
-          this.#manos = manos.map((mano) => mano.map((carta) => Carta.de(carta)));
-          this.#mesa = mesa.map(({ asiento, carta }) => ({
-            asiento,
-            carta: Carta.de(carta),
-          }));
-          this.#turno = turno;
-          this.#jugadorMano = jugadorMano;
-          this.#cantados = new Set(cantados);
-          this.#paloForzado = paloForzado ?? null;
-          this.#ultimoEvento = ultimoEvento ? { ...ultimoEvento } : null;
-          this.#jugadas = jugadas.map((carta) => Carta.de(carta));
-          this.#marcador = marcador;
+        /** `datos` lleva los campos de arriba; las cartas pueden ser ids y las colecciones se copian. */
+        constructor(datos) {
+          const { cartaTriunfo, manos, mesa, cantados, paloForzado, ultimoEvento, jugadas, inicio, fin } = datos;
+          this.#e = {
+            ...datos,
+            cartaTriunfo: Carta.de(cartaTriunfo),
+            manos: manos.map((mano) => mano.map((carta) => Carta.de(carta))),
+            mesa: mesa.map(({ asiento, carta }) => ({ asiento, carta: Carta.de(carta) })),
+            cantados: new Set(cantados),
+            paloForzado: paloForzado ?? null,
+            ultimoEvento: ultimoEvento ? { ...ultimoEvento } : null,
+            jugadas: jugadas.map((carta) => Carta.de(carta)),
+            inicio: inicio ?? null,
+            fin: fin ?? null,
+          };
         }
 
         /* ---------- Creación y conversión ---------- */
-
-        /** Equipo de un asiento: asientos 0 y 2 contra 1 y 3. */
-        static equipoDe(asiento) {
-          return ReglasGuinote.equipoDe(asiento);
-        }
 
         /** Reparte una mano nueva. Por defecto sale el asiento 1 (reparte el 0) y el marcador empieza de cero. */
         static nueva(
@@ -2450,34 +2441,34 @@
 
         /** Objeto simple para guardar en Firebase. */
         aEstado() {
-          const m = this.#marcador.exportar();
+          const m = this.#e.marcador.exportar();
           const estado = {
-            mazo: this.#mazo.ids(),
-            numJugadores: this.#jugadores,
-            cartaTriunfo: this.#cartaTriunfo.id,
-            triunfo: this.#triunfo,
-            mesa: this.#mesa.map(({ asiento, carta }) => ({
+            mazo: this.#e.mazo.ids(),
+            numJugadores: this.#e.jugadores,
+            cartaTriunfo: this.#e.cartaTriunfo.id,
+            triunfo: this.#e.triunfo,
+            mesa: this.#e.mesa.map(({ asiento, carta }) => ({
               asiento,
               carta: carta.id,
             })),
-            turno: this.#turno,
-            jugadorMano: this.#jugadorMano,
+            turno: this.#e.turno,
+            jugadorMano: this.#e.jugadorMano,
             puntosMano: m.puntosMano,
             haGanadoBaza: m.haGanadoBaza,
             bazas: m.bazas,
-            jugadas: this.#jugadas.map((carta) => carta.id),
-            inicio: this.#inicio,
-            fin: this.#fin,
-            cantados: [...this.#cantados].map((palo) => palo + ",").join(""),
-            paloForzado: this.#paloForzado,
-            ultimoEvento: this.#ultimoEvento,
+            jugadas: this.#e.jugadas.map((carta) => carta.id),
+            inicio: this.#e.inicio,
+            fin: this.#e.fin,
+            cantados: [...this.#e.cantados].map((palo) => palo + ",").join(""),
+            paloForzado: this.#e.paloForzado,
+            ultimoEvento: this.#e.ultimoEvento,
             manoCerrada: m.manoCerrada,
             partidaTerminada: m.partidaTerminada,
             modo: m.modo,
             totales: m.totales,
             numeroMano: m.numeroMano,
           };
-          this.#manos.forEach((mano, asiento) => {
+          this.#e.manos.forEach((mano, asiento) => {
             estado["mano" + asiento] = mano.map((carta) => carta.id);
           });
           return estado;
@@ -2485,91 +2476,80 @@
 
         /** Copia independiente (cartas y marcador incluidos). */
         clonar() {
+          // el constructor copia manos, mesa, cantados, jugadas y ultimoEvento; el mazo y el marcador (mutable) se clonan aquí
           return new PartidaGuinote({
-            jugadores: this.#jugadores,
-            triunfo: this.#triunfo,
-            cartaTriunfo: this.#cartaTriunfo,
-            mazo: this.#mazo.clonar(),
-            manos: this.#manos,
-            mesa: this.#mesa,
-            turno: this.#turno,
-            jugadorMano: this.#jugadorMano,
-            cantados: this.#cantados,
-            paloForzado: this.#paloForzado,
-            ultimoEvento: this.#ultimoEvento,
-            jugadas: this.#jugadas,
-            marcador: this.#marcador.clonar(),
-            inicio: this.#inicio,
-            fin: this.#fin,
+            ...this.#e,
+            mazo: this.#e.mazo.clonar(),
+            marcador: this.#e.marcador.clonar(),
           });
         }
 
         /* ---------- Consultas ---------- */
 
         get jugadores() {
-          return this.#jugadores;
+          return this.#e.jugadores;
         }
         get triunfo() {
-          return this.#triunfo;
+          return this.#e.triunfo;
         }
         get cartaTriunfo() {
-          return this.#cartaTriunfo;
+          return this.#e.cartaTriunfo;
         }
         get cartasEnMazo() {
-          return this.#mazo.restantes;
+          return this.#e.mazo.restantes;
         }
         get turno() {
-          return this.#turno;
+          return this.#e.turno;
         }
         get jugadorMano() {
-          return this.#jugadorMano;
+          return this.#e.jugadorMano;
         }
         get paloForzado() {
-          return this.#paloForzado;
+          return this.#e.paloForzado;
         }
         get ultimoEvento() {
-          return this.#ultimoEvento;
+          return this.#e.ultimoEvento;
         }
         get marcador() {
-          return this.#marcador;
+          return this.#e.marcador;
         }
         /** Momento (ms) en que empezó la partida, o null si no se conoce. */
         get inicio() {
-          return this.#inicio;
+          return this.#e.inicio;
         }
         /** Momento (ms) en que terminó la partida, o null si sigue en curso. */
         get fin() {
-          return this.#fin;
+          return this.#e.fin;
         }
         /** Cartas sobre la mesa en la baza actual (no modificar). */
         get mesa() {
-          return this.#mesa;
+          return this.#e.mesa;
         }
         get cantados() {
-          return new Set(this.#cantados);
+          return new Set(this.#e.cantados);
         }
         /** Cartas de las bazas ya recogidas. */
         get cartasJugadas() {
-          return [...this.#jugadas];
+          return [...this.#e.jugadas];
         }
         get bazaCompleta() {
-          return this.#mesa.length === this.#jugadores;
+          return this.#e.mesa.length === this.#e.jugadores;
         }
         get manoTerminada() {
-          return this.#marcador.manoCerrada;
+          return this.#e.marcador.manoCerrada;
         }
         get partidaTerminada() {
-          return this.#marcador.partidaTerminada;
+          return this.#e.marcador.partidaTerminada;
         }
 
         /* ---------- Interfaz que usa la parte genérica (ver CONTRATO DE JUEGO) ---------- */
 
         /** Asiento que puede actuar ahora, o -1 si nadie puede (mano terminada, o baza completa esperando a recogerse). */
         get asientoActivo() {
-          return this.manoTerminada || this.bazaCompleta ? -1 : this.#turno;
+          return this.manoTerminada || this.bazaCompleta ? -1 : this.#e.turno;
         }
         get numeroMano() {
-          return this.#marcador.numeroMano;
+          return this.#e.marcador.numeroMano;
         }
         /** Paso automático pendiente entre acciones: la baza completa espera a recogerse. */
         get resolucionPendiente() {
@@ -2608,20 +2588,20 @@
 
         /** Cartas en la mano de un asiento (copia: se puede ordenar sin afectar a la partida). */
         cartasDe(asiento) {
-          return [...this.#manos[asiento]];
+          return [...this.#e.manos[asiento]];
         }
 
         esTurnoDe(asiento) {
-          return !this.manoTerminada && this.#turno === asiento && !this.bazaCompleta;
+          return !this.manoTerminada && this.#e.turno === asiento && !this.bazaCompleta;
         }
 
         /** Cartas que el asiento podría jugar según las reglas (no comprueba el turno: para eso, esTurnoDe o puedeJugar). */
         cartasLegales(asiento) {
           return ReglasGuinote.cartasLegales(
-            this.#manos[asiento],
-            this.#mesa,
-            this.#mazo.restantes,
-            this.#triunfo,
+            this.#e.manos[asiento],
+            this.#e.mesa,
+            this.#e.mazo.restantes,
+            this.#e.triunfo,
             asiento,
           );
         }
@@ -2632,8 +2612,8 @@
 
         /** Palos que el asiento puede cantar ahora: solo al salir, tras haber ganado una baza y sin cante previo en esta salida. */
         cantesPosibles(asiento) {
-          if (!this.#puedeAccionEspecial(asiento) || this.#paloForzado) return [];
-          return ReglasGuinote.cantesPosibles(this.#manos[asiento], [...this.#cantados]);
+          if (!this.#puedeAccionEspecial(asiento) || this.#e.paloForzado) return [];
+          return ReglasGuinote.cantesPosibles(this.#e.manos[asiento], [...this.#e.cantados]);
         }
 
         puedeCantar(asiento, palo) {
@@ -2644,10 +2624,10 @@
           return (
             this.#puedeAccionEspecial(asiento) &&
             ReglasGuinote.puedeCambiarSiete(
-              this.#manos[asiento],
-              this.#triunfo,
-              this.#cartaTriunfo,
-              this.#mazo.restantes,
+              this.#e.manos[asiento],
+              this.#e.triunfo,
+              this.#e.cartaTriunfo,
+              this.#e.mazo.restantes,
             )
           );
         }
@@ -2656,8 +2636,8 @@
         #puedeAccionEspecial(asiento) {
           return (
             this.esTurnoDe(asiento) &&
-            !this.#mesa.length &&
-            this.#marcador.haGanadoBaza(PartidaGuinote.equipoDe(asiento))
+            !this.#e.mesa.length &&
+            this.#e.marcador.haGanadoBaza(ReglasGuinote.equipoDe(asiento))
           );
         }
 
@@ -2667,57 +2647,57 @@
           const jugada = Carta.de(carta);
           if (!this.puedeJugar(asiento, jugada)) throw new Error(`Jugada no válida: asiento ${asiento}, ${jugada.id}`);
           const siguiente = this.clonar();
-          siguiente.#manos[asiento] = siguiente.#manos[asiento].filter((c) => c !== jugada);
-          siguiente.#mesa.push({ asiento, carta: jugada });
-          siguiente.#turno = this.#mesa.length + 1 < this.#jugadores ? (asiento + 1) % this.#jugadores : -1;
-          siguiente.#paloForzado = null;
-          siguiente.#ultimoEvento = null;
+          siguiente.#e.manos[asiento] = siguiente.#e.manos[asiento].filter((c) => c !== jugada);
+          siguiente.#e.mesa.push({ asiento, carta: jugada });
+          siguiente.#e.turno = this.#e.mesa.length + 1 < this.#e.jugadores ? (asiento + 1) % this.#e.jugadores : -1;
+          siguiente.#e.paloForzado = null;
+          siguiente.#e.ultimoEvento = null;
           return siguiente;
         }
 
         cantar(asiento, palo) {
           if (!this.puedeCantar(asiento, palo)) throw new Error(`Cante no válido: asiento ${asiento}, ${palo}`);
-          const puntos = ReglasGuinote.valorCante(palo, this.#triunfo);
+          const puntos = ReglasGuinote.valorCante(palo, this.#e.triunfo);
           const siguiente = this.clonar();
-          siguiente.#marcador.registrarCante(PartidaGuinote.equipoDe(asiento), puntos);
-          siguiente.#cantados.add(palo);
-          siguiente.#paloForzado = palo;
-          siguiente.#ultimoEvento = { tipo: "cante", asiento, palo, puntos };
+          siguiente.#e.marcador.registrarCante(ReglasGuinote.equipoDe(asiento), puntos);
+          siguiente.#e.cantados.add(palo);
+          siguiente.#e.paloForzado = palo;
+          siguiente.#e.ultimoEvento = { tipo: "cante", asiento, palo, puntos };
           return siguiente;
         }
 
         cambiarSiete(asiento) {
           if (!this.puedeCambiarSiete(asiento)) throw new Error(`Cambio del 7 no válido: asiento ${asiento}`);
-          const siete = ReglasGuinote.sieteDe(this.#triunfo);
+          const siete = ReglasGuinote.sieteDe(this.#e.triunfo);
           const siguiente = this.clonar();
-          const anterior = siguiente.#mazo.reemplazarFondo(siete);
-          siguiente.#cartaTriunfo = siete;
-          siguiente.#manos[asiento] = siguiente.#manos[asiento].map((c) => (c === siete ? anterior : c));
-          siguiente.#ultimoEvento = { tipo: "cambio", asiento };
+          const anterior = siguiente.#e.mazo.reemplazarFondo(siete);
+          siguiente.#e.cartaTriunfo = siete;
+          siguiente.#e.manos[asiento] = siguiente.#e.manos[asiento].map((c) => (c === siete ? anterior : c));
+          siguiente.#e.ultimoEvento = { tipo: "cambio", asiento };
           return siguiente;
         }
 
         /** Recoge la baza completa: puntúa al ganador, roba (el ganador primero) y, si era la última, cierra la mano. */
         resolverBaza() {
           if (!this.bazaCompleta) throw new Error("La baza no está completa");
-          const ganador = ReglasGuinote.ganadoraDeBaza(this.#mesa, this.#triunfo).asiento;
-          const equipo = PartidaGuinote.equipoDe(ganador);
-          const puntos = ReglasGuinote.puntosDeBaza(this.#mesa);
+          const ganador = ReglasGuinote.ganadoraDeBaza(this.#e.mesa, this.#e.triunfo).asiento;
+          const equipo = ReglasGuinote.equipoDe(ganador);
+          const puntos = ReglasGuinote.puntosDeBaza(this.#e.mesa);
           const siguiente = this.clonar();
-          siguiente.#jugadas.push(...this.#mesa.map((entrada) => entrada.carta));
-          siguiente.#mesa = [];
-          siguiente.#turno = ganador;
-          siguiente.#paloForzado = null;
-          siguiente.#marcador.registrarBaza(equipo, puntos);
-          siguiente.#ultimoEvento = { tipo: "baza", asiento: ganador, puntos };
-          if (siguiente.#mazo.restantes) {
-            for (let i = 0; i < this.#jugadores; i++)
-              siguiente.#manos[(ganador + i) % this.#jugadores].push(siguiente.#mazo.robar());
+          siguiente.#e.jugadas.push(...this.#e.mesa.map((entrada) => entrada.carta));
+          siguiente.#e.mesa = [];
+          siguiente.#e.turno = ganador;
+          siguiente.#e.paloForzado = null;
+          siguiente.#e.marcador.registrarBaza(equipo, puntos);
+          siguiente.#e.ultimoEvento = { tipo: "baza", asiento: ganador, puntos };
+          if (siguiente.#e.mazo.restantes) {
+            for (let i = 0; i < this.#e.jugadores; i++)
+              siguiente.#e.manos[(ganador + i) % this.#e.jugadores].push(siguiente.#e.mazo.robar());
           }
-          if (siguiente.#manos.every((mano) => !mano.length)) {
-            siguiente.#marcador.cerrarMano(equipo);
-            if (siguiente.#marcador.partidaTerminada) siguiente.#fin = Date.now();
-            siguiente.#ultimoEvento.bonusUltimas = true;
+          if (siguiente.#e.manos.every((mano) => !mano.length)) {
+            siguiente.#e.marcador.cerrarMano(equipo);
+            if (siguiente.#e.marcador.partidaTerminada) siguiente.#e.fin = Date.now();
+            siguiente.#e.ultimoEvento.bonusUltimas = true;
           }
           return siguiente;
         }
@@ -2725,34 +2705,29 @@
         /** Reparte la mano siguiente: sale el siguiente jugador y el marcador continúa (o se reinicia si la partida acabó). */
         siguienteMano() {
           if (!this.manoTerminada) throw new Error("La mano no ha terminado");
-          return PartidaGuinote.nueva(this.#jugadores, this.#marcador.modo, {
-            jugadorMano: (this.#jugadorMano + 1) % this.#jugadores,
-            marcador: this.#marcador.siguienteMano(),
-            inicio: this.partidaTerminada ? undefined : (this.#inicio ?? undefined), // el reloj sigue entre manos; una partida nueva lo reinicia
+          return PartidaGuinote.nueva(this.#e.jugadores, this.#e.marcador.modo, {
+            jugadorMano: (this.#e.jugadorMano + 1) % this.#e.jugadores,
+            marcador: this.#e.marcador.siguienteMano(),
+            inicio: this.partidaTerminada ? undefined : (this.#e.inicio ?? undefined), // el reloj sigue entre manos; una partida nueva lo reinicia
           });
         }
       }
+
+      /* Pesos de la heurística del bot de guiñote (comentados en CONFIG.bot.heuristica) */
+      const HEURISTICA = CONFIG.bot.heuristica;
 
       /**
        * Estrategia del bot de guiñote. Decide solo a partir de la PartidaGuinote que recibe (la memoria de cartas
        * jugadas ya está en la partida). Acción: { tipo: 'jugar', carta } | { tipo: 'cantar', palo } | { tipo: 'cambiar' }
        */
       class BotGuinote extends Bot {
-        // Pesos de la heurística de «coste» de soltar una carta (menor = más barata de gastar)
-        static PESO_PUNTOS = CONFIG.bot.heuristica.pesoPuntos; // cada punto de la carta pesa el doble
-        static RECARGO_TRIUNFO = CONFIG.bot.heuristica.recargoTriunfo; // gastar un triunfo es caro
-        static DIVISOR_FUERZA = CONFIG.bot.heuristica.divisorFuerza; // la fuerza solo desempata
-        static RECARGO_ROMPER_CANTE = CONFIG.bot.heuristica.recargoRomperCante; // separar un rey y una sota que aún se pueden cantar
-        static BAZA_VALIOSA = CONFIG.bot.heuristica.bazaValiosa; // puntos en la mesa a partir de los que merece fallar con triunfo
-        static BAZA_MEDIA = CONFIG.bot.heuristica.bazaMedia; // puntos en la mesa a partir de los que merece ganar si la carta no vale nada
-        static VALOR_EXTREMO = CONFIG.bot.heuristica.valorExtremo; // «infinito» del minimax del final exacto
-
+        /** «Coste» de soltar una carta (menor = más barata de gastar): sus puntos, si es triunfo y, para desempatar, su fuerza. */
         static #costeBase(carta, triunfo) {
           const { puntos, fuerza } = ReglasGuinote;
           return (
-            puntos(carta) * BotGuinote.PESO_PUNTOS +
-            (carta.palo === triunfo ? BotGuinote.RECARGO_TRIUNFO : 0) +
-            fuerza(carta) / BotGuinote.DIVISOR_FUERZA
+            puntos(carta) * HEURISTICA.pesoPuntos +
+            (carta.palo === triunfo ? HEURISTICA.recargoTriunfo : 0) +
+            fuerza(carta) / HEURISTICA.divisorFuerza
           );
         }
 
@@ -2797,17 +2772,20 @@
             return (
               BotGuinote.#costeBase(carta, triunfo) +
               (pareja && cartasMano.includes(pareja) && !palosCantados.has(carta.palo)
-                ? BotGuinote.RECARGO_ROMPER_CANTE
+                ? HEURISTICA.recargoRomperCante
                 : 0)
             );
           };
-          const masBarata = (cartas) =>
-            cartas.reduce((mejorActual, carta) => (coste(carta) < coste(mejorActual) ? carta : mejorActual));
+          // La primera carta que no es superada por ninguna otra según `mejorQue(a, b)` («a es estrictamente mejor que b»)
+          const elegir = (cartas, mejorQue) =>
+            cartas.reduce((mejorActual, carta) => (mejorQue(carta, mejorActual) ? carta : mejorActual));
+          const masBarata = (cartas) => elegir(cartas, (a, b) => coste(a) < coste(b));
+          const masFuerte = (cartas) => elegir(cartas, (a, b) => fuerza(a) > fuerza(b));
+          const masPuntosYBarata = (cartas) =>
+            elegir(cartas, (a, b) => puntos(a) > puntos(b) || (puntos(a) === puntos(b) && coste(a) < coste(b)));
           if (mesa.length === 0) {
             if (partida.cartasEnMazo) return masBarata(permitidas); // salir con lo más barato
-            return sinTriunfos(permitidas).reduce((mejorActual, carta) =>
-              fuerza(carta) > fuerza(mejorActual) ? carta : mejorActual,
-            ); // arrastre: la carta más fuerte
+            return masFuerte(sinTriunfos(permitidas)); // arrastre: la carta más fuerte
           }
           const ganadoraActual = ReglasGuinote.ganadoraDeBaza(mesa, triunfo),
             mejorCarta = ganadoraActual.carta,
@@ -2819,12 +2797,7 @@
             // la pareja va ganando la baza
             const soyUltimoEnJugar = mesa.length === partida.jugadores - 1;
             if (!soyUltimoEnJugar || partida.cartasEnMazo === 0) return masBarata(permitidas);
-            return sinTriunfos(permitidas).reduce((mejorActual, carta) =>
-              puntos(carta) > puntos(mejorActual) ||
-              (puntos(carta) === puntos(mejorActual) && coste(carta) < coste(mejorActual))
-                ? carta
-                : mejorActual,
-            );
+            return masPuntosYBarata(sinTriunfos(permitidas)); // cargar la baza de la pareja
           }
           const cartasGanadoras = permitidas.filter((carta) => ReglasGuinote.superaA(carta, mejorCarta, triunfo));
           if (partida.cartasEnMazo === 0)
@@ -2834,8 +2807,8 @@
               fallaConTriunfo = ganadoraMasBarata.palo === triunfo && mejorCarta.palo !== triunfo;
             if (
               !fallaConTriunfo ||
-              puntosMesa >= BotGuinote.BAZA_VALIOSA ||
-              (puntosMesa >= BotGuinote.BAZA_MEDIA && puntos(ganadoraMasBarata) === 0)
+              puntosMesa >= HEURISTICA.bazaValiosa ||
+              (puntosMesa >= HEURISTICA.bazaMedia && puntos(ganadoraMasBarata) === 0)
             )
               return ganadoraMasBarata; // no gastar triunfos por bazas sin valor
           }
@@ -2856,10 +2829,11 @@
           if (cartasRival.length !== propias.length - mesa.length) return null; // memoria incompleta: usar la heurística
           const cartasRivalConSalida = entradaSalida ? [...cartasRival, cartaSalidaEnMesa] : cartasRival,
             memoria = new Map();
+          // Las manos de (bot, rival) pasan a (quien sale, quien responde) y al revés: el intercambio es el mismo en los dos sentidos
+          const alternar = (salida, deBot, deRival) => (salida === 0 ? [deBot, deRival] : [deRival, deBot]);
           const jugarBaza = (manoBot, manoRival, salida, cartaSalida, cartaRespuesta) => {
             // valor (bot − rival) tras jugar la baza a,b
-            const manoSaliente = salida === 0 ? manoBot : manoRival,
-              manoOtra = salida === 0 ? manoRival : manoBot;
+            const [manoSaliente, manoOtra] = alternar(salida, manoBot, manoRival);
             const ladoGanador = ReglasGuinote.superaA(cartaRespuesta, cartaSalida, triunfo) ? 1 - salida : salida,
               puntosBaza =
                 puntos(cartaSalida) +
@@ -2867,40 +2841,37 @@
                 (manoSaliente.length === 1 ? ReglasGuinote.DIEZ_DE_ULTIMAS : 0);
             const nuevaManoSaliente = manoSaliente.filter((carta) => carta !== cartaSalida),
               nuevaManoOtra = manoOtra.filter((carta) => carta !== cartaRespuesta);
-            return (
-              (ladoGanador === 0 ? puntosBaza : -puntosBaza) +
-              (salida === 0
-                ? valorMinimax(nuevaManoSaliente, nuevaManoOtra, ladoGanador)
-                : valorMinimax(nuevaManoOtra, nuevaManoSaliente, ladoGanador))
-            );
+            const [nuevaManoBot, nuevaManoRival] = alternar(salida, nuevaManoSaliente, nuevaManoOtra);
+            return (ladoGanador === 0 ? puntosBaza : -puntosBaza) + valorMinimax(nuevaManoBot, nuevaManoRival, ladoGanador);
           };
           function valorMinimax(manoBot, manoRival, salida) {
             if (!manoBot.length) return 0;
             const key = [...manoBot].sort().join() + "/" + [...manoRival].sort().join() + salida;
             if (memoria.has(key)) return memoria.get(key);
-            const manoSaliente = salida === 0 ? manoBot : manoRival,
-              manoOtra = salida === 0 ? manoRival : manoBot;
-            let mejorValor = salida === 0 ? -BotGuinote.VALOR_EXTREMO : BotGuinote.VALOR_EXTREMO;
+            const [manoSaliente, manoOtra] = alternar(salida, manoBot, manoRival);
+            // Quien sale elige su mejor carta sabiendo que quien responde elegirá la peor para él; el bot (salida 0) maximiza y el rival minimiza
+            const [mejorDeSaliente, peorParaSaliente] = salida === 0 ? [Math.max, Math.min] : [Math.min, Math.max];
+            const extremo = HEURISTICA.valorExtremo;
+            let mejorValor = salida === 0 ? -extremo : extremo;
+            const peorCaso = -mejorValor; // valor inicial de la búsqueda de quien responde
             for (const cartaSalida of manoSaliente) {
-              let valorInterno = salida === 0 ? BotGuinote.VALOR_EXTREMO : -BotGuinote.VALOR_EXTREMO;
+              let valorInterno = peorCaso;
               for (const cartaRespuesta of ReglasGuinote.cartasLegales(
                 manoOtra,
                 [{ carta: cartaSalida }],
                 0,
                 triunfo,
                 null,
-              )) {
-                const value = jugarBaza(manoBot, manoRival, salida, cartaSalida, cartaRespuesta);
-                valorInterno = salida === 0 ? Math.min(valorInterno, value) : Math.max(valorInterno, value);
-              }
-              mejorValor = salida === 0 ? Math.max(mejorValor, valorInterno) : Math.min(mejorValor, valorInterno);
+              ))
+                valorInterno = peorParaSaliente(valorInterno, jugarBaza(manoBot, manoRival, salida, cartaSalida, cartaRespuesta));
+              mejorValor = mejorDeSaliente(mejorValor, valorInterno);
             }
             memoria.set(key, mejorValor);
             return mejorValor;
           }
           const costeGasto = (carta) => BotGuinote.#costeBase(carta, triunfo); // desempate: gastar lo menos valioso
           let mejorCarta = null,
-            mejorValor = -BotGuinote.VALOR_EXTREMO;
+            mejorValor = -HEURISTICA.valorExtremo;
           for (const carta of partida
             .cartasLegales(asiento)
             .sort((cartaA, cartaB) => costeGasto(cartaA) - costeGasto(cartaB))) {
@@ -3055,7 +3026,10 @@
 
         /* Contorno del color del equipo del asiento en el elemento indicado */
         colorearEquipo(idElemento, asiento) {
-          this.el[idElemento].setAttribute("data-color-equipo", this.mesa.color(ReglasGuinote.equipoDe(asiento)));
+          this.colorear(idElemento, ReglasGuinote.equipoDe(asiento));
+        }
+        colorear(idElemento, equipo) {
+          this.el[idElemento].setAttribute("data-color-equipo", this.mesa.color(equipo));
         }
 
         dibujarManos(contexto) {
@@ -3162,8 +3136,8 @@
                     >${cantidad} baza${cantidad > 1 ? "s" : ""}</span
                   >`
               : "";
-          this.el.montonPropio.setAttribute("data-color-equipo", this.mesa.color(equipo));
-          this.el.montonRival.setAttribute("data-color-equipo", this.mesa.color(equipoRival));
+          this.colorear("montonPropio", equipo);
+          this.colorear("montonRival", equipoRival);
           pintar(this.el.montonRival, monton(this.sesion.partida.marcador.bazasDe(equipoRival)));
           pintar(this.el.montonPropio, monton(this.sesion.partida.marcador.bazasDe(equipo)));
         }
@@ -3481,7 +3455,7 @@
             { valor: "azul", titulo: "🔵 Azul", detalle: "equipo" },
             { valor: "rojo", titulo: "🔴 Rojo", detalle: "equipo" },
           ]),
-          de: (asiento) => ReglasGuinote.equipoDe(asiento),
+          de: ReglasGuinote.equipoDe,
           asientos: (equipo, numJugadores) =>
             [equipo, equipo + ReglasGuinote.DISTANCIA.PAREJA].filter((asiento) => asiento < numJugadores),
           colorDe: (equipo, colorEquipo0) => {
@@ -3783,18 +3757,7 @@
 
         /** La misma sala con otra partida. */
         conPartida(partida) {
-          return new Sala({
-            juego: this.juego,
-            numJugadores: this.numJugadores,
-            modo: this.modo,
-            nombre: this.nombre,
-            colorPrimerEquipo: this.colorPrimerEquipo,
-            asientos: this.asientos,
-            nombres: this.nombres,
-            bots: this.bots,
-            hashClave: this.hashClave,
-            partida,
-          });
+          return new Sala({ ...this, partida });
         }
       }
 
@@ -4022,7 +3985,7 @@
         #leer() {
           const corte = Date.now() - AJUSTES.historialMs;
           try {
-            const guardado = JSON.parse(localStorage.getItem(this.#clave) || "[]");
+            const guardado = JSON.parse(leerLocal(this.#clave) || "[]");
             return Array.isArray(guardado) ? guardado.filter((entrada) => entrada.hora > corte) : [];
           } catch (error) {
             return [];
@@ -4032,16 +3995,12 @@
         async registrar(clave, registro) {
           const lista = this.#leer().filter((entrada) => entrada.clave !== clave);
           lista.push({ ...registro, clave });
-          try {
-            localStorage.setItem(this.#clave, JSON.stringify(lista));
-          } catch (error) {}
+          guardarLocal(this.#clave, JSON.stringify(lista));
         }
 
         async listar() {
           const lista = this.#leer();
-          try {
-            localStorage.setItem(this.#clave, JSON.stringify(lista)); // deja guardado solo lo reciente
-          } catch (error) {}
+          guardarLocal(this.#clave, JSON.stringify(lista)); // deja guardado solo lo reciente
           return lista.sort((a, b) => b.hora - a.hora);
         }
       }
@@ -4233,9 +4192,7 @@
           this.el = Object.fromEntries(Lobby.IDS.map((id) => [id, porId(id)]));
           this.el.campoNombre.maxLength = AJUSTES.longMaxNombre;
           this.el.campoCodigo.maxLength = Sala.LONG_CODIGO;
-          try {
-            this.el.campoNombre.value = localStorage.getItem(this.claveNombre) || "";
-          } catch (error) {}
+          this.el.campoNombre.value = leerLocal(this.claveNombre) || "";
           this.construirFormulario();
           document
             .querySelectorAll("input[name=numJugadores]")
@@ -4277,9 +4234,7 @@
         miNombre(usados) {
           // el escrito (único en la sala) o uno automático
           let nombreJugador = limpiarNombre(this.el.campoNombre.value);
-          try {
-            localStorage.setItem(this.claveNombre, nombreJugador);
-          } catch (error) {}
+          guardarLocal(this.claveNombre, nombreJugador);
           if (!nombreJugador) return nombreAuto(usados);
           const base = nombreJugador;
           let sufijo = 2;
@@ -4539,12 +4494,19 @@
           this.el = Object.fromEntries(Mesa.IDS.map((id) => [id, porId(id)]));
           this.vista = this.juego.crearVista(this); // monta su tapete dentro de #mesa
         }
-        equipoDe(asiento) {
-          return this.juego.equipos.de(asiento);
-        }
         color(equipo) {
           return this.sesion.sala.colorDeEquipo(equipo);
         } // color del equipo 0 o 1
+
+        /* Nombre de un jugador con el punto de su equipo; `activo` lo resalta */
+        htmlNombre(asiento, activo = false) {
+          const { sesion } = this;
+          return html`<span
+            class="nombreJugador${activo ? " activo" : ""}"
+            data-color-equipo="${this.color(this.juego.equipos.de(asiento))}"
+            ><i class="dot"></i>${sesion.nombreDe(asiento)}${asiento === sesion.miAsiento ? " (tú)" : ""}</span
+          >`;
+        }
         reiniciarAnimaciones() {
           this.vista.reiniciarAnimaciones();
         }
@@ -4575,14 +4537,7 @@
             this.el.names,
             rango(sala.numJugadores)
               .filter((indice) => sala.ocupado(indice))
-              .map(
-                (indice) =>
-                  html`<span
-                    class="nombreJugador${indice === miAsiento ? " activo" : ""}"
-                    data-color-equipo="${this.color(this.equipoDe(indice))}"
-                    ><i class="dot"></i>${this.sesion.nombreDe(indice)}${indice === miAsiento ? " (tú)" : ""}</span
-                  >`,
-              ),
+              .map((indice) => this.htmlNombre(indice, indice === miAsiento)),
           );
           this.el.score.textContent = "";
           this.el.deckInfo.textContent = "";
@@ -4593,12 +4548,7 @@
             this.el.names,
             rango(numJugadores).map((desplazamiento) => {
               const asiento = (this.sesion.miAsiento + desplazamiento) % numJugadores;
-              return html`<span
-                class="nombreJugador${asientoActual === asiento ? " activo" : ""}"
-                data-color-equipo="${this.color(this.equipoDe(asiento))}"
-                ><i class="dot"></i
-                >${this.sesion.nombreDe(asiento)}${asiento === this.sesion.miAsiento ? " (tú)" : ""}</span
-              >`;
+              return this.htmlNombre(asiento, asientoActual === asiento);
             }),
           );
         }
@@ -4668,11 +4618,16 @@
               asiento: sesion.miAsiento,
             }),
           );
+          this.mostrarMesa();
+          porId("room").textContent = "Sala " + sesion.codigo;
+          sesion.cancelarSuscripcion = sesion.almacen.suscribir(sesion.codigo, (sala) => this.alCambiarSala(sala));
+        }
+
+        /* Pasa del lobby a la mesa */
+        mostrarMesa() {
           this.lobby.ocultar();
           porId("game").hidden = false;
           porId("bNueva").hidden = false;
-          porId("room").textContent = "Sala " + sesion.codigo;
-          sesion.cancelarSuscripcion = sesion.almacen.suscribir(sesion.codigo, (sala) => this.alCambiarSala(sala));
         }
 
         salir() {
@@ -4754,9 +4709,7 @@
             partida: this.juego.nuevaPartida(numJugadores, modo),
           });
           sesion.almacen = new AlmacenLocal(sala);
-          this.lobby.ocultar();
-          porId("game").hidden = false;
-          porId("bNueva").hidden = false;
+          this.mostrarMesa();
           sesion.cancelarSuscripcion = sesion.almacen.suscribir(undefined, (sala) => this.alCambiarSala(sala)); // avisa enseguida con la sala inicial
         }
 
@@ -4876,17 +4829,10 @@
         conectarEventos() {
           const { sesion } = this;
           this.movil.addEventListener("change", () => this.colocarHud());
-          [porId("bAyuda"), porId("bAyudaMenu")].forEach((boton) =>
-            boton.addEventListener("click", () => porId("ayuda").showModal()),
+          conectarDialogo("ayuda", ["bAyuda", "bAyudaMenu"], "bAyudaCerrar");
+          conectarDialogo("historial", ["bHistorial", "bHistorialMenu"], "bHistorialCerrar", () =>
+            this.abrirHistorial(),
           );
-          porId("bAyudaCerrar").addEventListener("click", () => porId("ayuda").close());
-          [porId("bHistorial"), porId("bHistorialMenu")].forEach((boton) =>
-            boton.addEventListener("click", () => this.abrirHistorial()),
-          );
-          porId("bHistorialCerrar").addEventListener("click", () => porId("historial").close());
-          porId("historial").addEventListener("click", (evento) => {
-            if (evento.target === evento.currentTarget) evento.currentTarget.close();
-          });
           porId("bMenu").addEventListener("click", (evento) => {
             evento.stopPropagation();
             porId("menu").classList.toggle("open");
@@ -4896,9 +4842,6 @@
           });
           document.addEventListener("click", (evento) => {
             if (!porId("menu").contains(evento.target)) porId("menu").classList.remove("open");
-          });
-          porId("ayuda").addEventListener("click", (evento) => {
-            if (evento.target === evento.currentTarget) evento.currentTarget.close();
           });
 
           porId("bSiguienteMano").addEventListener("click", () => {
