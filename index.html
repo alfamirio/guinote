@@ -33,6 +33,7 @@
         --boton-azul: #2f66c4;
         --boton-rojo: #c43c3c;
         --ancho-carta-mano: clamp(60px, 29.5vw, 132px);
+        --vel: 1; /* factor de velocidad (lo fija el selector: Lenta 1.3, Normal 1, Rápida 0.7) */
       }
       @supports (height: 100dvh) {
         :root {
@@ -408,7 +409,7 @@
         color: #fff;
       }
       #msg .ultimoEvento.destacado {
-        animation: destacar 0.5s ease-out;
+        animation: destacar calc(0.5s * var(--vel, 1)) ease-out;
       }
       #msg .hint {
         font-size: clamp(0.85rem, 2.2vw, 1rem);
@@ -477,7 +478,7 @@
         filter: brightness(0.5);
       }
       #manoPropia .card.repartida {
-        animation: repartir 0.5s backwards;
+        animation: repartir calc(0.5s * var(--vel, 1)) backwards;
       }
       @keyframes repartir {
         from {
@@ -523,7 +524,7 @@
       }
       #play .card {
         position: absolute;
-        animation: entra 0.35s ease-out;
+        animation: entra calc(0.3s * var(--vel, 1)) ease-out;
       }
       #play .mine {
         left: 8%;
@@ -1120,7 +1121,11 @@
         #menu .chip {
           text-align: center;
         }
+        #bVelocidadTop {
+          display: none;
+        }
         #menu #bNueva,
+        #menu #bVelocidadMenu,
         #menu #bHistorialMenu,
         #menu #bAyudaMenu {
           font-size: 0.85rem;
@@ -1434,6 +1439,7 @@
   <body>
     <div id="lobby">
       <div id="barraLobby">
+        <button class="btn alt small" id="bVelocidad" data-velocidad type="button"></button>
         <button
           class="btn alt small"
           id="bHistorial"
@@ -1497,10 +1503,12 @@
         <div id="topDerecha">
           <span class="chip" id="reloj" title="Duración de la partida" hidden></span>
           <span class="chip" id="score"></span>
+          <button class="btn alt small" id="bVelocidadTop" data-velocidad type="button"></button>
           <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
         </div>
         <button class="btn alt small" id="bMenu" type="button" aria-label="Menú" aria-haspopup="true">☰</button>
         <div id="menu">
+          <button class="btn alt small" id="bVelocidadMenu" data-velocidad type="button"></button>
           <button class="btn alt small" id="bHistorialMenu" type="button">⏱ Historial</button>
           <button class="btn alt small" id="bAyudaMenu" type="button">? Ayuda</button>
         </div>
@@ -1583,7 +1591,7 @@
 
         /* ---- Aplicación (tiempos, límites y diseño móvil) ---- */
         ajustes: {
-          resolverMs: 1500, // pausa antes de resolver el paso pendiente de la partida (en guiñote, recoger la baza completa)
+          resolverMs: 1300, // pausa antes de resolver el paso pendiente de la partida (en guiñote, recoger la baza completa); con la velocidad Normal
           historialMs: 24 * 60 * 60 * 1000, // cuánto tiempo se conserva una partida en el historial (24 h)
           purgaCadaMs: 15000, // cada cuánto se comprueba si la sala ha caducado para eliminarla
           longMaxNombre: 16, // letras máximas del nombre de jugador
@@ -1591,6 +1599,20 @@
           intentosNombreAuto: 60, // intentos de dar con un nombre automático que no esté ya en la sala
           anchoMaxMovilPx: 640, // ancho hasta el que se usa el diseño móvil; debe coincidir con los @media de la hoja de estilos
           msPorMinuto: 60 * 1000, // unidad: milisegundos en un minuto (no cambiar)
+        },
+
+        /* ---- Velocidad del juego (selector Lenta / Normal / Rápida) ---- */
+        velocidad: {
+          porDefecto: "normal",
+          // mínimos (ms) que no bajan de ahí aunque el factor sea pequeño: lo que se tarda en ver una carta o notar la jugada del bot no depende del ritmo elegido
+          minResolverMs: 650, // recoger la baza completa (deja ≈500 ms con la carta del rival quieta)
+          minBotMs: 200, // pausa del bot antes de jugar (la parte aleatoria extra se escala aparte)
+          // factor que multiplica las pausas (resolver baza, bot, reparto) y la duración de las animaciones
+          niveles: Object.freeze([
+            { id: "lenta", titulo: "Lenta", factor: 1.3 },
+            { id: "normal", titulo: "Normal", factor: 1 },
+            { id: "rapida", titulo: "Rápida", factor: 0.7 },
+          ]),
         },
 
         /* ---- Salas online ---- */
@@ -1638,8 +1660,8 @@
         /* ---- Bots ---- */
         bot: {
           prefijo: "🤖 ", // marca que llevan los nombres de bot guardados en la sala
-          pausaMinMs: 500, // pausa mínima del bot antes de jugar
-          pausaExtraMs: 400, // pausa aleatoria extra (se suma a la mínima)
+          pausaMinMs: 400, // pausa mínima del bot antes de jugar
+          pausaExtraMs: 300, // pausa aleatoria extra (se suma a la mínima)
           // pesos de la heurística de «coste» de soltar una carta (menor = más barata de gastar)
           heuristica: {
             pesoPuntos: 2, // cada punto de la carta pesa el doble
@@ -1654,7 +1676,7 @@
 
         /* ---- Tapete (animaciones y montones) ---- */
         vista: {
-          escalonRepartoMs: 70, // retraso entre carta y carta en la animación de reparto
+          escalonRepartoMs: 50, // retraso entre carta y carta en la animación de reparto
           bazasVisiblesEnMonton: 5, // como mucho se dibujan N cartas en cada montón de bazas
           solapeMontonPx: 2, // cuánto asoma cada carta del montón sobre la anterior
           reversosVisiblesMazo: 2, // reversos dibujados bajo la carta de triunfo
@@ -2089,7 +2111,8 @@
 
         /** Milisegundos que "piensa" antes de jugar. */
         retardo(aleatorio = Math.random) {
-          return Bot.PAUSA_MIN_MS + aleatorio() * Bot.PAUSA_EXTRA_MS;
+          const factor = factorVelocidad();
+          return Math.max(CONFIG.velocidad.minBotMs, Bot.PAUSA_MIN_MS * factor) + aleatorio() * Bot.PAUSA_EXTRA_MS * factor;
         }
 
         /** Qué hace ahora en `partida` (debe ser su turno). Lo define cada juego. */
@@ -3117,7 +3140,7 @@
               return this.cara(
                 carta,
                 `${esJugable ? "jugable" : ""} ${esMiTurno && !esJugable ? "atenuada" : ""} ${nuevo ? "repartida" : ""}`,
-                html`style="${nuevo ? `animation-delay:${repartidas++ * VistaGuinote.ESCALON_REPARTO_MS}ms` : ""}"
+                html`style="${nuevo ? `animation-delay:${repartidas++ * VistaGuinote.ESCALON_REPARTO_MS * factorVelocidad()}ms` : ""}"
                 data-card="${carta}"`,
               );
             }),
@@ -4057,6 +4080,32 @@
    Único sitio fuera de la sección «JUEGO: GUIÑOTE» que nombra el juego. Para jugar a otra cosa, apuntar aquí a su descriptor. */
       const JUEGO = JuegoGuinote;
 
+/* ============ VELOCIDAD ============
+   Nivel elegido por el jugador (se recuerda en este navegador). Su factor multiplica las pausas del bot, la recogida de la baza
+   y el reparto, y fija la variable CSS --vel que escala las animaciones (recoger la baza y la pausa del bot tienen además un mínimo, CONFIG.velocidad.min*). Cada jugador elige la suya para lo que ve; las pausas
+   de bots y de recoger la baza las marca la velocidad del anfitrión, que es quien las ejecuta. */
+const NIVELES_VELOCIDAD = CONFIG.velocidad.niveles;
+const CLAVE_VELOCIDAD = `${JUEGO.id}-velocidad`;
+let nivelVelocidad =
+  NIVELES_VELOCIDAD.find((nivel) => nivel.id === leerLocal(CLAVE_VELOCIDAD)) ??
+  NIVELES_VELOCIDAD.find((nivel) => nivel.id === CONFIG.velocidad.porDefecto) ??
+  NIVELES_VELOCIDAD[0];
+function factorVelocidad() {
+  return nivelVelocidad.factor;
+}
+function aplicarVelocidad() {
+  document.documentElement.style.setProperty("--vel", String(nivelVelocidad.factor));
+  document.querySelectorAll("[data-velocidad]").forEach((boton) => {
+    boton.textContent = `⚡ ${nivelVelocidad.titulo}`;
+    boton.title = "Velocidad del juego (pulsa para cambiar)";
+  });
+}
+function siguienteVelocidad() {
+  nivelVelocidad = NIVELES_VELOCIDAD[(NIVELES_VELOCIDAD.indexOf(nivelVelocidad) + 1) % NIVELES_VELOCIDAD.length];
+  guardarLocal(CLAVE_VELOCIDAD, nivelVelocidad.id);
+  aplicarVelocidad();
+}
+
       /* Confeti (canvas-confetti desde CDN). Se carga en segundo plano; si falla, el juego sigue sin él (resuelve a null). */
       const cargaConfeti = import("https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/+esm")
         .then((modulo) => modulo.default)
@@ -4162,7 +4211,7 @@
         programarResolucion(ms) {
           if (!this.partida || this.miAsiento !== 0 || !this.partida.resolucionPendiente || this.resolviendo) return;
           this.resolviendo = true;
-          this.temporizadorResolucion = setTimeout(() => this.resolver(), ms);
+          this.temporizadorResolucion = setTimeout(() => this.resolver(), Math.max(CONFIG.velocidad.minResolverMs, ms * factorVelocidad()));
         }
 
         /* ---- Bots (los asientos de bot los marca sala.bots; sus decisiones, la clase Bot del juego; los ejecuta el anfitrión) ---- */
@@ -4869,6 +4918,7 @@
         conectarEventos() {
           const { sesion } = this;
           this.movil.addEventListener("change", () => this.colocarHud());
+          document.querySelectorAll("[data-velocidad]").forEach((boton) => boton.addEventListener("click", siguienteVelocidad));
           conectarDialogo("ayuda", ["bAyuda", "bAyudaMenu"], "bAyudaCerrar");
           conectarDialogo("historial", ["bHistorial", "bHistorialMenu"], "bHistorialCerrar", () =>
             this.abrirHistorial(),
@@ -4902,6 +4952,7 @@
       }
 
       precargarCartas();
+      aplicarVelocidad();
       new Juego(JUEGO, almacenFirebase, historial).arrancar();
     </script>
   </body>
