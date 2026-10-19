@@ -617,7 +617,8 @@
         gap: 0.6rem;
       }
       /* Registro de la partida */
-      #registro {
+      #registro,
+      #importar {
         width: min(92vw, 46rem);
         max-height: 90vh;
         border: 2px solid var(--oro);
@@ -626,20 +627,25 @@
         color: var(--crema);
         padding: 1.1rem 1.3rem;
       }
-      #registro::backdrop {
+      #registro::backdrop,
+      #importar::backdrop,
+      #visor::backdrop {
         background: var(--fondo-modal);
       }
-      #registro h2 {
+      #registro h2,
+      #importar h2 {
         margin: 0 0 0.4rem;
         font-size: 1.5rem;
       }
-      #registro p {
+      #registro p,
+      #importar p {
         margin: 0.2rem 0 0.7rem;
         font-size: 0.9rem;
         opacity: 0.85;
         line-height: 1.4;
       }
-      #registroTexto {
+      #registroTexto,
+      #importarTexto {
         display: block;
         width: 100%;
         height: min(54vh, 30rem);
@@ -651,12 +657,278 @@
         border-radius: 8px;
         padding: 0.6rem 0.7rem;
       }
-      #registro .botonesRegistro {
+      #registro .botonesRegistro,
+      #importar .botonesRegistro {
         display: flex;
         flex-wrap: wrap;
         justify-content: center;
         gap: 0.5rem;
         margin-top: 0.7rem;
+      }
+
+      #importarTexto:not([readonly]) {
+        cursor: text;
+      }
+      #importar .errorRegistro {
+        min-height: 1.3em;
+        margin: 0.4rem 0 0;
+        color: #ffb4a8;
+        font-size: 0.88rem;
+      }
+      label.btn {
+        display: inline-block;
+        cursor: pointer;
+      }
+
+      /* Visor de registros: todas las cartas a la vista, paso a paso */
+      #visor {
+        --vw: clamp(34px, 10.5vw, 64px); /* ancho base de las cartas; cada zona lo multiplica */
+        --ancho-carta: var(--vw);
+        width: min(96vw, 60rem);
+        max-width: 96vw;
+        max-height: 96vh;
+        overflow: auto;
+        border: 2px solid var(--oro);
+        border-radius: 12px;
+        background: var(--madera);
+        color: var(--crema);
+        padding: 0.7rem 0.8rem;
+      }
+      @supports (height: 100dvh) {
+        #visor {
+          max-height: 96dvh;
+        }
+      }
+      #visor .vCabecera {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+      }
+      #visor h2 {
+        flex: 1 1 auto;
+        min-width: 0;
+        margin: 0;
+        font-size: 1.15rem;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #visorMano {
+        max-width: 50%;
+        padding: 0.25em 0.4em;
+        font: inherit;
+        font-size: 0.9rem;
+        color: var(--crema);
+        background: var(--velo-medio);
+        border: 1px solid var(--borde);
+        border-radius: 8px;
+      }
+      #visorMano option {
+        color: var(--tinta);
+      }
+      #visor .card {
+        aspect-ratio: auto 63 / 96; /* mientras carga la imagen no se encoge a cero (luego manda la proporción real) */
+      }
+      .vMarcador {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.2rem 1.2rem;
+        margin-bottom: 0.4rem;
+        font-size: 0.95rem;
+      }
+      .vMarcador small {
+        opacity: 0.75;
+      }
+      .vTapete {
+        padding: 0.5rem;
+        border-radius: 10px;
+        background: radial-gradient(ellipse at center, var(--paño-claro), var(--paño) 55%, var(--paño2));
+      }
+      .vCuerpo {
+        display: grid;
+        gap: 0.35rem;
+        justify-items: center;
+        align-items: center;
+      }
+      .vCuerpo.dos {
+        grid-template-columns: 1fr;
+        grid-template-areas: "n" "c" "s";
+      }
+      .vCuerpo.cuatro {
+        grid-template-columns: auto 1fr auto;
+        grid-template-areas: ". n ." "o c e" ". s .";
+      }
+      .vCuerpo > .pos-n {
+        grid-area: n;
+      }
+      .vCuerpo > .pos-s {
+        grid-area: s;
+      }
+      .vCuerpo > .pos-e {
+        grid-area: e;
+      }
+      .vCuerpo > .pos-o {
+        grid-area: o;
+      }
+      .vCentro {
+        grid-area: c;
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem 1rem;
+      }
+      .vJugador {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.15rem;
+      }
+      .vNombre {
+        display: flex;
+        align-items: center;
+        font-size: 0.85rem;
+        white-space: nowrap;
+        opacity: 0.8;
+        text-shadow: 0 1px 3px var(--sombra-texto);
+      }
+      .vJugador.activo .vNombre {
+        opacity: 1;
+        font-weight: bold;
+        color: var(--oro);
+      }
+      .vMano {
+        display: flex;
+        justify-content: center;
+      }
+      .vCuerpo.dos .vMano {
+        --ancho-carta: calc(var(--vw) * 1.3);
+      }
+      .vMano .card + .card {
+        margin-left: calc(var(--ancho-carta) * -0.3);
+      }
+      .vCuerpo.cuatro > .pos-e,
+      .vCuerpo.cuatro > .pos-o {
+        --ancho-carta: calc(var(--vw) * 0.72);
+      }
+      .vCuerpo.cuatro > .pos-e .vMano,
+      .vCuerpo.cuatro > .pos-o .vMano {
+        flex-direction: column;
+      }
+      .vCuerpo.cuatro > .pos-e,
+      .vCuerpo.cuatro > .pos-o {
+        max-width: 5.4rem; /* los nombres largos de los laterales pasan a dos líneas en vez de empujar el tapete */
+      }
+      .vCuerpo.cuatro > .pos-e .vNombre,
+      .vCuerpo.cuatro > .pos-o .vNombre {
+        justify-content: center;
+        font-size: 0.78rem;
+        line-height: 1.15;
+        text-align: center;
+        white-space: normal;
+      }
+      .vCuerpo.cuatro > .pos-e .vMano .card + .card,
+      .vCuerpo.cuatro > .pos-o .vMano .card + .card {
+        margin-left: 0;
+        margin-top: calc(var(--ancho-carta) * -1.05);
+      }
+      .vMano div.card.triunfo,
+      .vMazoCartas div.card.triunfo,
+      .vSlot div.card.triunfo {
+        position: relative;
+        align-self: auto;
+        height: auto;
+      }
+      .vMazo {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.2rem;
+        font-size: 0.8rem;
+        line-height: 1.3;
+        text-align: center;
+      }
+      .vMazoCartas {
+        display: flex;
+        --ancho-carta: calc(var(--vw) * 0.85);
+      }
+      .vMazoCartas .card + .card {
+        margin-left: calc(var(--ancho-carta) * -0.6);
+      }
+      .vJuego {
+        display: grid;
+        --ancho-carta: calc(var(--vw) * 1.45);
+        justify-content: center;
+      }
+      .vJuego.dos {
+        grid-template-columns: repeat(2, calc(var(--ancho-carta) * 0.8));
+        grid-template-rows: repeat(2, calc(var(--ancho-carta) * 0.85));
+        grid-template-areas: "n ." ". s";
+        min-height: calc(var(--ancho-carta) * 2.4);
+      }
+      .vJuego.cuatro {
+        --ancho-carta: calc(var(--vw) * 1.15);
+        grid-template-columns: repeat(3, calc(var(--ancho-carta) * 0.9));
+        grid-template-rows: repeat(3, calc(var(--ancho-carta) * 0.85));
+        grid-template-areas: ". n ." "o . e" ". s .";
+        min-height: calc(var(--ancho-carta) * 3.25);
+      }
+      .vSlot {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+      .vSlot.pos-n {
+        grid-area: n;
+      }
+      .vSlot.pos-s {
+        grid-area: s;
+      }
+      .vSlot.pos-e {
+        grid-area: e;
+      }
+      .vSlot.pos-o {
+        grid-area: o;
+      }
+      .vSlot.ganadora .card {
+        box-shadow:
+          0 0 0 3px var(--oro),
+          0 0 16px 6px var(--oro);
+      }
+      .vTexto {
+        min-height: 2.7em;
+        margin: 0.6rem 0 0.4rem;
+        text-align: center;
+        font-size: 1.05rem;
+        line-height: 1.35;
+      }
+      .vControles {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+      }
+      .vControles .btn {
+        min-width: 2.4rem;
+      }
+      .vControles .btn:disabled {
+        opacity: 0.4;
+        cursor: default;
+      }
+      #visorPaso {
+        flex: 1 1 9rem;
+        min-width: 7rem;
+        accent-color: var(--oro);
+      }
+      #visorContador {
+        min-width: 4.2rem;
+        text-align: center;
+        font-size: 0.85rem;
+        font-variant-numeric: tabular-nums;
+        opacity: 0.85;
       }
       /* Móvil: mano propia en dos filas (3 + 3) y mesa compacta */
       button,
@@ -1169,6 +1441,9 @@
         #menu .chip {
           text-align: center;
         }
+        #bImportar .textoAyuda {
+          display: none; /* en móvil, solo el icono (si no, la barra del lobby no cabe) */
+        }
         #bRegistroTop,
         #bVelocidadTop {
           display: none;
@@ -1489,6 +1764,15 @@
   <body>
     <div id="lobby">
       <div id="barraLobby">
+        <button
+          class="btn alt small"
+          id="bImportar"
+          type="button"
+          aria-haspopup="dialog"
+          aria-label="Abrir un registro de partida para reproducirlo"
+        >
+          ▶<span class="textoAyuda"> Reproducir</span>
+        </button>
         <button class="btn alt small" id="bVelocidad" data-velocidad type="button"></button>
         <button
           class="btn alt small"
@@ -1586,7 +1870,45 @@
       <div class="botonesRegistro">
         <button class="btn" id="bRegistroCopiar" type="button">Copiar</button>
         <button class="btn alt" id="bRegistroDescargar" type="button">Descargar .txt</button>
+        <button class="btn alt" id="bRegistroReproducir" type="button">▶ Reproducir</button>
         <button class="btn alt" id="bRegistroCerrar" type="button">Cerrar</button>
+      </div>
+    </dialog>
+    <dialog id="importar" aria-labelledby="importarTitulo">
+      <h2 id="importarTitulo">Reproducir un registro</h2>
+      <p>
+        Pega el texto de un registro (el que copian o descargan los botones de <b>Registro</b>) o elige su archivo .txt.
+        Se comprueba jugada a jugada con las reglas y se reproduce paso a paso con las cartas de todos a la vista.
+      </p>
+      <textarea
+        id="importarTexto"
+        spellcheck="false"
+        placeholder="GUINOTE v1 jug=2 modo=normal&#10;J0 &quot;Ana&quot; azul&#10;J1 &quot;Rival&quot; rojo bot&#10;&#10;MANO 1 sale=1&#10;BARAJA …"
+        aria-label="Texto del registro"></textarea>
+      <p id="importarError" class="errorRegistro" role="alert"></p>
+      <div class="botonesRegistro">
+        <button class="btn" id="bImportarCargar" type="button">▶ Reproducir</button>
+        <label class="btn alt" for="importarArchivo">Elegir archivo…</label>
+        <input id="importarArchivo" type="file" accept=".txt,text/plain" hidden />
+        <button class="btn alt" id="bImportarCerrar" type="button">Cancelar</button>
+      </div>
+    </dialog>
+    <dialog id="visor" aria-labelledby="visorTitulo">
+      <div class="vCabecera">
+        <h2 id="visorTitulo">Reproducción</h2>
+        <select id="visorMano" aria-label="Mano"></select>
+        <button class="btn alt small" id="bVisorCerrar" type="button">Cerrar</button>
+      </div>
+      <div id="visorMesa"></div>
+      <div class="vControles">
+        <button class="btn alt small" id="bVisorInicio" type="button" title="Al principio (Inicio)" aria-label="Al principio">⏮</button>
+        <button class="btn alt small" id="bVisorAtras" type="button" title="Paso atrás (←)" aria-label="Paso atrás">◀</button>
+        <button class="btn small" id="bVisorPlay" type="button" title="Reproducir / pausa (espacio)" aria-label="Reproducir">▶</button>
+        <button class="btn alt small" id="bVisorAdelante" type="button" title="Paso adelante (→)" aria-label="Paso adelante">▶|</button>
+        <button class="btn alt small" id="bVisorFin" type="button" title="Al final (Fin)" aria-label="Al final">⏭</button>
+        <input id="visorPaso" type="range" min="0" max="0" value="0" aria-label="Paso" />
+        <span id="visorContador" aria-live="off"></span>
+        <button class="btn alt small" id="bVelocidadVisor" data-velocidad type="button"></button>
       </div>
     </dialog>
     <dialog id="ayuda" aria-labelledby="ayudaTitulo">
@@ -1659,6 +1981,7 @@
 
         /* ---- Aplicación (tiempos, límites y diseño móvil) ---- */
         ajustes: {
+          maxBytesRegistro: 2_000_000, // tamaño máximo de un archivo de registro que se puede abrir (un registro típico ocupa unos pocos KB)
           resolverMs: 1300, // pausa antes de resolver el paso pendiente de la partida (en guiñote, recoger la baza completa); con la velocidad Normal
           historialMs: 24 * 60 * 60 * 1000, // cuánto tiempo se conserva una partida en el historial (24 h)
           purgaCadaMs: 15000, // cada cuánto se comprueba si la sala ha caducado para eliminarla
@@ -1674,6 +1997,7 @@
           porDefecto: "normal",
           // mínimos (ms) que no bajan de ahí aunque el factor sea pequeño: lo que se tarda en ver una carta o notar la jugada del bot no depende del ritmo elegido
           minResolverMs: 650, // recoger la baza completa (deja ≈500 ms con la carta del rival quieta)
+          pasoVisorMs: 900, // pausa entre pasos de la reproducción automática de un registro (se escala con el factor)
           minBotMs: 200, // pausa del bot antes de jugar (la parte aleatoria extra se escala aparte)
           // factor que multiplica las pausas (resolver baza, bot, reparto) y la duración de las animaciones
           niveles: Object.freeze([
@@ -1907,6 +2231,8 @@
      Registro (manos terminadas en notación compacta + explicación; nunca una mano en curso)
        registroDisponible(partida) → bool
        textoRegistro(partida, { jugadores: [{ nombre, bot }], colorEquipo(equipo) }) → texto | null
+       leerRegistro(texto) → registro { titulo, manos: [{ titulo, numPasos }], … }   valida el texto; lanza Error con la línea que falla
+       crearVisor(contenedor) → { dibujar(registro, indiceMano, indicePaso) }      reproducción paso a paso de un registro leído
      Vista
        anclaNombres, anclaEstado (ids ante los que el HUD móvil coloca los nombres y el estado)
        dibujar(), reiniciarAnimaciones(), limpiar()
@@ -2902,7 +3228,7 @@
         static aCarta(ficha) {
           const partes = /^(\d{1,2})([a-z])$/.exec(ficha),
             palo = partes && NotacionGuinote.#PALOS.get(partes[2]);
-          if (!palo) throw new Error(`carta no válida: «${ficha}»`);
+          if (!palo || !Carta.NUMEROS.includes(+partes[1])) throw new Error(`carta no válida: «${ficha}»`);
           return Carta.crear(palo, +partes[1]);
         }
 
@@ -2945,7 +3271,9 @@
 
         /**
          * Vuelve a jugar una mano con el motor de reglas. `marcador` es el de la mano anterior (o uno nuevo en la primera).
-         * Devuelve { partida (al terminar la mano), reparto, cartaTriunfo, bazas: [{ eventos, ganador, puntos, ultima }] }.
+         * Devuelve { partida (al terminar la mano), reparto, cartaTriunfo, bazas: [{ eventos, ganador, puntos, ultima }],
+         * pasos: [{ partida, evento, mesa, ganador }] }, con un paso por ficha (el primero es el reparto) para poder reproducir la mano;
+         * en el paso de una baza recogida, `mesa` conserva las cartas que había y `ganador` es quien se las lleva.
          * Lanza Error si el registro no es válido (carta repetida, jugada ilegal, ganador de baza que no cuadra…).
          */
         static reproducirMano({ jugadores, modo, sale, baraja, acciones }, marcador) {
@@ -2954,7 +3282,7 @@
             .filter(Boolean)
             .map((ficha) => NotacionGuinote.aCarta(ficha));
           if (cartas.length !== RegistroGuinote.#CARTAS_BARAJA || new Set(cartas).size !== cartas.length)
-            throw new Error("la baraja no es válida");
+            throw new Error("la baraja no es válida (deben ser las 40 cartas, sin repetir)");
           let partida = PartidaGuinote.nueva(jugadores, modo, {
             baraja: new Baraja(cartas),
             jugadorMano: sale,
@@ -2963,35 +3291,170 @@
           });
           const reparto = Array.from({ length: jugadores }, (_, asiento) => partida.cartasDe(asiento)),
             cartaTriunfo = partida.cartaTriunfo,
-            bazas = [];
+            bazas = [],
+            pasos = [{ partida, evento: null, mesa: [], ganador: null }]; // pasos[0] = tras el reparto
           let eventos = [];
           for (const ficha of acciones.split(" ").filter(Boolean)) {
-            const asiento = partida.turno;
-            if (ficha === "~") {
-              partida = partida.cambiarSiete(asiento);
-              eventos.push({ tipo: "cambio", asiento });
-            } else if (ficha[0] === "!") {
-              const palo = NotacionGuinote.aPalo(ficha.slice(1)),
-                puntos = ReglasGuinote.valorCante(palo, partida.triunfo);
-              partida = partida.cantar(asiento, palo);
-              eventos.push({ tipo: "cante", asiento, palo, puntos });
-            } else if (ficha[0] === "=") {
-              const ganador = ReglasGuinote.ganadoraDeBaza(partida.mesa, partida.triunfo).asiento;
-              if (ganador !== Number(ficha.slice(1)))
-                throw new Error(`en la baza ${bazas.length + 1} gana el asiento ${ganador}, no el ${ficha.slice(1)}`);
-              const puntos = ReglasGuinote.puntosDeBaza(partida.mesa);
-              partida = partida.resolverBaza();
-              bazas.push({ eventos, ganador, puntos, ultima: partida.manoTerminada });
-              eventos = [];
-            } else {
-              const carta = NotacionGuinote.aCarta(ficha);
-              partida = partida.jugar(asiento, carta);
-              eventos.push({ tipo: "carta", asiento, carta });
+            try {
+              const asiento = partida.turno;
+              if (ficha === "~") {
+                partida = partida.cambiarSiete(asiento);
+                eventos.push({ tipo: "cambio", asiento });
+                pasos.push({ partida, evento: eventos.at(-1), mesa: [...partida.mesa], ganador: null });
+              } else if (ficha[0] === "!") {
+                const palo = NotacionGuinote.aPalo(ficha.slice(1)),
+                  puntos = ReglasGuinote.valorCante(palo, partida.triunfo);
+                partida = partida.cantar(asiento, palo);
+                eventos.push({ tipo: "cante", asiento, palo, puntos });
+                pasos.push({ partida, evento: eventos.at(-1), mesa: [...partida.mesa], ganador: null });
+              } else if (ficha[0] === "=") {
+                if (!partida.bazaCompleta) throw new Error("la baza todavía no está completa");
+                const ganador = ReglasGuinote.ganadoraDeBaza(partida.mesa, partida.triunfo).asiento;
+                if (ganador !== Number(ficha.slice(1))) throw new Error(`la gana el asiento ${ganador}, no el ${ficha.slice(1)}`);
+                const puntos = ReglasGuinote.puntosDeBaza(partida.mesa),
+                  mesaRecogida = [...partida.mesa];
+                partida = partida.resolverBaza();
+                const ultima = partida.manoTerminada;
+                bazas.push({ eventos, ganador, puntos, ultima });
+                pasos.push({ partida, evento: { tipo: "baza", ganador, puntos, ultima }, mesa: mesaRecogida, ganador });
+                eventos = [];
+              } else {
+                const carta = NotacionGuinote.aCarta(ficha);
+                partida = partida.jugar(asiento, carta);
+                eventos.push({ tipo: "carta", asiento, carta });
+                pasos.push({ partida, evento: eventos.at(-1), mesa: [...partida.mesa], ganador: null });
+              }
+            } catch (error) {
+              throw new Error(`baza ${bazas.length + 1}, ficha «${ficha}»: ${error.message}`);
             }
           }
           if (eventos.length) throw new Error("la última baza está incompleta");
-          if (!partida.manoTerminada) throw new Error("la mano no está terminada");
-          return { partida, reparto, cartaTriunfo, bazas };
+          if (!partida.manoTerminada) throw new Error("la mano no está terminada (faltan bazas)");
+          return { partida, reparto, cartaTriunfo, bazas, pasos };
+        }
+
+        /**
+         * Lee el texto de un registro (el que produce texto()) y lo valida jugada a jugada con las reglas.
+         * Lanza Error con un mensaje que dice en qué línea (o mano) falla. Si todo es correcto devuelve
+         * { titulo, numJugadores, modo, fecha, jugadores: [{ nombre, color, bot }],
+         *   manos: [{ numero, titulo, sale, baraja, acciones, numPasos, pasos, puntos: [a, b], totales: [a, b] }] } listo para reproducir.
+         * Se ignoran las líneas vacías y las que empiezan por # (la explicación). Los puntos de FIN, si están, se comprueban.
+         */
+        static leer(texto) {
+          const falla = (linea, mensaje) => new Error(linea ? `Línea ${linea}: ${mensaje}` : mensaje),
+            lineas = String(texto ?? "").replace(/\r/g, "").split("\n"),
+            parejaDePuntos = (cadena) => {
+              const partes = /^(\d+)-(\d+)$/.exec(cadena ?? "");
+              return partes ? [Number(partes[1]), Number(partes[2])] : null;
+            },
+            jugadores = [],
+            manos = [];
+          let cabecera = null,
+            actual = null;
+          lineas.forEach((original, indice) => {
+            const numeroLinea = indice + 1,
+              linea = original.trim();
+            if (!linea || linea.startsWith("#")) return;
+            let partes;
+            if ((partes = /^GUINOTE\s+v(\d+)\b(.*)$/i.exec(linea))) {
+              if (cabecera) throw falla(numeroLinea, "hay más de una cabecera GUINOTE");
+              if (Number(partes[1]) !== RegistroGuinote.VERSION)
+                throw falla(numeroLinea, `la versión v${partes[1]} no es compatible (esta es la v${RegistroGuinote.VERSION})`);
+              const valores = Object.fromEntries([...partes[2].matchAll(/(\w+)=(\S+)/g)].map((par) => [par[1], par[2]])),
+                numJugadores = Number(valores.jug);
+              if (![ReglasGuinote.JUGADORES_DUELO, ReglasGuinote.JUGADORES_PAREJAS].includes(numJugadores))
+                throw falla(numeroLinea, "jug debe ser 2 o 4");
+              if (!["normal", "rapida"].includes(valores.modo)) throw falla(numeroLinea, "modo debe ser normal o rapida");
+              cabecera = { numJugadores, modo: valores.modo, fecha: valores.fecha ?? null };
+            } else if (!cabecera) {
+              throw falla(numeroLinea, "antes de esta línea falta la cabecera «GUINOTE v1 jug=… modo=…»");
+            } else if ((partes = /^J(\d+)\s+"([^"]*)"\s+(\S+)(?:\s+(bot))?$/.exec(linea))) {
+              if (Number(partes[1]) !== jugadores.length || jugadores.length >= cabecera.numJugadores)
+                throw falla(numeroLinea, `jugador inesperado J${partes[1]} (se esperaba J${jugadores.length}, de J0 a J${cabecera.numJugadores - 1})`);
+              if (!COLORES_GUINOTE.includes(partes[3]))
+                throw falla(numeroLinea, `color «${partes[3]}» desconocido (${COLORES_GUINOTE.join(" o ")})`);
+              if (actual) throw falla(numeroLinea, "los jugadores van antes de la primera MANO");
+              jugadores.push({ nombre: partes[2] || `Jugador ${jugadores.length + 1}`, color: partes[3], bot: !!partes[4] });
+            } else if ((partes = /^MANO\s+(\d+)\s+sale=(\d+)$/i.exec(linea))) {
+              if (jugadores.length !== cabecera.numJugadores)
+                throw falla(numeroLinea, `faltan jugadores: hay ${jugadores.length} y la cabecera dice ${cabecera.numJugadores}`);
+              const numero = Number(partes[1]),
+                sale = Number(partes[2]);
+              if (sale >= cabecera.numJugadores) throw falla(numeroLinea, `sale=${sale} no es un asiento válido`);
+              if (manos.length && numero !== manos.at(-1).numero + 1)
+                throw falla(numeroLinea, `las manos deben ir numeradas seguidas (tras la ${manos.at(-1).numero} no puede venir la ${numero})`);
+              actual = { numero, sale, linea: numeroLinea, baraja: null, fichas: [], bazas: 0, lineasBaza: [], fin: null };
+              manos.push(actual);
+            } else if ((partes = /^BARAJA\s+(.+)$/i.exec(linea))) {
+              if (!actual || actual.baraja || actual.fin) throw falla(numeroLinea, "BARAJA debe ir justo después de MANO, una sola vez");
+              actual.baraja = partes[1].trim().replace(/\s+/g, " ");
+            } else if ((partes = /^b(\d+)\s*:\s*(.+)$/i.exec(linea))) {
+              if (!actual?.baraja || actual.fin) throw falla(numeroLinea, "las bazas van entre BARAJA y FIN de una mano");
+              if (Number(partes[1]) !== actual.bazas + 1)
+                throw falla(numeroLinea, `las bazas deben ir numeradas seguidas (se esperaba b${actual.bazas + 1})`);
+              actual.bazas++;
+              actual.lineasBaza[actual.bazas] = numeroLinea;
+              actual.fichas.push(...partes[2].trim().split(/\s+/));
+            } else if ((partes = /^FIN\b(.*)$/i.exec(linea))) {
+              if (!actual?.baraja || actual.fin) throw falla(numeroLinea, "FIN debe cerrar una mano, una sola vez");
+              const valores = Object.fromEntries([...partes[1].matchAll(/(\w+)=(\S+)/g)].map((par) => [par[1], par[2]])),
+                puntos = valores.mano === undefined ? null : parejaDePuntos(valores.mano),
+                totales = valores.total === undefined ? null : parejaDePuntos(valores.total);
+              if ((valores.mano !== undefined && !puntos) || (valores.total !== undefined && !totales))
+                throw falla(numeroLinea, "FIN no es válido (mano=54-47 total=54-47)");
+              actual.fin = { linea: numeroLinea, puntos, totales };
+            } else {
+              throw falla(numeroLinea, `no entiendo esta línea: «${linea.length > 40 ? linea.slice(0, 40) + "…" : linea}»`);
+            }
+          });
+          if (!cabecera) throw falla(0, "no se encuentra la cabecera «GUINOTE v1 jug=… modo=…»");
+          if (jugadores.length !== cabecera.numJugadores)
+            throw falla(0, `faltan jugadores: hay ${jugadores.length} (J0…) y la cabecera dice ${cabecera.numJugadores}`);
+          if (!manos.length) throw falla(0, "el registro no contiene ninguna MANO");
+
+          let marcador = new MarcadorGuinote({ modo: cabecera.modo });
+          const resultado = manos.map((mano) => {
+            if (!mano.baraja) throw falla(mano.linea, `la mano ${mano.numero} no tiene BARAJA`);
+            if (!marcador) throw falla(mano.linea, `la partida ya había terminado antes de la mano ${mano.numero}`);
+            let reproduccion;
+            try {
+              reproduccion = RegistroGuinote.reproducirMano(
+                { jugadores: cabecera.numJugadores, modo: cabecera.modo, sale: mano.sale, baraja: mano.baraja, acciones: mano.fichas.join(" ") },
+                marcador,
+              );
+            } catch (error) {
+              const baza = /^baza (\d+)/.exec(error.message)?.[1]; // el error dice en qué baza falla: se señala su línea
+              throw falla(mano.lineasBaza[baza] ?? mano.linea, `mano ${mano.numero}: ${error.message}`);
+            }
+            const final = reproduccion.partida.marcador,
+              puntos = [final.puntosDe(0), final.puntosDe(1)],
+              totales = [final.totalDe(0), final.totalDe(1)],
+              distinto = (a, b) => a[0] !== b[0] || a[1] !== b[1];
+            if (mano.fin?.puntos && distinto(mano.fin.puntos, puntos))
+              throw falla(mano.fin.linea, `FIN dice ${mano.fin.puntos.join("-")} pero las jugadas dan ${puntos.join("-")}`);
+            if (mano.fin?.totales && final.esNormal && distinto(mano.fin.totales, totales))
+              throw falla(mano.fin.linea, `FIN dice un total de ${mano.fin.totales.join("-")} pero las manos dan ${totales.join("-")}`);
+            marcador = final.partidaTerminada ? null : final.siguienteMano();
+            return {
+              numero: mano.numero,
+              titulo: `Mano ${mano.numero} · ${puntos.join("–")}`,
+              sale: mano.sale,
+              baraja: mano.baraja,
+              acciones: mano.fichas.join(" "),
+              numPasos: reproduccion.pasos.length,
+              pasos: reproduccion.pasos,
+              puntos,
+              totales,
+            };
+          });
+          return {
+            titulo: `Guiñote · ${cabecera.numJugadores} jugadores · ${cabecera.modo === "rapida" ? "Rápida" : "Normal"}`,
+            numJugadores: cabecera.numJugadores,
+            modo: cabecera.modo,
+            fecha: cabecera.fecha,
+            jugadores,
+            manos: resultado,
+          };
         }
 
         /** Las fichas de una mano agrupadas en líneas «bN: …», una por baza. */
@@ -3753,7 +4216,121 @@
         }
       }
 
-      const AYUDA_GUINOTE = html`
+/**
+       * Visor de guiñote para reproducir un registro: dibuja un paso de una mano con las cartas de todos boca arriba.
+       * Es independiente de la mesa de juego (no usa Sesion ni Mesa): solo recibe lo que devuelve RegistroGuinote.leer.
+       */
+      class VisorGuinote {
+        // Posición en el tapete de cada asiento, vista desde el asiento 0 (abajo): en 4, el siguiente queda a la derecha y la pareja arriba.
+        static POSICIONES = { 2: ["s", "n"], 4: ["s", "e", "n", "o"] };
+
+        constructor(contenedor) {
+          this.el = contenedor;
+        }
+
+        /** Carta boca arriba (las de triunfo van en un <div> con marco y estrellas, como en la mesa). */
+        static cara(carta, triunfo, className = "") {
+          return Carta.de(carta).palo === triunfo
+            ? html`<div class="card ${className} triunfo">
+                <img src="cartas/${carta}.${EXT_CARTA}" draggable="false" alt="${carta}" />
+              </div>`
+            : html`<img
+                class="card ${className}"
+                src="cartas/${carta}.${EXT_CARTA}"
+                draggable="false"
+                alt="${carta}" />`;
+        }
+
+        /** Explicación en una frase de lo que ocurre en el paso. */
+        static textoPaso(registro, mano, paso) {
+          const nombre = (asiento) => registro.jugadores[asiento].nombre,
+            { evento } = paso;
+          if (!evento)
+            return `Reparto · sale ${nombre(mano.sale)} · triunfo: ${RegistroGuinote.nombreCarta(paso.partida.cartaTriunfo)}`;
+          switch (evento.tipo) {
+            case "carta":
+              return `${nombre(evento.asiento)} juega ${RegistroGuinote.nombreCarta(evento.carta)}`;
+            case "cante":
+              return `${nombre(evento.asiento)} canta las ${evento.puntos} en ${evento.palo}`;
+            case "cambio":
+              return `${nombre(evento.asiento)} cambia el 7 de triunfo`;
+            default:
+              return `Se lleva la baza ${nombre(evento.ganador)} (${evento.puntos} puntos${evento.ultima ? " + 10 de últimas" : ""})`;
+          }
+        }
+
+        dibujar(registro, indiceMano, indicePaso) {
+          const mano = registro.manos[indiceMano],
+            paso = mano.pasos[indicePaso],
+            { partida } = paso,
+            numero = partida.jugadores,
+            cuatro = numero === ReglasGuinote.JUGADORES_PAREJAS,
+            posiciones = VisorGuinote.POSICIONES[numero],
+            triunfo = partida.triunfo,
+            marcador = partida.marcador,
+            colorDe = (asiento) => registro.jugadores[asiento].color,
+            nombreDe = (asiento) => registro.jugadores[asiento].nombre,
+            enJuego = !partida.manoTerminada && !partida.bazaCompleta,
+            ordenPalo = (carta) => (carta.palo === triunfo ? -1 : Carta.PALOS.indexOf(carta.palo)),
+            ordenadas = (asiento) =>
+              partida
+                .cartasDe(asiento)
+                .sort((a, b) => ordenPalo(a) - ordenPalo(b) || ReglasGuinote.fuerza(b) - ReglasGuinote.fuerza(a)),
+            jugador = (asiento) => html`<div
+              class="vJugador pos-${posiciones[asiento]}${enJuego && partida.turno === asiento ? " activo" : ""}"
+              data-color-equipo="${colorDe(asiento)}">
+              <div class="vNombre"><i class="dot"></i>${nombreDe(asiento)}${registro.jugadores[asiento].bot ? " 🤖" : ""}</div>
+              <div class="vMano">${ordenadas(asiento).map((carta) => VisorGuinote.cara(carta, triunfo))}</div>
+            </div>`,
+            equipos = [0, 1].map((equipo) => ({
+              equipo,
+              nombre: cuatro ? `Equipo ${colorDe(equipo)}` : nombreDe(equipo),
+              puntos: marcador.puntosAcumulados(equipo),
+              bazas: marcador.bazasDe(equipo),
+            })),
+            enMazo = partida.cartasEnMazo;
+
+          pintar(
+            this.el,
+            html`<div class="vMarcador">
+                ${equipos.map(
+                  (e) => html`<span data-color-equipo="${colorDe(e.equipo)}"
+                    ><i class="dot"></i>${e.nombre}: <b>${e.puntos}</b>
+                    <small>(${e.bazas} baza${e.bazas === 1 ? "" : "s"})</small></span
+                  >`,
+                )}
+              </div>
+              <div class="vTapete">
+                <div class="vCuerpo ${cuatro ? "cuatro" : "dos"}">
+                  ${posiciones.map((_, asiento) => jugador(asiento))}
+                  <div class="vCentro">
+                    <div class="vMazo">
+                      <div class="vMazoCartas">
+                        ${enMazo ? VisorGuinote.cara(partida.cartaTriunfo, triunfo) : ""}
+                        ${enMazo > 1 ? imagenReverso() : ""}
+                      </div>
+                      <small
+                        ><span class="estrellaTriunfo">★</span> ${triunfo}${marcador.esNormal ? ` · mano ${marcador.numeroMano}` : ""}<br />${enMazo ? `${enMazo} en el mazo` : "sin mazo"}</small
+                      >
+                    </div>
+                    <div class="vJuego ${cuatro ? "cuatro" : "dos"}">
+                      ${paso.mesa.map(
+                        (entrada) => html`<div
+                          class="vSlot pos-${posiciones[entrada.asiento]}${paso.ganador === entrada.asiento ? " ganadora" : ""}"
+                          data-color-equipo="${colorDe(entrada.asiento)}">
+                          ${VisorGuinote.cara(entrada.carta, triunfo)}
+                        </div>`,
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p class="vTexto">${VisorGuinote.textoPaso(registro, mano, paso)}</p>`,
+          );
+        }
+      }
+
+            const AYUDA_GUINOTE = html`
         <h3>Objetivo</h3>
         <p>
           Conseguir más puntos que el rival ganando bazas (rondas de dos cartas), cantando y llevándote la última baza.
@@ -3850,6 +4427,14 @@
           o descargarlo. Mientras una mano está en juego no se muestra, para no revelar las cartas.
         </p>
 
+        <h3>Reproducir un registro</h3>
+        <p>
+          El botón <b>▶ Reproducir</b> del lobby (o el del diálogo de Registro) abre un registro pegando su texto o eligiendo su
+          archivo. Se comprueba jugada a jugada con las reglas —si algo no cuadra, te dice la línea— y se reproduce paso a paso con las
+          cartas de todos a la vista. Controles: ◀ ▶| (o las flechas del teclado), espacio para reproducir o pausar, Inicio y Fin, la barra
+          para saltar a cualquier paso y el selector de mano. La velocidad ⚡ también regula la reproducción automática.
+        </p>
+
         <h3>Jugar contra bots</h3>
         <p>
           Al crear la sala elige <b>2</b> o <b>4 jugadores</b> y, para cada asiento, si lo ocupa un <b>bot</b> (por
@@ -3941,6 +4526,8 @@
         nuevaPartida: (numJugadores, modo) => PartidaGuinote.nueva(numJugadores, modo),
         registroDisponible: (partida) => partida.manosRegistradas.some((mano) => mano.baraja),
         textoRegistro: (partida, contexto) => RegistroGuinote.texto(partida, contexto),
+        leerRegistro: (texto) => RegistroGuinote.leer(texto),
+        crearVisor: (contenedor) => new VisorGuinote(contenedor),
         partidaDesdeEstado: (estado) => PartidaGuinote.desdeEstado(estado),
         resumenResultado: (partida) => ({
           ganador: partida.marcador.ganadorPartida() ?? -1,
@@ -5346,6 +5933,157 @@ function siguienteVelocidad() {
           setTimeout(() => URL.revokeObjectURL(url), 1000);
         }
 
+        /* ---- Reproductor: abrir un registro (pegado o de archivo) y verlo paso a paso con todas las manos a la vista ---- */
+        conectarVisor() {
+          this.reproductor = { registro: null, mano: 0, paso: 0, reproduciendo: false, temporizador: null };
+          this.visorVista = this.juego.crearVisor(porId("visorMesa"));
+          conectarDialogo("importar", ["bImportar"], "bImportarCerrar", () => this.abrirImportar());
+          conectarDialogo("visor", [], "bVisorCerrar");
+          porId("visor").addEventListener("close", () => this.pararReproduccion());
+          porId("visor").addEventListener("keydown", (evento) => this.teclaVisor(evento));
+          porId("bImportarCargar").addEventListener("click", () => this.cargarImportado());
+          porId("importarArchivo").addEventListener("change", (evento) => this.leerArchivoImportado(evento));
+          porId("bRegistroReproducir").addEventListener("click", () => this.reproducirRegistroActual());
+          porId("visorMano").addEventListener("change", (evento) => {
+            this.pararReproduccion();
+            Object.assign(this.reproductor, { mano: Number(evento.target.value), paso: 0 });
+            this.dibujarVisor();
+          });
+          porId("bVisorInicio").addEventListener("click", () => this.irAPaso(0));
+          porId("bVisorAtras").addEventListener("click", () => this.irAPaso(this.reproductor.paso - 1));
+          porId("bVisorAdelante").addEventListener("click", () => this.irAPaso(this.reproductor.paso + 1));
+          porId("bVisorFin").addEventListener("click", () => this.irAPaso(Infinity));
+          porId("bVisorPlay").addEventListener("click", () => this.alternarReproduccion());
+          porId("visorPaso").addEventListener("input", (evento) => this.irAPaso(Number(evento.target.value)));
+        }
+        abrirImportar(texto = null, error = "") {
+          if (texto !== null) porId("importarTexto").value = texto;
+          porId("importarError").textContent = error;
+          const dialogo = porId("importar");
+          if (!dialogo.open) dialogo.showModal();
+          porId("importarTexto").focus();
+        }
+        leerArchivoImportado(evento) {
+          const archivo = evento.target.files[0];
+          evento.target.value = ""; // para poder elegir otra vez el mismo archivo
+          if (!archivo) return;
+          if (archivo.size > AJUSTES.maxBytesRegistro) {
+            porId("importarError").textContent = "El archivo es demasiado grande para ser un registro.";
+            return;
+          }
+          archivo
+            .text()
+            .then((texto) => {
+              porId("importarTexto").value = texto;
+              porId("importarError").textContent = "";
+            })
+            .catch(() => (porId("importarError").textContent = "No se ha podido leer el archivo."));
+        }
+        cargarImportado() {
+          const error = this.abrirVisor(porId("importarTexto").value);
+          if (error) porId("importarError").textContent = error;
+          else porId("importar").close();
+        }
+        /** Reproduce el texto que muestra el diálogo de Registro; si no se pudiera leer, lo deja en el de abrir con el motivo. */
+        reproducirRegistroActual() {
+          const texto = porId("registroTexto").value,
+            error = this.abrirVisor(texto);
+          porId("registro").close();
+          if (error) this.abrirImportar(texto, error);
+        }
+        /** Valida el texto y abre el visor. Devuelve el mensaje de error si no es un registro válido, o null. */
+        abrirVisor(texto) {
+          if (!texto.trim()) return "Pega el texto de un registro o elige un archivo.";
+          let registro;
+          try {
+            registro = this.juego.leerRegistro(texto);
+          } catch (error) {
+            return error.message || String(error);
+          }
+          this.pararReproduccion();
+          Object.assign(this.reproductor, { registro, mano: 0, paso: 0 });
+          porId("visorTitulo").textContent = registro.titulo;
+          pintar(
+            porId("visorMano"),
+            registro.manos.map((mano, indice) => html`<option value="${indice}">${mano.titulo}</option>`),
+          );
+          porId("visorMano").hidden = registro.manos.length < 2;
+          const dialogo = porId("visor");
+          if (!dialogo.open) dialogo.showModal();
+          this.dibujarVisor();
+          porId("bVisorPlay").focus();
+          return null;
+        }
+        dibujarVisor() {
+          const { registro, mano, paso, reproduciendo } = this.reproductor,
+            total = registro.manos[mano].numPasos;
+          this.visorVista.dibujar(registro, mano, paso);
+          porId("visorMano").value = String(mano);
+          porId("visorPaso").max = String(total - 1);
+          porId("visorPaso").value = String(paso);
+          porId("visorContador").textContent = `${paso} / ${total - 1}`;
+          porId("bVisorInicio").disabled = porId("bVisorAtras").disabled = paso === 0;
+          porId("bVisorAdelante").disabled = porId("bVisorFin").disabled = paso >= total - 1;
+          porId("bVisorPlay").textContent = reproduciendo ? "⏸" : "▶";
+          porId("bVisorPlay").setAttribute("aria-label", reproduciendo ? "Pausa" : "Reproducir");
+        }
+        /** Navegación manual: pausa la reproducción automática y va al paso indicado (se queda dentro de la mano). */
+        irAPaso(paso) {
+          this.pararReproduccion();
+          this.mostrarPaso(paso);
+        }
+        mostrarPaso(paso) {
+          const { registro, mano } = this.reproductor;
+          this.reproductor.paso = Math.max(0, Math.min(paso, registro.manos[mano].numPasos - 1));
+          this.dibujarVisor();
+        }
+        alternarReproduccion() {
+          const { registro, mano, paso, reproduciendo } = this.reproductor;
+          if (reproduciendo) return this.irAPaso(paso); // pausa
+          if (paso >= registro.manos[mano].numPasos - 1) this.reproductor.paso = 0; // al final, vuelve a empezar
+          this.reproductor.reproduciendo = true;
+          this.programarPaso();
+          this.dibujarVisor();
+        }
+        /** Reproducción automática: un paso cada CONFIG.velocidad.pasoVisorMs (escalado por la velocidad elegida). */
+        programarPaso() {
+          this.reproductor.temporizador = setTimeout(() => {
+            const reproductor = this.reproductor,
+              ultimo = reproductor.registro.manos[reproductor.mano].numPasos - 1;
+            this.mostrarPaso(reproductor.paso + 1);
+            if (reproductor.paso < ultimo) return this.programarPaso();
+            reproductor.reproduciendo = false;
+            reproductor.temporizador = null;
+            this.dibujarVisor();
+          }, CONFIG.velocidad.pasoVisorMs * factorVelocidad());
+        }
+        pararReproduccion() {
+          const reproductor = this.reproductor;
+          if (!reproductor) return;
+          clearTimeout(reproductor.temporizador ?? undefined);
+          reproductor.temporizador = null;
+          if (!reproductor.reproduciendo) return;
+          reproductor.reproduciendo = false;
+          if (reproductor.registro && porId("visor").open) this.dibujarVisor();
+        }
+        teclaVisor(evento) {
+          const { key, target } = evento,
+            { paso } = this.reproductor;
+          if (target.matches("select")) return; // las flechas cambian la mano
+          if (target.matches("button") && (key === " " || key === "Enter")) return; // lo hace el propio botón
+          if (target.id === "visorPaso" && key !== " ") return; // la barra ya responde a sus teclas
+          const acciones = {
+            ArrowLeft: () => this.irAPaso(paso - 1),
+            ArrowRight: () => this.irAPaso(paso + 1),
+            Home: () => this.irAPaso(0),
+            End: () => this.irAPaso(Infinity),
+            " ": () => this.alternarReproduccion(),
+          };
+          if (!acciones[key]) return;
+          evento.preventDefault();
+          acciones[key]();
+        }
+
         /* ---- HUD móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa ---- */
         colocarHud() {
           const menu = porId("menu"),
@@ -5371,6 +6109,7 @@ function siguienteVelocidad() {
           const { sesion } = this;
           this.movil.addEventListener("change", () => this.colocarHud());
           document.querySelectorAll("[data-velocidad]").forEach((boton) => boton.addEventListener("click", siguienteVelocidad));
+          this.conectarVisor();
           document.querySelectorAll("[data-registro]").forEach((boton) => boton.addEventListener("click", () => this.abrirRegistro()));
           conectarDialogo("registro", [], "bRegistroCerrar");
           porId("bRegistroCopiar").addEventListener("click", () => this.copiarRegistro());
