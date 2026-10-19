@@ -610,6 +610,54 @@
         font-size: 2.2rem;
         margin: 0 0 0.3em;
       }
+      #fin .botonesFin {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.6rem;
+      }
+      /* Registro de la partida */
+      #registro {
+        width: min(92vw, 46rem);
+        max-height: 90vh;
+        border: 2px solid var(--oro);
+        border-radius: 12px;
+        background: var(--madera);
+        color: var(--crema);
+        padding: 1.1rem 1.3rem;
+      }
+      #registro::backdrop {
+        background: var(--fondo-modal);
+      }
+      #registro h2 {
+        margin: 0 0 0.4rem;
+        font-size: 1.5rem;
+      }
+      #registro p {
+        margin: 0.2rem 0 0.7rem;
+        font-size: 0.9rem;
+        opacity: 0.85;
+        line-height: 1.4;
+      }
+      #registroTexto {
+        display: block;
+        width: 100%;
+        height: min(54vh, 30rem);
+        resize: vertical;
+        font: 0.78rem/1.45 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+        color: var(--crema);
+        background: var(--velo-medio);
+        border: 1px solid var(--borde-suave);
+        border-radius: 8px;
+        padding: 0.6rem 0.7rem;
+      }
+      #registro .botonesRegistro {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 0.7rem;
+      }
       /* Móvil: mano propia en dos filas (3 + 3) y mesa compacta */
       button,
       .card {
@@ -1121,11 +1169,13 @@
         #menu .chip {
           text-align: center;
         }
+        #bRegistroTop,
         #bVelocidadTop {
           display: none;
         }
         #menu #bNueva,
         #menu #bVelocidadMenu,
+        #menu #bRegistroMenu,
         #menu #bHistorialMenu,
         #menu #bAyudaMenu {
           font-size: 0.85rem;
@@ -1503,11 +1553,13 @@
         <div id="topDerecha">
           <span class="chip" id="reloj" title="Duración de la partida" hidden></span>
           <span class="chip" id="score"></span>
+          <button class="btn alt small" id="bRegistroTop" data-registro type="button" hidden>Registro</button>
           <button class="btn alt small" id="bVelocidadTop" data-velocidad type="button"></button>
           <button class="btn alt small" id="bNueva" hidden>Nueva partida</button>
         </div>
         <button class="btn alt small" id="bMenu" type="button" aria-label="Menú" aria-haspopup="true">☰</button>
         <div id="menu">
+          <button class="btn alt small" id="bRegistroMenu" data-registro type="button" hidden>Registro</button>
           <button class="btn alt small" id="bVelocidadMenu" data-velocidad type="button"></button>
           <button class="btn alt small" id="bHistorialMenu" type="button">⏱ Historial</button>
           <button class="btn alt small" id="bAyudaMenu" type="button">? Ayuda</button>
@@ -1523,6 +1575,19 @@
       <p style="text-align: center; margin-bottom: 0">
         <button class="btn" id="bHistorialCerrar" type="button">Cerrar</button>
       </p>
+    </dialog>
+    <dialog id="registro" aria-labelledby="registroTitulo">
+      <h2 id="registroTitulo">Registro de la partida</h2>
+      <p>
+        Cada mano terminada en notación compacta, con su explicación debajo. Las líneas que empiezan por # son solo
+        comentarios. Una mano en juego no se muestra para no revelar las cartas.
+      </p>
+      <textarea id="registroTexto" readonly spellcheck="false" aria-label="Registro de la partida"></textarea>
+      <div class="botonesRegistro">
+        <button class="btn" id="bRegistroCopiar" type="button">Copiar</button>
+        <button class="btn alt" id="bRegistroDescargar" type="button">Descargar .txt</button>
+        <button class="btn alt" id="bRegistroCerrar" type="button">Cerrar</button>
+      </div>
     </dialog>
     <dialog id="ayuda" aria-labelledby="ayudaTitulo">
       <h2 id="ayudaTitulo"></h2>
@@ -1547,7 +1612,10 @@
       <div class="box">
         <h2 id="finTitulo"></h2>
         <p id="finDetalle"></p>
-        <button class="btn" id="bSiguienteMano">Otra partida</button>
+        <div class="botonesFin">
+          <button class="btn" id="bSiguienteMano">Otra partida</button>
+          <button class="btn alt" id="bRegistroFin" data-registro type="button" hidden>Ver registro</button>
+        </div>
       </div>
     </div>
 
@@ -1836,6 +1904,9 @@
        manoTerminada, partidaTerminada, siguienteMano(), aEstado()
      Historial
        resumenResultado(partida) → { ganador (equipo, -1 si empate), puntos [equipo0, equipo1] }  partida terminada
+     Registro (manos terminadas en notación compacta + explicación; nunca una mano en curso)
+       registroDisponible(partida) → bool
+       textoRegistro(partida, { jugadores: [{ nombre, bot }], colorEquipo(equipo) }) → texto | null
      Vista
        anclaNombres, anclaEstado (ids ante los que el HUD móvil coloca los nombres y el estado)
        dibujar(), reiniciarAnimaciones(), limpiar()
@@ -2418,12 +2489,15 @@
              ultimoEvento   { tipo: 'baza' | 'cante' | 'cambio', asiento, … } para mostrar en pantalla
              jugadas        Carta[] de las bazas ya recogidas (memoria para el bot)
              inicio, fin    ms (Date.now) en que empezó y terminó la partida (fin es null mientras sigue en curso)
-             marcador       MarcadorGuinote */
+             marcador       MarcadorGuinote
+             barajaInicial  orden de las 40 cartas al empezar la mano, en notación compacta (ver NotacionGuinote)
+             acciones       fichas de la mano en curso: carta, !palo (cante), ~ (cambio del 7) y =asiento (baza recogida)
+             manosPrevias   [{ sale, baraja, acciones }] de las manos ya terminadas de esta partida (el registro) */
         #e;
 
         /** `datos` lleva los campos de arriba; las cartas pueden ser ids y las colecciones se copian. */
         constructor(datos) {
-          const { cartaTriunfo, manos, mesa, cantados, paloForzado, ultimoEvento, jugadas, inicio, fin } = datos;
+          const { cartaTriunfo, manos, mesa, cantados, paloForzado, ultimoEvento, jugadas, inicio, fin, barajaInicial, acciones, manosPrevias } = datos;
           this.#e = {
             ...datos,
             cartaTriunfo: Carta.de(cartaTriunfo),
@@ -2435,6 +2509,9 @@
             jugadas: jugadas.map((carta) => Carta.de(carta)),
             inicio: inicio ?? null,
             fin: fin ?? null,
+            barajaInicial: barajaInicial ?? "",
+            acciones: [...(acciones ?? [])],
+            manosPrevias: (manosPrevias ?? []).map((mano) => ({ ...mano })),
           };
         }
 
@@ -2444,8 +2521,9 @@
         static nueva(
           jugadores,
           modo = "normal",
-          { baraja = Baraja.barajada(), jugadorMano = 1, marcador = new MarcadorGuinote({ modo }), inicio = Date.now() } = {},
+          { baraja = Baraja.barajada(), jugadorMano = 1, marcador = new MarcadorGuinote({ modo }), inicio = Date.now(), manosPrevias = [] } = {},
         ) {
+          const barajaInicial = baraja.ids().map((id) => NotacionGuinote.carta(id)).join(" "); // orden de la baraja antes de repartir (para el registro)
           const manos = Array.from({ length: jugadores }, () => baraja.repartir(ReglasGuinote.CARTAS_MANO));
           const cartaTriunfo = baraja.cartaDelFondo;
           return new PartidaGuinote({
@@ -2453,6 +2531,9 @@
             triunfo: cartaTriunfo.palo,
             cartaTriunfo,
             mazo: baraja,
+            barajaInicial,
+            acciones: [],
+            manosPrevias,
             manos,
             mesa: [],
             turno: jugadorMano,
@@ -2489,6 +2570,13 @@
             jugadas: estado.jugadas || [],
             inicio: estado.inicio ?? null,
             fin: estado.fin ?? null,
+            barajaInicial: estado.barajaInicial || "",
+            acciones: (estado.acciones || "").split(" ").filter(Boolean),
+            manosPrevias: Object.values(estado.manosPrevias || {}).map((mano) => ({
+              sale: mano.sale ?? 0,
+              baraja: mano.baraja || "",
+              acciones: mano.acciones || "",
+            })),
             marcador: new MarcadorGuinote({
               modo: estado.modo,
               puntosMano: estado.puntosMano,
@@ -2522,6 +2610,9 @@
             jugadas: this.#e.jugadas.map((carta) => carta.id),
             inicio: this.#e.inicio,
             fin: this.#e.fin,
+            barajaInicial: this.#e.barajaInicial,
+            acciones: this.#e.acciones.join(" "),
+            manosPrevias: this.#e.manosPrevias.map((mano) => ({ ...mano })),
             cantados: [...this.#e.cantados].map((palo) => palo + ",").join(""),
             paloForzado: this.#e.paloForzado,
             ultimoEvento: this.#e.ultimoEvento,
@@ -2594,6 +2685,14 @@
         /** Cartas de las bazas ya recogidas. */
         get cartasJugadas() {
           return [...this.#e.jugadas];
+        }
+        /** Manos terminadas de esta partida con su registro ({ sale, baraja, acciones }): las anteriores y, si ya ha terminado, la actual. Nunca incluye una mano en curso (revelaría las cartas). */
+        get manosRegistradas() {
+          const e = this.#e,
+            anteriores = e.manosPrevias.map((mano) => ({ ...mano }));
+          return this.manoTerminada
+            ? [...anteriores, { sale: e.jugadorMano, baraja: e.barajaInicial, acciones: e.acciones.join(" ") }]
+            : anteriores;
         }
         get bazaCompleta() {
           return this.#e.mesa.length === this.#e.jugadores;
@@ -2712,6 +2811,7 @@
           const siguiente = this.clonar();
           siguiente.#e.manos[asiento] = siguiente.#e.manos[asiento].filter((c) => c !== jugada);
           siguiente.#e.mesa.push({ asiento, carta: jugada });
+          siguiente.#e.acciones.push(NotacionGuinote.carta(jugada));
           siguiente.#e.turno = this.#e.mesa.length + 1 < this.#e.jugadores ? (asiento + 1) % this.#e.jugadores : -1;
           siguiente.#e.paloForzado = null;
           siguiente.#e.ultimoEvento = null;
@@ -2724,6 +2824,7 @@
           const siguiente = this.clonar();
           siguiente.#e.marcador.registrarCante(ReglasGuinote.equipoDe(asiento), puntos);
           siguiente.#e.cantados.add(palo);
+          siguiente.#e.acciones.push(NotacionGuinote.cante(palo));
           siguiente.#e.paloForzado = palo;
           siguiente.#e.ultimoEvento = { tipo: "cante", asiento, palo, puntos };
           return siguiente;
@@ -2737,6 +2838,7 @@
           siguiente.#e.cartaTriunfo = siete;
           siguiente.#e.manos[asiento] = siguiente.#e.manos[asiento].map((c) => (c === siete ? anterior : c));
           siguiente.#e.ultimoEvento = { tipo: "cambio", asiento };
+          siguiente.#e.acciones.push("~");
           return siguiente;
         }
 
@@ -2748,6 +2850,7 @@
           const puntos = ReglasGuinote.puntosDeBaza(this.#e.mesa);
           const siguiente = this.clonar();
           siguiente.#e.jugadas.push(...this.#e.mesa.map((entrada) => entrada.carta));
+          siguiente.#e.acciones.push("=" + ganador);
           siguiente.#e.mesa = [];
           siguiente.#e.turno = ganador;
           siguiente.#e.paloForzado = null;
@@ -2771,8 +2874,284 @@
           return PartidaGuinote.nueva(this.#e.jugadores, this.#e.marcador.modo, {
             jugadorMano: (this.#e.jugadorMano + 1) % this.#e.jugadores,
             marcador: this.#e.marcador.siguienteMano(),
+            manosPrevias: this.partidaTerminada ? [] : this.manosRegistradas, // al empezar otra partida el registro vuelve a cero
             inicio: this.partidaTerminada ? undefined : (this.#e.inicio ?? undefined), // el reloj sigue entre manos; una partida nueva lo reinicia
           });
+        }
+      }
+
+      /**
+       * Notación compacta del registro de una partida de guiñote (la usa RegistroGuinote). Una ficha por acción:
+       *   12c    carta: número + inicial del palo (o oros, c copas, e espadas, b bastos; 10 sota, 11 caballo, 12 rey)
+       *   !o     cante en el palo indicado
+       *   ~      cambio del 7 de triunfo
+       *   =0     la baza se recoge y la gana el asiento indicado
+       * Quién juega cada ficha no se escribe: sale quien ganó la baza anterior y siguen los demás por orden de asiento.
+       */
+      class NotacionGuinote {
+        static #LETRAS = new Map(Carta.PALOS.map((palo) => [palo, palo[0]]));
+        static #PALOS = new Map(Carta.PALOS.map((palo) => [palo[0], palo]));
+
+        /** Ficha de una carta: ('oros', 12) → '12o'. */
+        static carta(carta) {
+          const { palo, numero } = Carta.de(carta);
+          return numero + NotacionGuinote.#LETRAS.get(palo);
+        }
+
+        /** Carta de una ficha ('12o'); lanza Error si no es válida. */
+        static aCarta(ficha) {
+          const partes = /^(\d{1,2})([a-z])$/.exec(ficha),
+            palo = partes && NotacionGuinote.#PALOS.get(partes[2]);
+          if (!palo) throw new Error(`carta no válida: «${ficha}»`);
+          return Carta.crear(palo, +partes[1]);
+        }
+
+        /** Ficha de un cante: 'oros' → '!o'. */
+        static cante(palo) {
+          return "!" + NotacionGuinote.#LETRAS.get(palo);
+        }
+
+        /** Palo de una inicial ('o' → 'oros'); lanza Error si no es válida. */
+        static aPalo(letra) {
+          const palo = NotacionGuinote.#PALOS.get(letra);
+          if (!palo) throw new Error(`palo no válido: «${letra}»`);
+          return palo;
+        }
+      }
+
+      /**
+       * Registro de una partida de guiñote en texto. El código (la baraja y las fichas de cada mano, ver NotacionGuinote)
+       * es la única fuente de verdad: la explicación en lenguaje natural se genera volviendo a jugar la mano con las reglas
+       * (PartidaGuinote), nunca se guarda. Las líneas que empiezan por # son comentarios y se ignoran.
+       *
+       *   GUINOTE v1 jug=2 modo=normal fecha=…        cabecera
+       *   J0 "Ana" azul / J1 "Zorro veloz" rojo bot   jugadores por asiento
+       *   MANO 1 sale=1                               una por mano; sale = asiento que sale primero
+       *   BARAJA 4o 12c …                             orden de las 40 cartas al repartir (6 por asiento; la última es el triunfo)
+       *   b1: 12c 3c =0                               una por baza; =n = gana el asiento n
+       *   FIN mano=54-47 total=54-47                  puntos de la mano y acumulados (control para validar)
+       *
+       * reproducirMano() es la lectura inversa: valida cada ficha contra las reglas y devuelve el detalle de la mano.
+       */
+      class RegistroGuinote {
+        static VERSION = 1;
+        static #CARTAS_BARAJA = CONFIG.baraja.palos.length * CONFIG.baraja.numeros.length;
+
+        /** «rey de copas», «3 de oros». */
+        static nombreCarta(carta) {
+          const { numero, palo } = Carta.de(carta);
+          return `${NOMBRES_NUMERO_CARTA[numero]} de ${palo}`;
+        }
+
+        /**
+         * Vuelve a jugar una mano con el motor de reglas. `marcador` es el de la mano anterior (o uno nuevo en la primera).
+         * Devuelve { partida (al terminar la mano), reparto, cartaTriunfo, bazas: [{ eventos, ganador, puntos, ultima }] }.
+         * Lanza Error si el registro no es válido (carta repetida, jugada ilegal, ganador de baza que no cuadra…).
+         */
+        static reproducirMano({ jugadores, modo, sale, baraja, acciones }, marcador) {
+          const cartas = baraja
+            .split(" ")
+            .filter(Boolean)
+            .map((ficha) => NotacionGuinote.aCarta(ficha));
+          if (cartas.length !== RegistroGuinote.#CARTAS_BARAJA || new Set(cartas).size !== cartas.length)
+            throw new Error("la baraja no es válida");
+          let partida = PartidaGuinote.nueva(jugadores, modo, {
+            baraja: new Baraja(cartas),
+            jugadorMano: sale,
+            marcador,
+            inicio: null,
+          });
+          const reparto = Array.from({ length: jugadores }, (_, asiento) => partida.cartasDe(asiento)),
+            cartaTriunfo = partida.cartaTriunfo,
+            bazas = [];
+          let eventos = [];
+          for (const ficha of acciones.split(" ").filter(Boolean)) {
+            const asiento = partida.turno;
+            if (ficha === "~") {
+              partida = partida.cambiarSiete(asiento);
+              eventos.push({ tipo: "cambio", asiento });
+            } else if (ficha[0] === "!") {
+              const palo = NotacionGuinote.aPalo(ficha.slice(1)),
+                puntos = ReglasGuinote.valorCante(palo, partida.triunfo);
+              partida = partida.cantar(asiento, palo);
+              eventos.push({ tipo: "cante", asiento, palo, puntos });
+            } else if (ficha[0] === "=") {
+              const ganador = ReglasGuinote.ganadoraDeBaza(partida.mesa, partida.triunfo).asiento;
+              if (ganador !== Number(ficha.slice(1)))
+                throw new Error(`en la baza ${bazas.length + 1} gana el asiento ${ganador}, no el ${ficha.slice(1)}`);
+              const puntos = ReglasGuinote.puntosDeBaza(partida.mesa);
+              partida = partida.resolverBaza();
+              bazas.push({ eventos, ganador, puntos, ultima: partida.manoTerminada });
+              eventos = [];
+            } else {
+              const carta = NotacionGuinote.aCarta(ficha);
+              partida = partida.jugar(asiento, carta);
+              eventos.push({ tipo: "carta", asiento, carta });
+            }
+          }
+          if (eventos.length) throw new Error("la última baza está incompleta");
+          if (!partida.manoTerminada) throw new Error("la mano no está terminada");
+          return { partida, reparto, cartaTriunfo, bazas };
+        }
+
+        /** Las fichas de una mano agrupadas en líneas «bN: …», una por baza. */
+        static #lineasDeBazas(acciones) {
+          const lineas = [];
+          let grupo = [];
+          for (const ficha of acciones.split(" ").filter(Boolean)) {
+            grupo.push(ficha);
+            if (ficha[0] === "=") {
+              lineas.push(`b${lineas.length + 1}: ${grupo.join(" ")}`);
+              grupo = [];
+            }
+          }
+          if (grupo.length) lineas.push(`b${lineas.length + 1}: ${grupo.join(" ")}`);
+          return lineas;
+        }
+
+        /** Explicación en lenguaje natural de una mano ya reproducida (sin el # inicial). */
+        static #explicacion(numero, sale, { partida, reparto, cartaTriunfo, bazas }, contexto) {
+          const { jugadores } = contexto,
+            nombre = (asiento) => jugadores[asiento].nombre,
+            equipoDe = (asiento) => ReglasGuinote.equipoDe(asiento),
+            marcador = partida.marcador,
+            triunfo = cartaTriunfo.palo,
+            esPareja = jugadores.length === ReglasGuinote.JUGADORES_PAREJAS,
+            etiqueta = (equipo) => (esPareja ? `Equipo ${contexto.colorEquipo(equipo)}` : nombre(equipo)),
+            nombreEquipo = (equipo) =>
+              esPareja
+                ? `${etiqueta(equipo)} (${jugadores
+                    .filter((_, asiento) => equipoDe(asiento) === equipo)
+                    .map((jugador) => jugador.nombre)
+                    .join(" y ")})`
+                : nombre(equipo),
+            ordenPalo = (carta) => (carta.palo === triunfo ? -1 : Carta.PALOS.indexOf(carta.palo)),
+            carta = (cartaDada) => RegistroGuinote.nombreCarta(cartaDada);
+          const lineas = [
+            `Mano ${numero} · sale ${nombre(sale)} · triunfo: ${carta(cartaTriunfo)}`,
+            "Reparto:",
+            ...reparto.map(
+              (cartas, asiento) =>
+                `  ${nombre(asiento)}: ${[...cartas]
+                  .sort((a, b) => ordenPalo(a) - ordenPalo(b) || ReglasGuinote.fuerza(b) - ReglasGuinote.fuerza(a))
+                  .map(carta)
+                  .join(", ")}`,
+            ),
+            "Bazas:",
+          ];
+          bazas.forEach((baza, indice) => {
+            const partes = []; // fragmentos seguidos de un mismo jugador, juntos
+            for (const evento of baza.eventos) {
+              const texto =
+                evento.tipo === "cambio"
+                  ? "cambia el 7 de triunfo"
+                  : evento.tipo === "cante"
+                    ? `canta las ${evento.puntos} en ${evento.palo}`
+                    : `juega ${carta(evento.carta)}`;
+              const ultima = partes.at(-1);
+              if (ultima?.asiento === evento.asiento) ultima.textos.push(texto);
+              else partes.push({ asiento: evento.asiento, textos: [texto] });
+            }
+            const frase = partes.map(({ asiento, textos }) => `${nombre(asiento)} ${textos.join(", ")}`).join("; ");
+            lineas.push(
+              `  ${indice + 1}. ${frase} → gana ${nombre(baza.ganador)} (${baza.puntos} puntos${baza.ultima ? " + 10 de últimas" : ""})`,
+            );
+          });
+          const desglose = (equipo) => {
+            const deBazas = bazas
+                .filter((baza) => equipoDe(baza.ganador) === equipo)
+                .reduce((suma, baza) => suma + baza.puntos, 0),
+              deCantes = bazas
+                .flatMap((baza) => baza.eventos)
+                .filter((evento) => evento.tipo === "cante" && equipoDe(evento.asiento) === equipo)
+                .reduce((suma, evento) => suma + evento.puntos, 0),
+              deUltimas = bazas.some((baza) => baza.ultima && equipoDe(baza.ganador) === equipo)
+                ? ReglasGuinote.DIEZ_DE_ULTIMAS
+                : 0;
+            return [`${deBazas} de bazas`, deCantes && `${deCantes} de cantes`, deUltimas && `${deUltimas} de últimas`]
+              .filter(Boolean)
+              .join(" + ");
+          };
+          lineas.push("Resultado:");
+          for (const equipo of [0, 1])
+            lineas.push(`  ${nombreEquipo(equipo)}: ${marcador.puntosDe(equipo)} puntos (${desglose(equipo)})`);
+          if (marcador.esNormal)
+            lineas.push(`Marcador acumulado: ${etiqueta(0)} ${marcador.totalDe(0)} – ${etiqueta(1)} ${marcador.totalDe(1)}`);
+          if (marcador.partidaTerminada) {
+            const ganador = marcador.ganadorPartida();
+            lineas.push(ganador === null ? "Partida empatada" : `Gana la partida: ${nombreEquipo(ganador)}`);
+          }
+          return lineas;
+        }
+
+        /**
+         * Texto del registro de la partida: cabecera y, por cada mano terminada, su código seguido de su explicación.
+         * `contexto` = { jugadores: [{ nombre, bot }], colorEquipo(equipo) }. Devuelve null si no hay ninguna mano registrada.
+         */
+        static texto(partida, contexto) {
+          const todas = partida.manosRegistradas,
+            manos = todas.map((mano, indice) => ({ ...mano, numero: indice + 1 })).filter((mano) => mano.baraja);
+          if (!manos.length) return null;
+          const { jugadores, colorEquipo } = contexto,
+            n = jugadores.length,
+            modo = partida.marcador.modo,
+            completo = manos.length === todas.length, // si falta alguna mano (partida anterior al registro) no se escriben los acumulados
+            comentario = (texto) => (texto ? `# ${texto}` : "#"),
+            dos = (cifra) => String(cifra).padStart(2, "0");
+          const salida = [
+            comentario(`Guiñote · ${n} jugadores · ${modo === "rapida" ? "Rápida" : `Normal (a ${ReglasGuinote.META})`}`),
+          ];
+          if (partida.inicio != null) {
+            let texto = `Jugada el ${new Date(partida.inicio).toLocaleString("es-ES", { dateStyle: "short", timeStyle: "short" })}`;
+            if (partida.fin != null) {
+              const segundos = Math.max(0, Math.floor((partida.fin - partida.inicio) / 1000)),
+                horas = Math.floor(segundos / 3600);
+              texto += ` · duración ${horas ? horas + ":" + dos(Math.floor((segundos % 3600) / 60)) : Math.floor(segundos / 60)}:${dos(segundos % 60)}`;
+            }
+            salida.push(comentario(texto));
+          }
+          if (!completo) salida.push(comentario("Nota: faltan manos de esta partida que se jugaron antes de existir el registro."));
+          salida.push(
+            "#",
+            comentario("Notación: carta = número + palo (o oros, c copas, e espadas, b bastos; 10 sota, 11 caballo, 12 rey)."),
+            comentario("!p = cantar en el palo p · ~ = cambiar el 7 de triunfo · =n = la baza la gana el asiento n."),
+            comentario("Sale quien ganó la baza anterior y siguen los demás por orden de asiento (en la primera baza, el de «sale»)."),
+            comentario("BARAJA es el orden de las 40 cartas al repartir: 6 por jugador, por asiento; la última es el triunfo."),
+            comentario("Las líneas que empiezan por # son solo explicación."),
+            "",
+            `GUINOTE v${RegistroGuinote.VERSION} jug=${n} modo=${modo}` +
+              (partida.inicio != null ? ` fecha=${new Date(partida.inicio).toISOString().slice(0, 16)}Z` : ""),
+            ...jugadores.map(
+              (jugador, asiento) =>
+                `J${asiento} "${jugador.nombre}" ${colorEquipo(ReglasGuinote.equipoDe(asiento))}${jugador.bot ? " bot" : ""}`,
+            ),
+          );
+          let marcador = new MarcadorGuinote({ modo });
+          for (const mano of manos) {
+            salida.push(
+              "",
+              `MANO ${mano.numero} sale=${mano.sale}`,
+              `BARAJA ${mano.baraja}`,
+              ...RegistroGuinote.#lineasDeBazas(mano.acciones),
+            );
+            try {
+              const reproduccion = RegistroGuinote.reproducirMano(
+                { jugadores: n, modo, sale: mano.sale, baraja: mano.baraja, acciones: mano.acciones },
+                marcador,
+              );
+              const final = reproduccion.partida.marcador,
+                total = completo && final.esNormal ? ` total=${final.totalDe(0)}-${final.totalDe(1)}` : "";
+              salida.push(
+                `FIN mano=${final.puntosDe(0)}-${final.puntosDe(1)}${total}`,
+                "#",
+                ...RegistroGuinote.#explicacion(mano.numero, mano.sale, reproduccion, contexto).map(comentario),
+              );
+              marcador = final.siguienteMano();
+            } catch (error) {
+              salida.push(comentario(`⚠ No se pudo reproducir esta mano: ${error.message}`));
+            }
+          }
+          return salida.join("\n") + "\n";
         }
       }
 
@@ -3464,6 +3843,13 @@
           No hay señas.
         </p>
 
+        <h3>Registro de la partida</h3>
+        <p>
+          El botón <b>Registro</b> (en el menú ☰ en móvil) y el aviso de fin de mano abren un texto con todas las manos
+          terminadas: la baraja y las jugadas de cada baza en notación compacta, con su explicación debajo. Puedes copiarlo
+          o descargarlo. Mientras una mano está en juego no se muestra, para no revelar las cartas.
+        </p>
+
         <h3>Jugar contra bots</h3>
         <p>
           Al crear la sala elige <b>2</b> o <b>4 jugadores</b> y, para cada asiento, si lo ocupa un <b>bot</b> (por
@@ -3553,6 +3939,8 @@
         },
 
         nuevaPartida: (numJugadores, modo) => PartidaGuinote.nueva(numJugadores, modo),
+        registroDisponible: (partida) => partida.manosRegistradas.some((mano) => mano.baraja),
+        textoRegistro: (partida, contexto) => RegistroGuinote.texto(partida, contexto),
         partidaDesdeEstado: (estado) => PartidaGuinote.desdeEstado(estado),
         resumenResultado: (partida) => ({
           ganador: partida.marcador.ganadorPartida() ?? -1,
@@ -4729,6 +5117,7 @@ function siguienteVelocidad() {
           sesion.cancelarSuscripcion = null;
           sessionStorage.removeItem(this.juego.id);
           this.mesa.limpiar();
+          this.actualizarBotonesRegistro();
           porId("game").hidden = true;
           this.actualizarReloj();
           porId("fin").hidden = true;
@@ -4778,6 +5167,7 @@ function siguienteVelocidad() {
         despuesDelEstado() {
           this.actualizarReloj();
           this.mesa.dibujar();
+          this.actualizarBotonesRegistro();
           this.sesion.programarResolucion(AJUSTES.resolverMs);
           this.sesion.programarBot();
         }
@@ -4894,6 +5284,68 @@ function siguienteVelocidad() {
           </table>`;
         }
 
+        /* ---- Registro de la partida (manos terminadas en notación compacta, con explicación) ---- */
+        actualizarBotonesRegistro() {
+          const { partida } = this.sesion,
+            hay = !!partida && !!this.juego.registroDisponible(partida);
+          document.querySelectorAll("[data-registro]").forEach((boton) => (boton.hidden = !hay));
+        }
+        contextoRegistro() {
+          const { sesion } = this,
+            { sala } = sesion,
+            limpio = (nombre) =>
+              String(nombre)
+                .replace(Bot.PREFIJO, "")
+                .replace(/"/g, "'");
+          return {
+            jugadores: rango(sala.numJugadores).map((asiento) => ({
+              nombre: limpio(sesion.nombreDe(asiento)),
+              bot: sesion.esBot(asiento),
+            })),
+            colorEquipo: (equipo) => sala.colorDeEquipo(equipo),
+          };
+        }
+        abrirRegistro() {
+          const { partida } = this.sesion;
+          if (!partida) return;
+          let texto = null;
+          try {
+            texto = this.juego.textoRegistro(partida, this.contextoRegistro());
+          } catch (error) {
+            console.error(error);
+          }
+          const area = porId("registroTexto");
+          area.value = texto ?? "Todavía no hay ninguna mano terminada con registro.";
+          porId("registro").showModal();
+          area.scrollTop = 0;
+        }
+        async copiarRegistro() {
+          const area = porId("registroTexto"),
+            boton = porId("bRegistroCopiar");
+          try {
+            await navigator.clipboard.writeText(area.value);
+          } catch (error) {
+            area.select();
+            document.execCommand("copy");
+          }
+          boton.textContent = "¡Copiado!";
+          clearTimeout(this.temporizadorCopiar);
+          this.temporizadorCopiar = setTimeout(() => (boton.textContent = "Copiar"), 1500);
+        }
+        descargarRegistro() {
+          const ahora = new Date(),
+            dos = (cifra) => String(cifra).padStart(2, "0"),
+            nombre = `${this.juego.id}-${ahora.getFullYear()}${dos(ahora.getMonth() + 1)}${dos(ahora.getDate())}-${dos(ahora.getHours())}${dos(ahora.getMinutes())}.txt`,
+            url = URL.createObjectURL(new Blob([porId("registroTexto").value], { type: "text/plain;charset=utf-8" })),
+            enlace = document.createElement("a");
+          enlace.href = url;
+          enlace.download = nombre;
+          document.body.append(enlace);
+          enlace.click();
+          enlace.remove();
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }
+
         /* ---- HUD móvil: sala y "Nueva partida" van al menú; nombres y estado del turno, junto a la mesa ---- */
         colocarHud() {
           const menu = porId("menu"),
@@ -4919,6 +5371,10 @@ function siguienteVelocidad() {
           const { sesion } = this;
           this.movil.addEventListener("change", () => this.colocarHud());
           document.querySelectorAll("[data-velocidad]").forEach((boton) => boton.addEventListener("click", siguienteVelocidad));
+          document.querySelectorAll("[data-registro]").forEach((boton) => boton.addEventListener("click", () => this.abrirRegistro()));
+          conectarDialogo("registro", [], "bRegistroCerrar");
+          porId("bRegistroCopiar").addEventListener("click", () => this.copiarRegistro());
+          porId("bRegistroDescargar").addEventListener("click", () => this.descargarRegistro());
           conectarDialogo("ayuda", ["bAyuda", "bAyudaMenu"], "bAyudaCerrar");
           conectarDialogo("historial", ["bHistorial", "bHistorialMenu"], "bHistorialCerrar", () =>
             this.abrirHistorial(),
